@@ -52,7 +52,7 @@ class DownFourV2Processor(Processor):
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
-        if context.current_price > context.prev_day_close * 1.2:
+        if context.current_price > context.prev_day_close * 1.15:
             return
 
         intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
@@ -82,9 +82,14 @@ class DownFourV2Processor(Processor):
             return
 
         current_bar_loss = bar_losses[-1]
+        current_high = context.intraday_lookback['High'].iloc[-1]
+        current_low = context.intraday_lookback['Low'].iloc[-1]
+        current_bar_range = current_low / current_high - 1
         prev_bar_loss = bar_losses[-2]
 
-        is_trade = current_bar_loss / h2l_avg > 0.3 and prev_bar_loss / h2l_avg < 0.6
+        is_trade = (0.03 < current_bar_loss / h2l_avg < 0.1
+                    and current_bar_range / h2l_avg < 0.35
+                    and prev_bar_loss / h2l_avg > 0.2)
         if is_trade or (context.mode == Mode.TRADE and current_bar_loss / h2l_avg > 0.2):
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                f'Prev loss: {prev_bar_loss * 100:.2f}%. '
