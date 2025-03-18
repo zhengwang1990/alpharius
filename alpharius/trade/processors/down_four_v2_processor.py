@@ -90,7 +90,7 @@ class DownFourV2Processor(Processor):
         is_trade = (0.03 < current_bar_loss / h2l_avg < 0.1
                     and current_bar_range / h2l_avg < 0.35
                     and prev_bar_loss / h2l_avg > 0.2)
-        if is_trade or (context.mode == Mode.TRADE and current_bar_loss / h2l_avg > 0.2):
+        if is_trade or (context.mode == Mode.TRADE and prev_bar_loss / h2l_avg > 0.18):
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                f'Prev loss: {prev_bar_loss * 100:.2f}%. '
                                f'Current loss: {current_bar_loss * 100:.2f}%. '

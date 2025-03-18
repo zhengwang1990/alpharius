@@ -243,10 +243,10 @@ class Live:
             intraday_lookback = self._intraday_data[symbol]
             last_index = intraday_lookback.index[-1] if len(intraday_lookback) else None
             if not last_index or last_index != expected_index:
-                self._logger.warning('[%s] intraday data not available. Expect last index [%s], but got [%s]',
-                                     symbol,
-                                     expected_index.strftime('%H:%M:%S'),
-                                     last_index.strftime('%H:%M:%S') if last_index else None)
+                self._logger.info('[%s] intraday data not available. Expect last index [%s], but got [%s]',
+                                  symbol,
+                                  expected_index.strftime('%H:%M:%S'),
+                                  last_index.strftime('%H:%M:%S') if last_index else None)
                 self._intraday_data[symbol] = pd.concat(
                     [intraday_lookback,
                      pd.DataFrame([[price if c != 'Volume' else 0 for c in DATA_COLUMNS]],
@@ -255,8 +255,8 @@ class Live:
             else:
                 old_value = intraday_lookback['Close'].iloc[-1]
                 if abs(price / old_value - 1) > 0.01:
-                    self._logger.info('[%s] Current price is updated from [%.5g] to [%.5g]',
-                                      symbol, old_value, price)
+                    self._logger.debug('[%s] Current price is updated from [%.5g] to [%.5g]',
+                                       symbol, old_value, price)
                 intraday_lookback.at[intraday_lookback.index[-1], 'Close'] = np.float32(price)
         self._logger.info('Intraday data updated for [%d] symbols. Time elapsed [%.2fs]',
                           len(tasks), time.time() - update_start)
