@@ -96,7 +96,7 @@ class FmpClient(DataClient):
         bars.sort(key=lambda b: b['date'])
         index = pd.DatetimeIndex([pd.Timestamp(b['date']).tz_localize(TIME_ZONE) for b in bars])
         data = [[np.float32(b['open']), np.float32(b['high']), np.float32(b['low']), np.float32(b['close']),
-                 np.uint32(b['volume'])] for b in bars]
+                 np.uint32(b['volume'] or 0)] for b in bars]
         return pd.DataFrame(data, index=index, columns=DATA_COLUMNS)
 
     @retrying.retry(stop_max_attempt_number=3,
