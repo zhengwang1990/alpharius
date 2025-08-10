@@ -13,3 +13,4 @@ from .first_hour_m6m_processor import FirstHourM6mProcessorFactory
 from .open_high_processor import OpenHighProcessorFactory
 from .exp_processor import ExpProcessorFactory
 from .down_four_v2_processor import DownFourV2ProcessorFactory
+from .overnight_tqqq_processor import OvernightTqqqProcessorFactory

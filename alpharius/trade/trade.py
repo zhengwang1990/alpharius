@@ -23,9 +23,10 @@ PROCESSOR_FACTORIES = [
     processors.O2hProcessorFactory(),
     processors.O2lProcessorFactory(),
     processors.OpenHighProcessorFactory(),
-    processors.OvernightProcessorFactory(),
+    # processors.OvernightProcessorFactory(),
     processors.TqqqProcessorFactory(),
-    processors.DownFourV2ProcessorFactory(),
+    # processors.DownFourV2ProcessorFactory(),
+    processors.OvernightTqqqProcessorFactory(),
 ]
 
 

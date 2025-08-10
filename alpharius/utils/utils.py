@@ -171,10 +171,12 @@ def get_all_symbols() -> List[str]:
                                         asset_class=trading.AssetClass.US_EQUITY,
                                         attributes='options_enabled'),
     )
-    return [asset.symbol for asset in assets if
-            asset.easy_to_borrow and asset.fractionable and asset.marginable
-            and asset.tradable and asset.shortable
-            or asset.symbol in ['QQQ', 'SPY', 'TQQQ', 'UCO', 'NUGT']]
+    symbols = [asset.symbol for asset in assets if
+               asset.easy_to_borrow and asset.fractionable and asset.marginable
+               and asset.tradable and asset.shortable
+               or asset.symbol in ['QQQ', 'SPY', 'TQQQ', 'UCO', 'NUGT']]
+    symbols = [symbol for symbol in symbols if symbol.isalpha()]
+    return symbols
 
 
 def hash_str(value: str) -> str:
