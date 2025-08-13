@@ -45,12 +45,14 @@ class OvernightTqqqProcessor(Processor):
 
         if two_week_std < 0.05 and intraday_change < 0.09 and context.symbol == 'TQQQ':
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                               + f'{two_week_std=}, {intraday_change=}')
+                               + f'{two_week_std=:.4f}, {intraday_change=:.4f}')
+            self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                               + f'interday_closes {interday_closes[-3:]}')
             if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
                 return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
         if two_week_std > 0.1 > four_week_std and context.symbol == 'SQQQ':
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                               + f'{two_week_std=}, {four_week_std=}')
+                               + f'{two_week_std=:.4f}, {four_week_std=:.4f}')
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
 

@@ -174,7 +174,7 @@ def get_all_symbols() -> List[str]:
     symbols = [asset.symbol for asset in assets if
                asset.easy_to_borrow and asset.fractionable and asset.marginable
                and asset.tradable and asset.shortable
-               or asset.symbol in ['QQQ', 'SPY', 'TQQQ', 'UCO', 'NUGT']]
+               or asset.symbol in ['QQQ', 'SPY', 'TQQQ', 'SQQQ', 'UCO', 'NUGT']]
     symbols = [symbol for symbol in symbols if symbol.isalpha()]
     return symbols
 
