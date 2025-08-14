@@ -338,10 +338,11 @@ class Live:
             if action.type == ActionType.BUY_TO_OPEN:
                 side = 'buy'
                 qty = None
-                notional = int(cash_to_trade * 100) / 100
+                # Only use 99% to avoid exceeding daytrading_buying_power
+                notional = int(cash_to_trade * 99) / 100
             else:
                 side = 'sell'
-                qty = int(cash_to_trade / action.price)
+                qty = int(cash_to_trade * 0.99 / action.price)
                 notional = None
             order_id = self._place_order(symbol=symbol, side=side, qty=qty, notional=notional)
             if order_id:
@@ -369,7 +370,8 @@ class Live:
             order = self._alpaca.submit_order(request)
             return str(order.id)
         except APIError as e:
-            self._logger.error('Failed to place [%s] order for [%s]: %s', side, symbol, e)
+            self._logger.error('Failed to place [%s] order for [%s]: %s: %s',
+                               side, symbol, type(e).__name__, e)
 
     @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=1000)
     def _wait_for_order_to_fill(self, order_ids: List[str], timeout: int = 10) -> None:
