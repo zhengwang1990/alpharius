@@ -73,6 +73,8 @@ class AbcdProcessor(Processor):
             return
         if abs(intraday_closes[-3] - intraday_closes[-2]) < abs(intraday_closes[-2] - intraday_closes[-1]):
             return
+        if open_price / context.interday_lookback['Close'].iloc[-1] - 1 > 0.1:
+            return
         max_i = np.argmax(intraday_closes)
         intraday_high = intraday_closes[max_i]
         if not context.prev_day_close < open_price < context.current_price < intraday_high:
