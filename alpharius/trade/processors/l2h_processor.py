@@ -7,7 +7,8 @@ import pandas as pd
 from alpharius.data import DataClient
 from ..common import (
     ActionType, Context, Processor, ProcessorFactory, TradingFrequency,
-    Position, PositionStatus, ProcessorAction, Mode, DAYS_IN_A_MONTH, DAYS_IN_A_YEAR)
+    Position, PositionStatus, ProcessorAction, Mode, DAYS_IN_A_MONTH, DAYS_IN_A_YEAR,
+    DAYS_IN_A_WEEK)
 from ..stock_universe import IntradayVolatilityStockUniverse
 
 NUM_UNIVERSE_SYMBOLS = 25
@@ -64,7 +65,9 @@ class L2hProcessor(Processor):
         intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
         if len(intraday_closes) < 10:
             return
-        if abs(context.current_price / context.prev_day_close - 1) > 0.5:
+        last_week_closes = context.interday_lookback['Close'].iloc[-DAYS_IN_A_WEEK:]
+        if (abs(context.current_price / min(last_week_closes) - 1) > 0.4
+                or abs(context.current_price / max(last_week_closes) - 1) > 0.4):
             return
         if context.current_price < np.max(intraday_closes):
             return

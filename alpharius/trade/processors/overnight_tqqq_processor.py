@@ -47,7 +47,8 @@ class OvernightTqqqProcessor(Processor):
         four_week_changes = [four_week_closes[i] / four_week_closes[i - 1] - 1 for i in range(1, len(four_week_closes))]
         four_week_std = np.std(four_week_changes)
 
-        if two_week_std < 0.05 and intraday_change < 0.09 and context.symbol == 'TQQQ':
+        if (two_week_std < 0.05 and intraday_change < 0.09
+                and context.current_price / max(two_week_closes) > 0.8 and context.symbol == 'TQQQ'):
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                + f'{two_week_std=:.4f}, {intraday_change=:.4f}')
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '

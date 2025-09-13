@@ -7,7 +7,7 @@ import pandas as pd
 from alpharius.data import DataClient
 from ..common import (
     ActionType, Context, Processor, ProcessorFactory, TradingFrequency,
-    Position, ProcessorAction, PositionStatus, Mode)
+    Position, ProcessorAction, PositionStatus, Mode, DAYS_IN_A_WEEK)
 from ..stock_universe import IntradayVolatilityStockUniverse
 
 NUM_UNIVERSE_SYMBOLS = 20
@@ -47,7 +47,9 @@ class AbcdProcessor(Processor):
             return self._open_position(context)
 
     def _open_position(self, context: Context) -> Optional[ProcessorAction]:
-        if abs(context.current_price / context.prev_day_close - 1) > 0.5:
+        last_week_closes = context.interday_lookback['Close'].iloc[-DAYS_IN_A_WEEK:]
+        if (abs(context.current_price / min(last_week_closes) - 1) > 0.5
+                or abs(context.current_price / max(last_week_closes) - 1) > 0.5):
             return
         t = context.current_time.time()
         if (datetime.time(10, 30) <= t <= datetime.time(15, 30) and

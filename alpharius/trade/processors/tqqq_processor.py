@@ -64,10 +64,12 @@ class TqqqProcessor(Processor):
         if (interday_closes[-1] < np.max(interday_closes[-DAYS_IN_A_MONTH:]) * 0.9
                 and len(intraday_closes) >= short_t):
             change = intraday_closes[-1] / intraday_closes[-short_t] - 1
+            single_bar_max = max([intraday_closes[i] / intraday_closes[i - 1] - 1 for i in range(-short_t + 1, 0)])
             if change > 0.8 * l2h:
                 self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                                   f'Side: short. Change: {change * 100:.2f}%. Threshold: {l2h * 100:.2f}%.')
-            if change > l2h:
+                                   f'Mean reversion strategy. Side: short. Change: {change * 100:.2f}%. '
+                                   f'Threshold: {l2h * 100:.2f}%. Single bar max {single_bar_max * 100:.2f}%')
+            if change > l2h and single_bar_max < 0.5 * change:
                 self._positions[context.symbol] = {'side': 'short',
                                                    'strategy': 'mean_reversion',
                                                    'entry_time': context.current_time}
@@ -253,12 +255,20 @@ class TqqqProcessor(Processor):
             return action
 
         position = self._positions[context.symbol]
-        action_type = ActionType.SELL_TO_CLOSE if position['side'] == 'long' else ActionType.BUY_TO_CLOSE
+        side = position['side']
+        action_type = ActionType.SELL_TO_CLOSE if side == 'long' else ActionType.BUY_TO_CLOSE
         action = ProcessorAction(context.symbol, action_type, 1)
         market_open_index = context.market_open_index
         intraday_closes = context.intraday_lookback['Close'][market_open_index:]
         strategy = position['strategy']
         if strategy == 'last_hour_momentum':
+            # Stop loss
+            if context.current_time.time() == datetime.time(15, 45):
+                entry_price = context.intraday_lookback['Close'].iloc[-4]
+                if side == 'short' and context.current_price > entry_price * 1.01:
+                    return exit_position()
+                if side == 'long' and context.current_price < entry_price * 0.99:
+                    return exit_position()
             if context.current_time.time() == datetime.time(16, 0):
                 return exit_position()
         if strategy == 'mean_reversion':
