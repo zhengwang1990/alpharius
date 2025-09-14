@@ -74,11 +74,17 @@ class O2lProcessor(Processor):
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
-        market_open_price = context.intraday_lookback['Open'].iloc[market_open_index]
-        intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
+        intraday_opens = context.intraday_lookback['Open'].to_numpy()[market_open_index:]
+        market_open_price = intraday_opens[0]
+        intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
         if intraday_closes[-1] > np.min(intraday_closes):
             return
         if context.current_price < context.prev_day_close < market_open_price and t <= datetime.time(10, 0):
+            return
+        for i in range(len(intraday_closes) - 1):
+            if intraday_closes[i] > intraday_opens[i]:
+                break
+        else:
             return
         current_loss = context.current_price / market_open_price - 1
         lower_threshold, upper_threshold = self._get_thresholds(context)
