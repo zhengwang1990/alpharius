@@ -7,7 +7,7 @@ import pandas as pd
 from alpharius.data import DataClient
 from ..common import (
     ActionType, Context, Processor, ProcessorFactory, TradingFrequency, Position,
-    PositionStatus, ProcessorAction)
+    PositionStatus, ProcessorAction, DAYS_IN_A_MONTH, DAYS_IN_A_WEEK)
 from ..stock_universe import IntradayVolatilityStockUniverse
 
 NUM_UNIVERSE_SYMBOLS = 20
@@ -56,7 +56,13 @@ class OpenHighProcessor(Processor):
         if market_open_index is None:
             return
         interday_closes = context.interday_lookback['Close'].tolist()
-        if interday_closes[-1] < np.min(interday_closes[-20:]) * 1.4:
+        month_low = np.min(interday_closes[-DAYS_IN_A_MONTH:])
+        week_low = np.min(interday_closes[-DAYS_IN_A_WEEK:])
+        month_gain = interday_closes[-1] / month_low - 1
+        if month_gain < 0.4:
+            return
+        # If 80% of the monthly growth is contirbued by last week
+        if week_low / month_low - 1 < 0.2 * month_gain:
             return
         intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
         open_price = intraday_opens[0]
