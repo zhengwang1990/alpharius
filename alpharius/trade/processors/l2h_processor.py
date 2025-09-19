@@ -71,11 +71,17 @@ class L2hProcessor(Processor):
             return
         if context.current_price < np.max(intraday_closes):
             return
-        for i in range(-1, -9, -1):
+        for i in range(-1, -5, -1):
             if intraday_closes[i] <= intraday_closes[i - 1] and intraday_closes[i] <= intraday_opens[i]:
                 break
         else:
             return
+
+        bar_sizes = [intraday_closes[i] - intraday_opens[i] for i in range(len(intraday_closes))
+                     if intraday_closes[i] > intraday_opens[i]]
+        if bar_sizes[-1] < np.median(bar_sizes):
+            return
+
         current_gain = context.current_price / intraday_closes[-10] - 1
         threshold = context.l2h_avg * 0.75
         is_trade = threshold < current_gain
