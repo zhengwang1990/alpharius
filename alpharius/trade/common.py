@@ -4,6 +4,7 @@ import datetime
 import functools
 import logging
 import os
+import pytz
 import re
 from enum import Enum
 from typing import List, Optional
@@ -27,6 +28,7 @@ MARKET_CLOSE = datetime.time(16, 0)
 SHORT_RESERVE_RATIO = 1
 INTERDAY_LOOKBACK_LOAD = CALENDAR_DAYS_IN_A_YEAR
 BID_ASK_SPREAD = 0.001
+TIME_ZONE = pytz.timezone('America/New_York')
 
 
 class ActionType(Enum):
@@ -100,7 +102,7 @@ def get_unique_actions(actions: List[Action]) -> List[Action]:
 
 
 @functools.lru_cache(maxsize=None)
-def logging_config(logging_file=None, detail=True, name=None, timezone=None) -> logging.Logger:
+def logging_config(logging_file=None, detail=True, name=None, timezone=TIME_ZONE) -> logging.Logger:
     """Configuration for logging."""
     logger = logging.getLogger(name=name)
     logger.setLevel(logging.DEBUG)
