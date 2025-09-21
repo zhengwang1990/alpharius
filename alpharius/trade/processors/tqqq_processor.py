@@ -127,11 +127,23 @@ class TqqqProcessor(Processor):
         t = context.current_time.time()
         if t <= datetime.time(15, 0) or t >= datetime.time(15, 30):
             return
-        interday_closes = list(context.interday_lookback['Close'])
+        interday_closes = context.interday_lookback['Close'].to_numpy()
         if interday_closes[-1] > np.max(interday_closes[-DAYS_IN_A_MONTH:]) * 0.9:
             return
         market_open_index = context.market_open_index
         intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
+        intraday_closes = context.intraday_lookback['Close'][market_open_index:].to_numpy()
+        if t == datetime.time(15, 30):
+            if len(intraday_closes) >= 12 and intraday_closes[-1] > intraday_closes[6] > intraday_opens[0]:
+                if max(intraday_closes) - context.current_price >= (max(intraday_closes) - min(intraday_closes)) * 0.1:
+                    return
+                if (intraday_closes[-1] - intraday_closes[-12] > 0.5 * (max(intraday_closes) - min(intraday_closes)) * 0.2
+                        and intraday_opens[0] - min(intraday_opens) < (max(intraday_opens) - min(intraday_opens)) * 0.05):
+                    return
+                if intraday_closes[-1] > intraday_opens[-1]:
+                    return _open_position('long')
+            else:
+                return
         change_from_open = context.current_price / intraday_opens[0] - 1
         change_from_close = context.current_price / context.prev_day_close - 1
         h2l = context.h2l_avg
@@ -140,7 +152,6 @@ class TqqqProcessor(Processor):
                                f'Current price: {context.current_price}.')
             return _open_position('short')
         l2h = context.l2h_avg
-        intraday_closes = context.intraday_lookback['Close'][market_open_index:]
         change_from_min = context.current_price / np.min(intraday_closes) - 1
         if change_from_min > 1.2 * l2h and intraday_closes[-1] < intraday_closes[-2]:
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] Last hour momentum strategy. '
