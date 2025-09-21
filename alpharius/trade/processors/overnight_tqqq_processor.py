@@ -1,10 +1,10 @@
 import datetime
+import pytz
 from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 
-from alpharius.data import DataClient
 from ..common import (
     ActionType, Context, Processor, ProcessorFactory, TradingFrequency,
     ProcessorAction, DAYS_IN_A_WEEK)
@@ -13,11 +13,9 @@ from ..common import (
 class OvernightTqqqProcessor(Processor):
 
     def __init__(self,
-                 lookback_start_date: pd.Timestamp,
-                 lookback_end_date: pd.Timestamp,
-                 data_client: DataClient,
-                 output_dir: str) -> None:
-        super().__init__(output_dir)
+                 output_dir: str,
+                 logging_timezone: Optional[pytz.timezone] = None) -> None:
+        super().__init__(output_dir, logging_timezone)
 
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.CLOSE_TO_OPEN

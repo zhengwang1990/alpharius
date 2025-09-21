@@ -2,6 +2,7 @@ import abc
 import collections
 import datetime
 import functools
+import inspect
 import logging
 import os
 import pytz
@@ -28,7 +29,6 @@ MARKET_CLOSE = datetime.time(16, 0)
 SHORT_RESERVE_RATIO = 1
 INTERDAY_LOOKBACK_LOAD = CALENDAR_DAYS_IN_A_YEAR
 BID_ASK_SPREAD = 0.001
-TIME_ZONE = pytz.timezone('America/New_York')
 
 
 class ActionType(Enum):
@@ -102,7 +102,7 @@ def get_unique_actions(actions: List[Action]) -> List[Action]:
 
 
 @functools.lru_cache(maxsize=None)
-def logging_config(logging_file=None, detail=True, name=None, timezone=TIME_ZONE) -> logging.Logger:
+def logging_config(logging_file=None, detail=True, name=None, timezone=None) -> logging.Logger:
     """Configuration for logging."""
     logger = logging.getLogger(name=name)
     logger.setLevel(logging.DEBUG)
@@ -205,13 +205,14 @@ class Context:
 
 class Processor(abc.ABC):
 
-    def __init__(self, output_dir: str) -> None:
+    def __init__(self, output_dir: str, logging_timezone: Optional[pytz.timezone] = None) -> None:
         split = re.findall('[A-Z][^A-Z]*', type(self).__name__)
         logger_name = '_'.join([s.lower() for s in split])
         self._output_dir = output_dir
         self._logger = logging_config(os.path.join(self._output_dir, logger_name + '.txt'),
                                       detail=True,
-                                      name=logger_name)
+                                      name=logger_name,
+                                      timezone=logging_timezone)
         self._positions = dict()
 
     @property
@@ -264,8 +265,26 @@ class ProcessorFactory(abc.ABC):
                lookback_end_date: pd.Timestamp,
                data_client: DataClient,
                output_dir: str,
+               logging_timezone: Optional[pytz.timezone] = None,
                *args, **kwargs) -> Processor:
         if self.processor_class is not None:
-            return self.processor_class(lookback_start_date, lookback_end_date, data_client, output_dir)
+            signature = inspect.signature(self.processor_class.__init__)
+            init_kwargs = {}
+            for param in signature.parameters.values():
+                if param.name == 'lookback_start_date':
+                    init_kwargs[param.name] = lookback_start_date
+                elif param.name == 'lookback_end_date':
+                    init_kwargs[param.name] = lookback_end_date
+                elif param.name == 'data_client':
+                    init_kwargs[param.name] = data_client
+                elif param.name == 'output_dir':
+                    init_kwargs[param.name] = output_dir
+                elif param.name == 'logging_timezone':
+                    init_kwargs[param.name] = logging_timezone
+                elif param.name in kwargs:
+                    init_kwargs[param.name] = kwargs[param.name]
+                elif param.name != 'self':
+                    raise ValueError(f'Input parameter {param.name} not defined in {self.processor_class.__name__}')
+            return self.processor_class(**init_kwargs)
         else:
             raise NotImplementedError(f'processor_class or create of {self.__class__} not defined')
