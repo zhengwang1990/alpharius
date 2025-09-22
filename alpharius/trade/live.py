@@ -46,6 +46,7 @@ class Live:
         self._output_dir = os.path.join(OUTPUT_DIR, 'live',
                                         datetime.datetime.now().strftime('%F'))
         os.makedirs(self._output_dir, exist_ok=True)
+        self._logging_timezone = logging_timezone
         self._logger = logging_config(os.path.join(self._output_dir, 'trading.txt'),
                                       detail=True,
                                       name='live',
@@ -96,7 +97,8 @@ class Live:
             processor = factory.create(lookback_start_date=history_start,
                                        lookback_end_date=self._today,
                                        data_client=self._data_client,
-                                       output_dir=self._output_dir)
+                                       output_dir=self._output_dir,
+                                       logging_timezone=self._logging_timezone)
             self._processors.append(processor)
             self._frequency_to_processor[processor.get_trading_frequency()].append(processor)
         for processor in self._processors:
