@@ -71,6 +71,10 @@ class L2hProcessor(Processor):
         if (abs(context.current_price / min(last_week_closes) - 1) > 0.4
                 or abs(context.current_price / max(last_week_closes) - 1) > 0.4):
             return
+        last_month_closes = context.interday_lookback['Close'].iloc[-DAYS_IN_A_MONTH:]
+        if (abs(context.current_price / min(last_month_closes) - 1) > 0.6
+                or abs(context.current_price / max(last_month_closes) - 1) > 0.6):
+            return
         if context.current_price < np.max(intraday_closes):
             return
         for i in range(-1, -5, -1):
