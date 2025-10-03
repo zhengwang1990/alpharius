@@ -52,7 +52,9 @@ class OvernightTqqqProcessor(Processor):
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                + f'interday_closes {interday_closes[-3:]}')
             # If large drop and it's Friday, don't buy
-            if context.current_time.isoweekday() == 5 and context.current_price / max(two_week_closes) < 0.85:
+            if context.current_time.isoweekday() == 5 and (
+                    context.current_price / max(two_week_closes) < 0.85 or
+                    context.current_price / interday_closes[-1] < 0.95):
                 return
             if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
                 return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
