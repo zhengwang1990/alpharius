@@ -10,7 +10,7 @@ from ..common import (
     Position, PositionStatus, ProcessorAction, Mode)
 from ..stock_universe import IntradayVolatilityStockUniverse
 
-NUM_UNIVERSE_SYMBOLS = 20
+NUM_UNIVERSE_SYMBOLS = 25
 N = 4
 
 
@@ -70,7 +70,7 @@ class DownFourProcessor(Processor):
             if lose < -0.05:
                 return
         h2l = context.h2l_avg
-        is_trade = losses[-2] < 0.3 * h2l and losses[-1] > 0.05 * h2l
+        is_trade = losses[-2] < 0.268 * h2l and losses[-1] > 0.05 * h2l
         if is_trade or (context.mode == Mode.TRADE and losses[-2] < 0.25 * h2l):
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                f'Prev loss: {losses[-2] * 100:.2f}%. '
