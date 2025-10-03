@@ -71,7 +71,7 @@ class DownFourProcessor(Processor):
                 return
         h2l = context.h2l_avg
         is_trade = losses[-2] < 0.268 * h2l and losses[-1] > 0.05 * h2l
-        if is_trade or (context.mode == Mode.TRADE and losses[-2] < 0.25 * h2l):
+        if is_trade or (context.mode == Mode.TRADE and losses[-2] < 0.24 * h2l):
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                f'Prev loss: {losses[-2] * 100:.2f}%. '
                                f'Current loss: {losses[-1] * 100:.2f}%. '
