@@ -5,9 +5,10 @@ import numpy as np
 import pandas as pd
 
 from alpharius.data import DataClient
+from .processor import Processor
 from ..common import (
-    ActionType, Context, Processor, ProcessorFactory, TradingFrequency,
-    PositionStatus, ProcessorAction, DAYS_IN_A_MONTH, DAYS_IN_A_QUARTER)
+    ActionType, Context, TradingFrequency, PositionStatus, ProcessorAction,
+    DAYS_IN_A_MONTH, DAYS_IN_A_QUARTER)
 from ..stock_universe import IntradayVolatilityStockUniverse
 
 NUM_UNIVERSE_SYMBOLS = 20
@@ -132,7 +133,3 @@ class FirstHourM6mProcessor(Processor):
             self._positions.pop(context.symbol)
             action_type = ActionType.SELL_TO_CLOSE if side == 'long' else ActionType.BUY_TO_CLOSE
             return ProcessorAction(context.symbol, action_type, 1)
-
-
-class FirstHourM6mProcessorFactory(ProcessorFactory):
-    processor_class = FirstHourM6mProcessor

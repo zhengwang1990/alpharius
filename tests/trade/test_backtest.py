@@ -1,10 +1,11 @@
+import functools
 import git
 import pandas as pd
 import pytest
 
 from alpharius import trade
-from alpharius.trade import PROCESSOR_FACTORIES
-from ..fakes import FakeProcessorFactory, FakeDataClient
+from alpharius.trade import PROCESSORS
+from ..fakes import FakeProcessor, FakeDataClient
 
 
 @pytest.fixture(autouse=True)
@@ -24,11 +25,10 @@ def mock_git(mocker):
                           trade.TradingFrequency.CLOSE_TO_CLOSE,
                           trade.TradingFrequency.CLOSE_TO_OPEN])
 def test_run_success(trading_frequency):
-    fake_processor_factory = FakeProcessorFactory(trading_frequency)
-    fake_processor = fake_processor_factory.processor
+    fake_processor = FakeProcessor(trading_frequency=trading_frequency)
     backtesting = trade.Backtest(start_date=pd.to_datetime('2021-03-17'),
                                  end_date=pd.to_datetime('2021-03-24'),
-                                 processor_factories=[fake_processor_factory],
+                                 processors=[fake_processor],
                                  data_client=FakeDataClient())
 
     backtesting.run()
@@ -40,7 +40,7 @@ def test_run_success(trading_frequency):
 def test_run_with_processors():
     backtesting = trade.Backtest(start_date=pd.to_datetime('2021-03-17'),
                                  end_date=pd.to_datetime('2021-03-18'),
-                                 processor_factories=PROCESSOR_FACTORIES,
+                                 processors=PROCESSORS,
                                  data_client=FakeDataClient())
 
     backtesting.run()

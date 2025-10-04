@@ -1,19 +1,15 @@
-import abc
 import collections
 import datetime
 import functools
-import inspect
 import logging
 import os
-import pytz
-import re
+
 from enum import Enum
 from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 
-from alpharius.data import DataClient
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 CACHE_DIR = os.path.join(BASE_DIR, 'cache')
@@ -201,90 +197,3 @@ class Context:
             l2h_avg = np.average(l2h)
             self.interday_lookback.attrs[key] = l2h_avg
         return self.interday_lookback.attrs[key]
-
-
-class Processor(abc.ABC):
-
-    def __init__(self, output_dir: str, logging_timezone: Optional[pytz.timezone] = None) -> None:
-        split = re.findall('[A-Z][^A-Z]*', type(self).__name__)
-        logger_name = '_'.join([s.lower() for s in split])
-        self._output_dir = output_dir
-        self._logger = logging_config(os.path.join(self._output_dir, logger_name + '.txt'),
-                                      detail=True,
-                                      name=logger_name,
-                                      timezone=logging_timezone)
-        self._positions = dict()
-
-    @property
-    def name(self) -> str:
-        processor_name = type(self).__name__
-        suffix = 'Processor'
-        assert processor_name.endswith(suffix)
-        return processor_name[:-len(suffix)]
-
-    @abc.abstractmethod
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
-        raise NotImplementedError('Calling parent interface')
-
-    def process_data(self, context: Context) -> Optional[ProcessorAction]:
-        return None
-
-    def process_all_data(self, contexts: List[Context]) -> List[ProcessorAction]:
-        actions = []
-        for context in contexts:
-            action = self.process_data(context)
-            if action:
-                actions.append(action)
-        return actions
-
-    def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
-        return
-
-    def teardown(self) -> None:
-        return
-
-    @abc.abstractmethod
-    def get_trading_frequency(self) -> TradingFrequency:
-        raise NotImplementedError('Calling parent interface')
-
-    def ack(self, symbol: str) -> None:
-        """Acknowledges the action is taken and updates position status."""
-        if symbol in self._positions:
-            self._positions[symbol]['status'] = PositionStatus.ACTIVE
-            self._logger.debug('[%s] acked.', symbol)
-
-    def is_active(self, symbol: str) -> bool:
-        return symbol in self._positions and self._positions[symbol].get('status') == PositionStatus.ACTIVE
-
-
-class ProcessorFactory(abc.ABC):
-    processor_class: type = None
-
-    def create(self,
-               lookback_start_date: pd.Timestamp,
-               lookback_end_date: pd.Timestamp,
-               data_client: DataClient,
-               output_dir: str,
-               logging_timezone: Optional[pytz.timezone] = None,
-               *args, **kwargs) -> Processor:
-        if self.processor_class is not None:
-            signature = inspect.signature(self.processor_class.__init__)
-            init_kwargs = {}
-            for param in signature.parameters.values():
-                if param.name == 'lookback_start_date':
-                    init_kwargs[param.name] = lookback_start_date
-                elif param.name == 'lookback_end_date':
-                    init_kwargs[param.name] = lookback_end_date
-                elif param.name == 'data_client':
-                    init_kwargs[param.name] = data_client
-                elif param.name == 'output_dir':
-                    init_kwargs[param.name] = output_dir
-                elif param.name == 'logging_timezone':
-                    init_kwargs[param.name] = logging_timezone
-                elif param.name in kwargs:
-                    init_kwargs[param.name] = kwargs[param.name]
-                elif param.name != 'self':
-                    raise ValueError(f'Input parameter {param.name} not defined in {self.processor_class.__name__}')
-            return self.processor_class(**init_kwargs)
-        else:
-            raise NotImplementedError(f'processor_class or create of {self.__class__} not defined')

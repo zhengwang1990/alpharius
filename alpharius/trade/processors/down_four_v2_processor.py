@@ -5,9 +5,10 @@ import numpy as np
 import pandas as pd
 
 from alpharius.data import DataClient
+from .processor import Processor
 from ..common import (
-    ActionType, Context, Processor, ProcessorFactory, TradingFrequency,
-    Position, PositionStatus, ProcessorAction, Mode)
+    ActionType, Context, TradingFrequency, Position, PositionStatus,
+    ProcessorAction, Mode)
 from ..stock_universe import L2hVolatilityStockUniverse
 
 N = 4
@@ -112,7 +113,3 @@ class DownFourV2Processor(Processor):
         if is_close:
             position['status'] = PositionStatus.CLOSED
             return ProcessorAction(context.symbol, ActionType.SELL_TO_CLOSE, 1)
-
-
-class DownFourV2ProcessorFactory(ProcessorFactory):
-    processor_class = DownFourV2Processor

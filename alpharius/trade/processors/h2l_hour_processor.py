@@ -5,9 +5,10 @@ import numpy as np
 import pandas as pd
 
 from alpharius.data import DataClient
+from .processor import Processor
 from ..common import (
-    ActionType, Context, Processor, ProcessorFactory, TradingFrequency,
-    Position, PositionStatus, ProcessorAction, Mode, DAYS_IN_A_QUARTER)
+    ActionType, Context, TradingFrequency, Position, PositionStatus,
+    ProcessorAction, Mode, DAYS_IN_A_QUARTER)
 from ..stock_universe import IntradayVolatilityStockUniverse
 
 NUM_UNIVERSE_SYMBOLS = 20
@@ -109,7 +110,3 @@ class H2lHourProcessor(Processor):
                                f'Closing position. Current price {context.current_price}.')
             position['status'] = PositionStatus.CLOSED
             return ProcessorAction(context.symbol, ActionType.SELL_TO_CLOSE, 1)
-
-
-class H2lHourProcessorFactory(ProcessorFactory):
-    processor_class = H2lHourProcessor

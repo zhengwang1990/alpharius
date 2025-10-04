@@ -11,7 +11,7 @@ from flask_apscheduler import APScheduler
 import alpharius.data as data
 from alpharius.db import Db
 from alpharius.notification.email_sender import EmailSender
-from alpharius.trade import PROCESSOR_FACTORIES, Backtest, Live
+from alpharius.trade import PROCESSORS, Backtest, Live
 from alpharius.utils import get_latest_day, TIME_ZONE
 from .client import Client
 
@@ -47,7 +47,7 @@ def email_on_exception(func):
 
 @email_on_exception
 def _trade_run():
-    Live(processor_factories=PROCESSOR_FACTORIES,
+    Live(processors=PROCESSORS,
          data_client=data.get_default_data_client(),
          logging_timezone=TIME_ZONE).run()
 
@@ -82,7 +82,7 @@ def _backtest_run():
     end_date = (latest_day + datetime.timedelta(days=1)).strftime('%F')
     transactions = Backtest(start_date=start_date,
                             end_date=end_date,
-                            processor_factories=PROCESSOR_FACTORIES,
+                            processors=PROCESSORS,
                             data_client=data.get_default_data_client()).run()
     db_client = Db()
     for transaction in transactions:

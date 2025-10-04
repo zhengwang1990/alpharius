@@ -6,10 +6,10 @@ import pandas as pd
 import tabulate
 
 from alpharius.data import DataClient
+from .processor import Processor
 from ..common import (
-    ActionType, Context, Processor, ProcessorFactory, TradingFrequency,
-    Position, ProcessorAction, DAYS_IN_A_YEAR, DAYS_IN_A_QUARTER,
-    DAYS_IN_A_MONTH, DAYS_IN_A_WEEK, get_header)
+    ActionType, Context, TradingFrequency, Position, ProcessorAction,
+    DAYS_IN_A_YEAR, DAYS_IN_A_QUARTER, DAYS_IN_A_MONTH, DAYS_IN_A_WEEK, get_header)
 from ..stock_universe import TopVolumeUniverse
 
 NUM_UNIVERSE_SYMBOLS = 200
@@ -113,7 +113,3 @@ class OvernightProcessor(Processor):
         yearly = np.sum(sorted(overnight_returns)[25:-25])
         performance = yearly + 0.3 * quarterly + 0.3 * weekly
         return performance
-
-
-class OvernightProcessorFactory(ProcessorFactory):
-    processor_class = OvernightProcessor

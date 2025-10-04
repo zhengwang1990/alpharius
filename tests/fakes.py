@@ -370,18 +370,6 @@ class FakeProcessor(trade.Processor):
             return trade.ProcessorAction('SPY', trade.ActionType.BUY_TO_OPEN, 1)
 
 
-class FakeProcessorFactory(trade.ProcessorFactory):
-
-    def __init__(self, trading_frequency: trade.TradingFrequency):
-        super().__init__()
-        self.create_call_count = 0
-        self.processor = FakeProcessor(trading_frequency)
-
-    def create(self, *args, **kwargs) -> FakeProcessor:
-        self.create_call_count += 1
-        return self.processor
-
-
 class FakeDbEngine:
     def __init__(self):
         self.conn = mock.MagicMock()

@@ -5,9 +5,8 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 
-from ..common import (
-    ProcessorAction, ActionType, Context, Processor, ProcessorFactory, TradingFrequency,
-    DAYS_IN_A_MONTH)
+from .processor import Processor
+from ..common import ProcessorAction, ActionType, Context, TradingFrequency, DAYS_IN_A_MONTH
 
 
 class TqqqProcessor(Processor):
@@ -294,7 +293,3 @@ class TqqqProcessor(Processor):
             stop_loss = context.current_price == np.min(intraday_closes)
             if stop_loss or context.current_time.time() == datetime.time(16, 0):
                 return exit_position()
-
-
-class TqqqProcessorFactory(ProcessorFactory):
-    processor_class = TqqqProcessor

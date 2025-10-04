@@ -5,9 +5,10 @@ import numpy as np
 import pandas as pd
 
 from alpharius.data import DataClient
+from .processor import Processor
 from ..common import (
-    ActionType, Context, Processor, ProcessorFactory, TradingFrequency,
-    Position, PositionStatus, ProcessorAction, Mode, DAYS_IN_A_MONTH)
+    ActionType, Context, TradingFrequency, Position, PositionStatus,
+    ProcessorAction, Mode, DAYS_IN_A_MONTH)
 from ..stock_universe import IntradayVolatilityStockUniverse
 
 NUM_UNIVERSE_SYMBOLS = 20
@@ -191,7 +192,3 @@ class CrossCloseProcessor(Processor):
             position['status'] = PositionStatus.CLOSED
             action_type = ActionType.BUY_TO_CLOSE if side == 'short' else ActionType.SELL_TO_CLOSE
             return ProcessorAction(context.symbol, action_type, 1)
-
-
-class CrossCloseProcessorFactory(ProcessorFactory):
-    processor_class = CrossCloseProcessor

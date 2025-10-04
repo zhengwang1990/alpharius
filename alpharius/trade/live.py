@@ -5,7 +5,7 @@ import socket
 import threading
 import time
 from concurrent import futures
-from typing import List, Optional
+from typing import List, Optional, Type, Union
 
 import alpaca.trading as trading
 import pandas as pd
@@ -30,9 +30,10 @@ from alpharius.utils import (
     get_trading_client,
 )
 from .common import (
-    Action, ActionType, ProcessorFactory, TradingFrequency, Context, Mode,
+    Action, ActionType, TradingFrequency, Context, Mode,
     Position, MARKET_OPEN, INTERDAY_LOOKBACK_LOAD, OUTPUT_DIR,
     SHORT_RESERVE_RATIO, logging_config, get_unique_actions)
+from .processors.processor import Processor, instantiate_processor
 
 _MAX_WORKERS = 10
 
@@ -40,7 +41,7 @@ _MAX_WORKERS = 10
 class Live:
 
     def __init__(self,
-                 processor_factories: List[ProcessorFactory],
+                 processors: List[Union[Type[Processor], Processor]],
                  data_client: DataClient,
                  logging_timezone: Optional[pytz.timezone] = None) -> None:
         self._output_dir = os.path.join(OUTPUT_DIR, 'live',
@@ -55,7 +56,7 @@ class Live:
         self._equity, self._cash = 0, 0
         self._cash_reserve = float(os.environ.get('CASH_RESERVE', 0))
         self._today = get_today()
-        self._processor_factories = processor_factories
+        self._processor_classes = processors
         self._alpaca = get_trading_client()
         self._db = Db()
         self._update_account()
@@ -93,12 +94,14 @@ class Live:
 
     def _init_processors(self, history_start: pd.Timestamp) -> None:
         self._processors = []
-        for factory in self._processor_factories:
-            processor = factory.create(lookback_start_date=history_start,
-                                       lookback_end_date=self._today,
-                                       data_client=self._data_client,
-                                       output_dir=self._output_dir,
-                                       logging_timezone=self._logging_timezone)
+        for processor_class in self._processor_classes:
+            processor = instantiate_processor(
+                processor_class,
+                lookback_start_date=history_start,
+                lookback_end_date=self._today,
+                data_client=self._data_client,
+                output_dir=self._output_dir,
+                logging_timezone=self._logging_timezone)
             self._processors.append(processor)
             self._frequency_to_processor[processor.get_trading_frequency()].append(processor)
         for processor in self._processors:

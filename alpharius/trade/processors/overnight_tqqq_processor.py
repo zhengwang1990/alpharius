@@ -5,9 +5,8 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 
-from ..common import (
-    ActionType, Context, Processor, ProcessorFactory, TradingFrequency,
-    ProcessorAction, DAYS_IN_A_WEEK)
+from .processor import Processor
+from ..common import ActionType, Context, TradingFrequency, ProcessorAction, DAYS_IN_A_WEEK
 
 
 class OvernightTqqqProcessor(Processor):
@@ -64,7 +63,3 @@ class OvernightTqqqProcessor(Processor):
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                + f'{two_week_std=:.4f}, {four_week_std=:.4f}')
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
-
-
-class OvernightTqqqProcessorFactory(ProcessorFactory):
-    processor_class = OvernightTqqqProcessor

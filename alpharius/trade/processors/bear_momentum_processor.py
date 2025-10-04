@@ -5,8 +5,9 @@ import numpy as np
 import pandas as pd
 
 from alpharius.data import DataClient
+from .processor import Processor
 from ..common import (
-    ProcessorAction, ActionType, Context, Processor, ProcessorFactory, TradingFrequency,
+    ProcessorAction, ActionType, Context, TradingFrequency,
     Position, PositionStatus, DAYS_IN_A_MONTH)
 from ..stock_universe import IntradayVolatilityStockUniverse
 
@@ -127,8 +128,4 @@ class BearMomentumProcessor(Processor):
                 intraday_closes[-1] > intraday_closes[-2] > intraday_closes[-3] and
                 context.current_price > context.prev_day_close > intraday_closes[entry_index]):
             return _exit_action()
-
-
-class BearMomentumProcessorFactory(ProcessorFactory):
-    processor_class = BearMomentumProcessor
 

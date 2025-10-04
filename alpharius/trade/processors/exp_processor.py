@@ -4,8 +4,9 @@ from typing import List, Optional
 import pandas as pd
 
 from alpharius.data import DataClient
+from .processor import Processor
 from ..common import (
-    ActionType, Context, Processor, ProcessorFactory, TradingFrequency, Position,
+    ActionType, Context, TradingFrequency, Position,
     PositionStatus, ProcessorAction)
 from ..stock_universe import IntradayVolatilityStockUniverse
 
@@ -69,7 +70,3 @@ class ExpProcessor(Processor):
         if is_close:
             position['status'] = PositionStatus.CLOSED
             return ProcessorAction(context.symbol, ActionType.SELL_TO_CLOSE, 1)
-
-
-class ExpProcessorFactory(ProcessorFactory):
-    processor_class = ExpProcessor

@@ -6,7 +6,7 @@ import math
 import os
 import signal
 import time
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 import alpaca.trading as trading
 import git
@@ -28,11 +28,12 @@ from alpharius.utils import (
     get_all_symbols,
     get_trading_client,
 )
+from .processors.processor import Processor, instantiate_processor
 from .common import (
-    Action, ActionType, Context, Position, Processor, ProcessorFactory,
-    TradingFrequency, Mode, BASE_DIR, MARKET_OPEN, MARKET_CLOSE, OUTPUT_DIR,
-    INTERDAY_LOOKBACK_LOAD, BID_ASK_SPREAD, SHORT_RESERVE_RATIO,
-    logging_config, timestamp_to_index, get_unique_actions, get_header)
+    Action, ActionType, Context, Position, TradingFrequency, Mode,
+    BASE_DIR, MARKET_OPEN, MARKET_CLOSE, OUTPUT_DIR, INTERDAY_LOOKBACK_LOAD,
+    BID_ASK_SPREAD, SHORT_RESERVE_RATIO, logging_config, timestamp_to_index,
+    get_unique_actions, get_header)
 
 _MAX_WORKERS = 20
 
@@ -42,7 +43,7 @@ class Backtest:
     def __init__(self,
                  start_date: Union[pd.Timestamp, str],
                  end_date: Union[pd.Timestamp, str],
-                 processor_factories: List[ProcessorFactory],
+                 processors: List[Union[Type[Processor], Processor]],
                  data_client: DataClient,
                  ack_all: Optional[bool] = False) -> None:
         if isinstance(start_date, str):
@@ -51,7 +52,7 @@ class Backtest:
             end_date = pd.to_datetime(end_date)
         self._start_date = start_date
         self._end_date = end_date
-        self._processor_factories = processor_factories
+        self._processor_classes = processors
         self._processors: List[Processor] = []
         self._positions = []
         self._daily_equity = [1]
@@ -111,11 +112,13 @@ class Backtest:
 
     def _init_processors(self, history_start) -> None:
         self._processors = []
-        for factory in self._processor_factories:
-            processor = factory.create(lookback_start_date=history_start,
-                                       lookback_end_date=self._end_date,
-                                       data_client=self._data_client,
-                                       output_dir=self._output_dir)
+        for processor_class in self._processor_classes:
+            processor = instantiate_processor(
+                processor_class,
+                lookback_start_date=history_start,
+                lookback_end_date=self._end_date,
+                data_client=self._data_client,
+                output_dir=self._output_dir)
             self._processors.append(processor)
 
     def _record_diff(self):

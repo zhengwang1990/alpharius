@@ -6,9 +6,10 @@ import numpy as np
 import pandas as pd
 
 from alpharius.data import DataClient
+from .processor import Processor
 from ..common import (
-    ActionType, Context, Processor, ProcessorFactory, TradingFrequency,
-    Position, ProcessorAction, PositionStatus, Mode, DAYS_IN_A_WEEK)
+    ActionType, Context, TradingFrequency,  Position, ProcessorAction,
+    PositionStatus, Mode, DAYS_IN_A_WEEK)
 from ..stock_universe import IntradayVolatilityStockUniverse
 
 NUM_UNIVERSE_SYMBOLS = 20
@@ -154,7 +155,3 @@ class AbcdProcessor(Processor):
             position['status'] = PositionStatus.CLOSED
             action_type = ActionType.SELL_TO_CLOSE if side == 'long' else ActionType.BUY_TO_CLOSE
             return ProcessorAction(context.symbol, action_type, 1)
-
-
-class AbcdProcessorFactory(ProcessorFactory):
-    processor_class = AbcdProcessor
