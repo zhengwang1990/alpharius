@@ -9,12 +9,16 @@ import time
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 import alpaca.trading as trading
-import git
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tabulate
+
+try:
+    import git
+except ImportError:
+    git = None
 
 from alpharius.data import (
     DataClient, load_intraday_dataset, load_interday_dataset,
@@ -152,7 +156,7 @@ class Backtest:
         self._run_start_time = time.time()
         try:
             self._record_diff()
-        except (git.GitError, ValueError) as e:
+        except (git.GitError, ValueError, AttributeError) as e:
             # Git doesn't work in some circumstances
             self._summary_log.warning(f'Diff can not be generated: {e}')
         history_start = self._start_date - datetime.timedelta(days=INTERDAY_LOOKBACK_LOAD)
