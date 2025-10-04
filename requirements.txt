@@ -4,7 +4,6 @@ alpaca-py
 bs4
 cachetools
 flask
-gunicorn
 GitPython
 matplotlib
 numpy
@@ -21,4 +20,4 @@ retrying
 sqlalchemy
 tabulate
 tqdm
-
+waitress
