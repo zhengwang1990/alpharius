@@ -70,6 +70,8 @@ class DownFourProcessor(Processor):
                 return
             if lose < -0.05:
                 return
+        if len(intraday_closes) >= N + 1 and intraday_closes[-N - 1] < intraday_opens[-N - 1] * 0.95:
+            return
         h2l = context.h2l_avg
         is_trade = losses[-2] < 0.268 * h2l and losses[-1] > 0.05 * h2l
         if is_trade or (context.mode == Mode.TRADE and losses[-2] < 0.24 * h2l):
