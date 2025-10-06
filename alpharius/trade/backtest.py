@@ -156,7 +156,7 @@ class Backtest:
         self._run_start_time = time.time()
         try:
             self._record_diff()
-        except (git.GitError, ValueError, AttributeError) as e:
+        except (ValueError, AttributeError, git.GitError) as e:
             # Git doesn't work in some circumstances
             self._summary_log.warning(f'Diff can not be generated: {e}')
         history_start = self._start_date - datetime.timedelta(days=INTERDAY_LOOKBACK_LOAD)
