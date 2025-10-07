@@ -249,7 +249,7 @@ class TqqqProcessor(Processor):
         self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] Open high momentum strategy. '
                            f'Current price: {context.current_price}. '
                            f'Open gain: {open_gain * 100:.2f}%. '
-                           f'H2l [{context.h2l_avg * 100:.2f}%].')
+                           f'H2l [{context.l2h_avg * 100:.2f}%].')
         self._positions[context.symbol] = {'entry_time': context.current_time,
                                            'strategy': 'open_high_momentum',
                                            'side': 'long'}
