@@ -647,3 +647,27 @@ function add_auto_complete(symbol_input) {
 
 add_auto_complete(intraday_symbol_input);
 add_auto_complete(daily_symbol_input);
+
+function convert_date_input() {
+    const inputVal = this.value;
+    const yyyy_mm_dd_regex = /^\d{4}-\d{2}-\d{2}$/;
+    // Check if the input is in the yyyy-mm-dd format
+    if (yyyy_mm_dd_regex.test(inputVal)) {
+        const parts = inputVal.split('-');
+        const year = parts[0];
+        const month = parseInt(parts[1]) - 1; // Months are 0-indexed (0=Jan, 11=Dec)
+        const day = parts[2];
+
+        // Define the month names
+        const monthNames = [
+          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        ];
+        const outputMonth = monthNames[month];
+        this.value = `${outputMonth} ${day} ${year}`;
+    }
+}
+
+document.getElementById("intraday-datepicker").addEventListener("input", convert_date_input);
+document.getElementById("interday-start-input").addEventListener("input", convert_date_input);
+document.getElementById("interday-end-input").addEventListener("input", convert_date_input);
