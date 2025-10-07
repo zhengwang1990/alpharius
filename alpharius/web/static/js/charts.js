@@ -658,6 +658,10 @@ function convert_date_input() {
         const month = parseInt(parts[1]) - 1; // Months are 0-indexed (0=Jan, 11=Dec)
         const day = parts[2];
 
+        if ((month < 0) || (month >= 12)) {
+            return;
+        }
+
         // Define the month names
         const monthNames = [
           'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
