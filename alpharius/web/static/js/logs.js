@@ -29,12 +29,23 @@ logger_select.addEventListener("change", function(event){
     var logger = event.target.value;
     document.getElementById("log-" + current_logger).style.display = "none";
     document.getElementById("log-" + logger).style.removeProperty("display");
+    if ((current_logger === "Trading") && (level_select.value !== "debug")) {
+        level_select.value = "debug";
+        update_log_level("debug");
+    } else if ((current_logger !== "Trading") && (level_select.value === "debug")) {
+        level_select.value = "info";
+        update_log_level("info");
+    }
     current_logger = logger;
 });
 
 const level_select = document.getElementById("level-select");
 level_select.addEventListener("change", function(event){
     var level = event.target.value;
+    update_log_level(level);
+});
+
+function update_log_level(level) {
     visible = ["debug", "info", "warning", "error"];
     invisible = [];
     if (level === "info") {
@@ -61,7 +72,7 @@ level_select.addEventListener("change", function(event){
             elem.style.display = "none";
         }
     }
-});
+}
 
 // Back-to-top button
 let btt_button = document.getElementById("btn-back-to-top");

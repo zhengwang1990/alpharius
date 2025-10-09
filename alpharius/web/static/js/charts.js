@@ -649,7 +649,7 @@ add_auto_complete(intraday_symbol_input);
 add_auto_complete(daily_symbol_input);
 
 function convert_date_input() {
-    const inputVal = this.value;
+    const inputVal = this.value.trim();
     const yyyy_mm_dd_regex = /^\d{4}-\d{2}-\d{2}$/;
     // Check if the input is in the yyyy-mm-dd format
     if (yyyy_mm_dd_regex.test(inputVal)) {
