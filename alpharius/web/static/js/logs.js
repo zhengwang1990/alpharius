@@ -32,7 +32,7 @@ logger_select.addEventListener("change", function(event){
     if ((current_logger === "Trading") && (level_select.value !== "debug")) {
         level_select.value = "debug";
         update_log_level("debug");
-    } else if ((current_logger !== "Trading") && (level_select.value === "debug")) {
+    } else if ((current_logger !== "Trading") && (logger == "Trading") && (level_select.value === "debug")) {
         level_select.value = "info";
         update_log_level("info");
     }
