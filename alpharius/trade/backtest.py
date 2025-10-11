@@ -134,8 +134,11 @@ class Backtest:
             if item.change_type != 'A':
                 old_content = item.a_blob.data_stream.read().decode('utf-8').split('\n')
             if item.change_type != 'D':
-                with open(os.path.join(BASE_DIR, item.b_path), 'r') as f:
-                    new_content = f.read().split('\n')
+                try:
+                    with open(os.path.join(BASE_DIR, item.b_path), 'r') as f:
+                        new_content = f.read().split('\n')
+                except UnicodeDecodeError:
+                    continue
             max_num_line = max(max_num_line, len(old_content), len(new_content))
             html_diff = difflib.HtmlDiff(wrapcolumn=120)
             html += f'<div><h1>{item.b_path}</h1>'

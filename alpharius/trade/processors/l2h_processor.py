@@ -54,26 +54,26 @@ class L2hProcessor(Processor):
         t = context.current_time.time()
         if t >= EXIT_TIME:
             return
-        interday_closes = context.interday_lookback['Close']
+        interday_closes = context.interday_lookback['Close'].to_numpy()
         if len(interday_closes) < DAYS_IN_A_YEAR:
             return
-        if (context.current_price < 1.2 * interday_closes.iloc[-DAYS_IN_A_MONTH] or
-                context.current_price > interday_closes.iloc[-DAYS_IN_A_MONTH] * 2):
+        if (context.current_price < 1.2 * interday_closes[-DAYS_IN_A_MONTH] or
+                context.current_price > interday_closes[-DAYS_IN_A_MONTH] * 2):
+            return
+        if context.current_price / context.prev_day_close - 1 > 0.2:
+            return
+        last_month_closes = interday_closes[-DAYS_IN_A_MONTH:]
+        if (abs(context.current_price / min(last_month_closes) - 1) > 0.4
+                or abs(context.current_price / max(last_month_closes) - 1) > 0.4):
+            return
+        if interday_closes[-1] / interday_closes[-2] - 1 > 0.05:
             return
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
-        intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
-        intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
+        intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
+        intraday_opens = context.intraday_lookback['Open'].to_numpy()[market_open_index:]
         if len(intraday_closes) < 10:
-            return
-        last_week_closes = context.interday_lookback['Close'].iloc[-DAYS_IN_A_WEEK:]
-        if (abs(context.current_price / min(last_week_closes) - 1) > 0.4
-                or abs(context.current_price / max(last_week_closes) - 1) > 0.4):
-            return
-        last_month_closes = context.interday_lookback['Close'].iloc[-DAYS_IN_A_MONTH:]
-        if (abs(context.current_price / min(last_month_closes) - 1) > 0.6
-                or abs(context.current_price / max(last_month_closes) - 1) > 0.6):
             return
         if context.current_price < np.max(intraday_closes):
             return
@@ -88,9 +88,15 @@ class L2hProcessor(Processor):
         if bar_sizes[-1] < np.median(bar_sizes):
             return
 
+        if t >= datetime.time(14, 0) and len(intraday_closes) > 36:
+            afternoon_change = context.current_price - min(intraday_closes[36:])
+            morning_change = max(intraday_closes[12:36]) - min(intraday_closes[12:36])
+            if afternoon_change > 4 * morning_change:
+                return
+
         current_gain = context.current_price / intraday_closes[-10] - 1
         threshold = context.l2h_avg * 0.75
-        is_trade = threshold < current_gain
+        is_trade = threshold < current_gain < 1.33 * threshold
         if is_trade or (context.mode == Mode.TRADE and current_gain > threshold * 0.8):
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                f'Current gain: {current_gain * 100:.2f}%. '
