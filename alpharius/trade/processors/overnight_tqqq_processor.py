@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from .processor import Processor
-from ..common import ActionType, Context, TradingFrequency, ProcessorAction, DAYS_IN_A_WEEK
+from ..common import ActionType, Context, TradingFrequency, ProcessorAction, DAYS_IN_A_WEEK, DAYS_IN_A_MONTH
 
 
 class OvernightTqqqProcessor(Processor):
@@ -51,15 +51,20 @@ class OvernightTqqqProcessor(Processor):
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                + f'interday_closes {interday_closes[-3:]}')
             # If large drop and it's Friday, don't buy
-            if context.current_time.isoweekday() == 5 and (
-                    context.current_price / max(two_week_closes) < 0.85 or
-                    context.current_price / interday_closes[-1] < 0.95):
-                return
+            if context.current_time.isoweekday() == 5:
+                if (context.current_price / max(two_week_closes) < 0.85 or
+                        context.current_price / interday_closes[-1] < 0.95):
+                    return
+                price_high = max(intraday_high, context.prev_day_close)
+                if price_high / intraday_low - 1 > 0.06 and context.current_price < 0.95 * max(two_week_closes):
+                    return
             if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
                 return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
         if (2 * one_week_std > two_week_std > four_week_std > 0.05
                 and context.current_price / interday_closes[-1] - 1 < -0.07
                 and context.symbol == 'SQQQ'):
+            if context.current_price / min(interday_closes[-3 * DAYS_IN_A_MONTH:]) > 1.6:
+                return
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                + f'{two_week_std=:.4f}, {four_week_std=:.4f}')
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
