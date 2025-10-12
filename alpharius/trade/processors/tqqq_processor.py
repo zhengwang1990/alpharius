@@ -52,9 +52,10 @@ class TqqqProcessor(Processor):
         t = context.current_time.time()
         if t <= datetime.time(11, 15) or t >= datetime.time(15, 0):
             return
-        interday_closes = context.interday_lookback['Close'].tolist()
+        interday_closes = context.interday_lookback['Close'].to_numpy()
         market_open_index = context.market_open_index
-        intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
+        intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
+        intraday_opens = context.intraday_lookback['Open'].to_numpy()[market_open_index:]
         # short
         l2h = context.l2h_avg
         short_t = 26
@@ -80,6 +81,14 @@ class TqqqProcessor(Processor):
                 self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                    f'Mean reversion strategy. Current price: {context.current_price}. '
                                    f'Side: long. Change: {change * 100:.2f}%. Threshold: {h2l * 100:.2f}%.')
+            separator = len(intraday_closes) - 12
+            start = max(0, len(intraday_closes) - 36)
+            if (max(intraday_closes[separator:]) - min(intraday_closes[separator:]) >
+                    3 * (max(intraday_closes[start:separator]) - min(intraday_closes[start:separator]))):
+                return
+            bar_sizes = [abs(intraday_closes[i] - intraday_opens[i]) for i in range(-12, 0)]
+            if bar_sizes[-1] > 5 * np.median(bar_sizes):
+                return
             if change < h2l:
                 self._positions[context.symbol] = {'side': 'long',
                                                    'strategy': 'mean_reversion',

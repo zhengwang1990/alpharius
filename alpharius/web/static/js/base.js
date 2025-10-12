@@ -24,8 +24,30 @@ if (/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elain
 
 var last_status_update = 0;
 
+function is_ny_night_or_weekends() {
+    const now = new Date();
+    const timeZone = "America/New_York";
+
+    // Get the current hour in NY (24-hour format)
+    const nyHourString = now.toLocaleString("en-US", {
+        timeZone: timeZone,
+        hour: 'numeric',
+        hour12: false
+    });
+    const nyHour = parseInt(nyHourString);
+    const isNightTime = (nyHour >= 19 && nyHour <= 23) || (nyHour >= 0 && nyHour <= 6);
+    const nyDateString = now.toLocaleString("en-US", { timeZone: timeZone });
+    const nyDate = new Date(nyDateString);
+    const nyDay = nyDate.getDay(); // 0 = Sunday, 6 = Saturday
+    const isWeekend = (nyDay === 0 || nyDay === 6);
+    return isNightTime || isWeekend;
+}
+
 function update_job_status() {
     if (document.hidden || new Date().getTime() - last_status_update < 60000) {
+        return;
+    }
+    if (is_ny_night_or_weekends()) {
         return;
     }
     last_status_update = new Date().getTime();
