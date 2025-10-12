@@ -22,6 +22,11 @@ if (/(android|bb\d+|meego).+mobile|avantgo|bada\/|blackberry|blazer|compal|elain
     isMobile = true;
 }
 
+const buttons = document.getElementsByClassName("my-btn-outline");
+for (var button of buttons) {
+    button.classList.add(isMobile ? "my-btn-outline-no-hover" : "my-btn-outline-hover");
+}
+
 var last_status_update = 0;
 
 function is_ny_night_or_weekends() {

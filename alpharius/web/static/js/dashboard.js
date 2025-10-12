@@ -125,11 +125,6 @@ for (const symbol of compare_symbols) {
     });
 }
 
-const buttons = document.getElementsByClassName("my-btn-outline");
-for (var button of buttons) {
-    button.classList.add(isMobile ? "my-btn-outline-no-hover" : "my-btn-outline-hover");
-}
-
 function get_histories_hash(his) {
     var time_1d = his["time_1d"];
     var time_1w = his["time_1w"];

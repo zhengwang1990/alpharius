@@ -3,34 +3,6 @@
     margin-left: -0.75em;
 }
 
-.dash-content .card .my-btn-outline {
-    --bs-btn-color: var(--my-btn-color);
-    --bs-btn-border-color: var(--my-btn-color);
-    --bs-btn-hover-border-color: var(--my-btn-color);
-    --bs-btn-active-bg: var(--my-btn-color);
-    --bs-btn-active-border-color: var(--my-btn-color);
-    --bs-btn-focus-shadow-rgb: 13,110,253;
-    --bs-btn-active-color: #fff;
-    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
-    --bs-btn-disabled-bg: transparent;
-    --bs-gradient: none;
-}
-
-.dash-content .card .my-btn-outline-hover {
-    --bs-btn-hover-bg: var(--my-btn-color-light);
-    --bs-btn-hover-color: #fff;
-}
-
-.dash-content .card .my-btn-outline-no-hover {
-    --bs-btn-hover-bg: #fff;
-    --bs-btn-hover-color: var(--my-btn-color);
-}
-
-.dash-content .card .my-btn-primary {
-    --my-btn-color: rgb(62, 110, 186);
-    --my-btn-color-light: rgba(62, 110, 186, 0.6);
-}
-
 .dash-content .card .my-btn-qqq {
     --my-btn-color: rgb(11, 166, 188);
     --my-btn-color-light: rgba(11, 166, 188, 0.6);

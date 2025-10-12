@@ -19,8 +19,10 @@ var trimmed_intraday_chart_data = null;
 var daily_chart_data = null;
 var intraday_chart = null;
 var daily_chart = null;
-var symbol_tree = {symbols: [], children: {}}
-const symbol_set = new Set(ALL_SYMBOLS)
+var symbol_tree = {symbols: [], children: {}};
+var historical_symbols = [];
+var historical_dates = [];
+const symbol_set = new Set(ALL_SYMBOLS);
 const intraday_alert = document.getElementById("intraday-alert");
 const intraday_symbol_input = document.getElementById("intraday-symbol-input");
 const intraday_chart_container = document.getElementById("intraday-chart-container");
@@ -31,6 +33,7 @@ const daily_symbol_input = document.getElementById("daily-symbol-input");
 const daily_chart_container = document.getElementById("daily-chart-container");
 const daily_chart_name = document.getElementById("daily-chart-name");
 const daily_button = document.getElementById("daily-chart-btn");
+const history_container = document.getElementById("history-container");
 
 if (window.innerWidth <= 800) {
     chart_mode = "compact";
@@ -441,13 +444,12 @@ var button_state = 0;
 function toggle_button_state() {
     if (button_state === 0) {
         button_state = 1;
-        intraday_button.innerHTML = "OK";
     } else {
         button_state = 0;
-        intraday_button.innerHTML = "GO";
     }
-    intraday_button.classList.toggle("btn-secondary");
-    intraday_button.classList.toggle("btn-outline-secondary");
+    document.getElementById("query-context").classList.toggle("hidden");
+    document.getElementById("sync-context").classList.toggle("hidden");
+    intraday_button.blur();
 }
 intraday_symbol_input.addEventListener("input", () => {
     if (button_state === 1) {
@@ -463,7 +465,25 @@ intraday_datepicker.element.addEventListener("changeDate", () => {
 intraday_button.addEventListener("click", () => {
     if (button_state === 0) {
         if (get_chart("intraday") === 0) {
+            historical_symbols.push(intraday_symbol_input.value);
+            historical_dates.push(intraday_datepicker.getDate("yyyy-mm-dd"));
             toggle_button_state();
+            if ((historical_symbols.length >= 2) && (historical_dates.length >= 2)) {
+                history_container.classList.remove("hidden");
+                let date = historical_dates[historical_dates.length - 2];
+                let symbol = historical_symbols[historical_symbols.length - 2];
+                let existing_buttons = document.getElementsByClassName("history-btn");
+                for (let i = 0; i < existing_buttons.length; i++) {
+                    let existing_button = existing_buttons[i];
+                    if ((existing_button.getAttribute("date") === date) && (existing_button.getAttribute("symbol") == symbol)) {
+                        existing_button.classList.add("hidden");
+                    }
+                }
+                content = `<span date=${date} symbol=${symbol} class='btn my-btn-outline history-btn `
+                content += isMobile ? "my-btn-outline-no-hover" : "my-btn-outline-hover";
+                content += `'><i class='uil uil-history'></i> ${date} ${symbol}</span>`
+                history_container.innerHTML = content + history_container.innerHTML;
+            }
         }
     } else {
         copy_date_to_daily();
@@ -510,8 +530,10 @@ if (validateDate(INIT_DATE) && validateSymbol(INIT_SYMBOL)) {
     intraday_symbol_input.value = INIT_SYMBOL;
     get_chart_data([INIT_DATE], INIT_SYMBOL, "intraday");
     update_chart("intraday");
+    historical_symbols.push(INIT_SYMBOL);
+    historical_dates.push(INIT_DATE);
 } else {
-    displayAlert("info", "Enter date and symbol. Then click GO.", "intraday");
+    displayAlert("info", "Enter date and symbol. Then click QUERY.", "intraday");
 }
 
 if (validateDate(INIT_START_DATE) && validateDate(INIT_END_DATE) && validateSymbol(INIT_SYMBOL)) {
@@ -523,7 +545,7 @@ if (validateDate(INIT_START_DATE) && validateDate(INIT_END_DATE) && validateSymb
     get_chart_data([INIT_START_DATE, INIT_END_DATE], INIT_SYMBOL, "daily");
     update_chart("daily");
 } else {
-    displayAlert("info", "Enter start date, end date and symbol. Then click GO.", "daily");
+    displayAlert("info", "Enter start date, end date and symbol. Then click QUERY.", "daily");
 }
 
 // Construct trie tree
@@ -675,3 +697,18 @@ function convert_date_input() {
 document.getElementById("intraday-datepicker").addEventListener("input", convert_date_input);
 document.getElementById("interday-start-input").addEventListener("input", convert_date_input);
 document.getElementById("interday-end-input").addEventListener("input", convert_date_input);
+
+history_container.addEventListener("click", function(event) {
+    if (event.target.classList.contains("btn")) {
+        let date = event.target.getAttribute("date");
+        let symbol = event.target.getAttribute("symbol");
+        intraday_symbol_input.value = symbol;
+        var date_utc = Date.parse(date);
+        intraday_datepicker.setDate(date_utc + (new Date(date_utc).getTimezoneOffset() * 60000));
+        if (button_state === 1) {
+            button_state = 0;
+            document.getElementById("query-context").classList.toggle("hidden");
+            document.getElementById("sync-context").classList.toggle("hidden");
+        }
+    }
+});

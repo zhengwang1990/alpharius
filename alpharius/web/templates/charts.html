@@ -19,12 +19,15 @@
               </div>
          </span><span class="padding-span"></span><span class="inline-span">
               <div class="input-group">
-                  <span class="input-group-text"><i class="uil uil-search"></i></span>
+                  <span class="input-group-text"><i class="uil uil-letter-english-a"></i></span>
                   <input type="text" class="form-control symbol-input" placeholder="SYMBOL" id="intraday-symbol-input">
               </div>
-         </span><button type="button" class="btn btn-secondary" id="intraday-chart-btn">GO</button>
+         </span><button type="button" class="btn my-btn-outline my-btn-primary" id="intraday-chart-btn">
+            <span id="query-context"><span class="query-text">QUERY</span><span class="query-icon"><i class="uil uil-search"></i></span></span>
+            <span id="sync-context" class="hidden"><span class="query-text">SYNC</span><span class="query-icon"><i class="uil uil-sync"></i></span>
+        </button>
     </div>
-
+    <div class="hidden" id="history-container"></div>
     <div class="alert" style="display:none" id="intraday-alert" role="alert"></div>
     <div class="chart-name" id="intraday-chart-name" style="display:none"></div>
     <div class="chart-container" id="intraday-chart-container" style="display:none">
@@ -44,10 +47,12 @@
               </div>
          </span><span class="padding-span"></span><span class="inline-span">
               <div class="input-group">
-                  <span class="input-group-text"><i class="uil uil-search"></i></span>
+                  <span class="input-group-text"><i class="uil uil-letter-english-a"></i></span>
                   <input type="text" class="form-control symbol-input" placeholder="SYMBOL" id="daily-symbol-input">
               </div>
-         </span><button type="button" class="btn btn-secondary" id="daily-chart-btn">GO</button>
+         </span><button type="button" class="btn my-btn-outline my-btn-primary" id="daily-chart-btn">
+            <span class="query-text">QUERY</span><span class="query-icon"><i class="uil uil-search"></i></span>
+        </button>
     </div>
 
     <div class="alert" style="display:none" id="daily-alert" role="alert"></div>
