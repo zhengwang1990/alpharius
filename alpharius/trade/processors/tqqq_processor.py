@@ -1,12 +1,13 @@
 import datetime
+import operator
 import pytz
-from typing import List, Optional
+from typing import Any, Callable, List, Optional
 
 import numpy as np
 import pandas as pd
 
 from .processor import Processor
-from ..common import ProcessorAction, ActionType, Context, TradingFrequency, DAYS_IN_A_MONTH
+from ..common import ProcessorAction, ActionType, Context, TradingFrequency, DAYS_IN_A_MONTH, Position
 
 
 class TqqqProcessor(Processor):
@@ -16,12 +17,16 @@ class TqqqProcessor(Processor):
                  logging_timezone: Optional[pytz.timezone] = None) -> None:
         super().__init__(output_dir, logging_timezone)
         self._positions = dict()
+        self._early_signal = None
 
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
     def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
         return ['TQQQ']
+
+    def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
+        self._early_signal = None
 
     def process_data(self, context: Context) -> Optional[ProcessorAction]:
         if self.is_active(context.symbol):
@@ -47,6 +52,10 @@ class TqqqProcessor(Processor):
         action = self._open_high_momentum(context)
         if action:
             return action
+        for cmp_operator in [operator.gt, operator.lt]:
+            action = self._cross_close(context, cmp_operator)
+            if action:
+                return action
 
     def _mean_reversion(self, context: Context) -> Optional[ProcessorAction]:
         t = context.current_time.time()
@@ -264,6 +273,61 @@ class TqqqProcessor(Processor):
                                            'side': 'long'}
         return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 0.5)
 
+    def _cross_close(self, context: Context, cmp_operator: Callable[[Any, Any], bool]) -> Optional[ProcessorAction]:
+        exit_time = datetime.time(15, 0)
+        entry_time = datetime.time(10, 0)
+        n = 4
+        t = context.current_time.time()
+        if t >= exit_time:
+            return
+        if self._early_signal is not None:
+            if t >= entry_time:
+                self._positions[context.symbol] = self._early_signal
+                self._early_signal = None
+                return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
+            else:
+                return
+        cmp3_operator = lambda a, b, c: cmp_operator(a, b) and cmp_operator(b, c)
+        interday_closes = context.interday_lookback['Close'].to_numpy()
+        interday_opens = context.interday_lookback['Open'].to_numpy()
+        if not cmp3_operator(interday_closes[-1], interday_closes[-2], interday_closes[-3]):
+            return
+        if not all(cmp_operator(interday_closes[i], interday_opens[i]) for i in range(-2, 0)):
+            return
+        if cmp_operator is operator.lt and interday_closes[-1] < max(interday_closes[-DAYS_IN_A_MONTH:]) * 0.85:
+            return
+        market_open_index = context.market_open_index
+        if market_open_index is None:
+            return
+        intraday_opens = context.intraday_lookback['Open'].to_numpy()[market_open_index:]
+        intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
+        if len(intraday_closes) < n:
+            return
+        if not cmp3_operator(intraday_closes[-1], context.prev_day_close, intraday_opens[-1]):
+            return
+        current_changes = [intraday_closes[i] / intraday_opens[i] - 1 for i in range(-n, 0)]
+        if sum(cmp_operator(c, 0) for c in current_changes) < n - 1:
+            return
+        abs_current_changes = sorted([abs(c) for c in current_changes])
+        for c in current_changes:
+            if (not cmp_operator(c, 0)) and abs(c) > abs_current_changes[1]:
+                return
+        adjust = 0.997 if cmp_operator is operator.lt else 1.003
+        if any(cmp3_operator(intraday_opens[i] * adjust, context.prev_day_close, intraday_closes[i])
+               for i in range(len(intraday_closes) - 1)):
+            return
+        self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] Cross close strategy. '
+                           f'Current price: {context.current_price}. Current bar open price: {intraday_opens[-1]}. '
+                           f'Last {n} bar changes: {current_changes}. Prev day close: {context.prev_day_close}')
+        position = {'entry_time': context.current_time,
+                    'strategy': 'cross_close',
+                    'side': 'long'}
+        if t < entry_time:
+            self._early_signal = position
+            return
+        self._positions[context.symbol] = position
+        return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
+
     def _close_position(self, context: Context) -> Optional[ProcessorAction]:
         def exit_position():
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
@@ -276,12 +340,12 @@ class TqqqProcessor(Processor):
         action_type = ActionType.SELL_TO_CLOSE if side == 'long' else ActionType.BUY_TO_CLOSE
         action = ProcessorAction(context.symbol, action_type, 1)
         market_open_index = context.market_open_index
-        intraday_closes = context.intraday_lookback['Close'][market_open_index:]
+        intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
         strategy = position['strategy']
         if strategy == 'last_hour_momentum':
             # Stop loss
             if context.current_time.time() == datetime.time(15, 45):
-                entry_price = context.intraday_lookback['Close'].iloc[-4]
+                entry_price = intraday_closes[-4]
                 if side == 'short' and context.current_price > entry_price * 1.01:
                     return exit_position()
                 if side == 'long' and context.current_price < entry_price * 0.99:
@@ -302,3 +366,15 @@ class TqqqProcessor(Processor):
             stop_loss = context.current_price == np.min(intraday_closes)
             if stop_loss or context.current_time.time() == datetime.time(16, 0):
                 return exit_position()
+        if strategy == 'cross_close':
+            if (context.current_time >= position['entry_time'] + datetime.timedelta(minutes=60)
+                    or context.current_time.time() >= datetime.time(15, 0)):
+                return exit_position()
+            entry_index = len(intraday_closes) - (context.current_time - position['entry_time']).seconds // 300 - 1
+            if entry_index >= 0:
+                entry_price = intraday_closes[entry_index]
+                if intraday_closes[-1] < intraday_closes[-2]:
+                    if context.current_price > entry_price * 1.01:
+                        return exit_position()
+                    elif context.current_price > entry_price * 1.005 and intraday_closes[-2] < intraday_closes[-3]:
+                        return exit_position()
