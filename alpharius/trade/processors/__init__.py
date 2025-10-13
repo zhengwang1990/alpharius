@@ -14,3 +14,4 @@ from .open_high_processor import OpenHighProcessor
 from .exp_processor import ExpProcessor
 from .down_four_v2_processor import DownFourV2Processor
 from .overnight_tqqq_processor import OvernightTqqqProcessor
+from .processor import instantiate_processor
