@@ -215,13 +215,13 @@ class EmailSender:
         message.attach(history_image)
         self._send_mail(message)
 
-    def send_alert(self, error_message: Optional[str]):
+    def send_alert(self, error_message: Optional[str], title: str = 'An unexpected error was encountered'):
         if not self._client:
             self._logger.warning('Email client not created')
             return
         else:
             self._logger.info('Sending alert')
-        message = self._create_message('Alert', 'An unexpected error was encountered')
+        message = self._create_message('Alert', title)
         html_template_path = os.path.join(_HTML_DIR, 'alert.html')
         with open(html_template_path, 'r') as f:
             html_template = f.read()

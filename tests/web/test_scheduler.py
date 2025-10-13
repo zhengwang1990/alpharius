@@ -92,7 +92,7 @@ def test_backtest_run(mocker, mock_trading_client):
 
 
 @pytest.mark.parametrize('method_name',
-                         ['_backtest_run', '_trade_run', 'backfill'])
+                         ['_backtest_run', '_trade_run', 'backfill', 'log_scan'])
 def test_email_send(mocker, method_name, mock_smtp, mock_alpaca, mock_trading_client, mock_engine):
     mocker.patch.object(image, 'MIMEImage', autospec=True)
     mocker.patch.object(multipart.MIMEMultipart, 'as_string', return_value='')
@@ -103,4 +103,11 @@ def test_email_send(mocker, method_name, mock_smtp, mock_alpaca, mock_trading_cl
 
     getattr(scheduler, method_name)()
 
+    mock_smtp.assert_called_once()
+
+
+def test_log_scan(mocker, mock_smtp, mock_engine):
+    mocker.patch.object(mock_engine.conn, 'execute',
+                        return_value=[('Trading', '[ERROR] [2025-10-10] Fake error')])
+    scheduler.log_scan()
     mock_smtp.assert_called_once()

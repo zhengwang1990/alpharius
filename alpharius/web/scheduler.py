@@ -6,6 +6,7 @@ import traceback
 from concurrent import futures
 
 import flask
+import pytz
 from flask_apscheduler import APScheduler
 
 import alpharius.data as data
@@ -119,6 +120,22 @@ def backtest():
     with futures.ProcessPoolExecutor(max_workers=1) as pool:
         pool.submit(_backtest_run).result()
     app.logger.info('Finish backtesting')
+
+
+@scheduler.task('cron', id='backtest', day_of_week='mon-fri',
+                hour=16, minute=10, timezone='America/New_York')
+@email_on_exception
+def log_scan():
+    today_str = datetime.datetime.now(pytz.timezone('America/New_York')).strftime('%F')
+    results = Db().get_logs(today_str)
+    error_lines = []
+    for logger, content in results:
+        for line in content.split('\n'):
+            if line.lower().startswith('[error] ['):
+                error_lines.append(line)
+    if error_lines:
+        error_message = '\n\n'.join(error_lines)
+        EmailSender().send_alert(error_message, title='Error detected in trading logs')
 
 
 @bp.route('/trigger', methods=['POST'])
