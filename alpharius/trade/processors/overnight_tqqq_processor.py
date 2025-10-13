@@ -56,7 +56,7 @@ class OvernightTqqqProcessor(Processor):
                         context.current_price / interday_closes[-1] < 0.95):
                     return
                 price_high = max(intraday_high, context.prev_day_close)
-                if price_high / intraday_low - 1 > 0.06 and context.current_price < 0.95 * max(two_week_closes):
+                if price_high / intraday_low - 1 > 0.06 and context.current_price < 0.94 * max(two_week_closes):
                     return
             if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
                 return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
