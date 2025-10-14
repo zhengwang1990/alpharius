@@ -73,24 +73,6 @@ def _trade_impl():
         app.logger.warning('Cannot acquire trade lock')
 
 
-@email_on_exception
-def _backtest_run():
-    latest_day = get_latest_day()
-    calendar = Client().get_calendar()
-    if len(calendar) < 2 or calendar[-1].date.strftime('%F') != latest_day.strftime('%F'):
-        return
-    start_date = calendar[-2].date.strftime('%F')
-    end_date = (latest_day + datetime.timedelta(days=1)).strftime('%F')
-    transactions = Backtest(start_date=start_date,
-                            end_date=end_date,
-                            processors=PROCESSORS,
-                            data_client=data.get_default_data_client()).run()
-    db_client = Db()
-    for transaction in transactions:
-        if transaction.exit_time.date() == latest_day:
-            db_client.insert_backtest(transaction)
-
-
 def get_job_status():
     global job_status
     return job_status
@@ -115,17 +97,31 @@ def backfill():
 
 @scheduler.task('cron', id='backtest', day_of_week='mon-fri',
                 hour=16, minute=15, timezone='America/New_York')
+@email_on_exception
 def backtest():
     app.logger.info('Start backtesting')
-    with futures.ProcessPoolExecutor(max_workers=1) as pool:
-        pool.submit(_backtest_run).result()
+    latest_day = get_latest_day()
+    calendar = Client().get_calendar()
+    if len(calendar) < 2 or calendar[-1].date.strftime('%F') != latest_day.strftime('%F'):
+        return
+    start_date = calendar[-2].date.strftime('%F')
+    end_date = (latest_day + datetime.timedelta(days=1)).strftime('%F')
+    transactions = Backtest(start_date=start_date,
+                            end_date=end_date,
+                            processors=PROCESSORS,
+                            data_client=data.get_default_data_client()).run()
+    db_client = Db()
+    for transaction in transactions:
+        if transaction.exit_time.date() == latest_day:
+            db_client.insert_backtest(transaction)
     app.logger.info('Finish backtesting')
 
 
 @scheduler.task('cron', id='backtest', day_of_week='mon-fri',
-                hour=16, minute=10, timezone='America/New_York')
+                hour=16, minute=5, timezone='America/New_York')
 @email_on_exception
 def log_scan():
+    app.logger.info('Start log scan')
     today_str = datetime.datetime.now(pytz.timezone('America/New_York')).strftime('%F')
     results = Db().get_logs(today_str)
     error_lines = []
@@ -136,6 +132,7 @@ def log_scan():
     if error_lines:
         error_message = '\n\n'.join(error_lines)
         EmailSender().send_alert(error_message, title='Error detected in trading logs')
+    app.logger.info('Finish log scan')
 
 
 @bp.route('/trigger', methods=['POST'])

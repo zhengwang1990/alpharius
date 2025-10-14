@@ -71,28 +71,18 @@ def test_scheduler(job_name):
     assert job.next_run_time.timestamp() < time.time() + 86400 * 3
 
 
-def test_backtest(mocker):
-    mock_submit = mocker.Mock()
-    mock_pool = mocker.patch.object(futures, 'ProcessPoolExecutor')
-    mock_pool.return_value.__enter__.return_value.submit = mock_submit
-
-    scheduler.backtest()
-
-    mock_submit.assert_called_once()
-
-
-def test_backtest_run(mocker, mock_trading_client):
+def test_backtest(mocker, mock_trading_client):
     mocker.patch.object(pd.DataFrame, 'to_pickle')
     # Today is set to 2023-08-31
     mocker.patch.object(time, 'time', return_value=1693450000)
 
-    scheduler._backtest_run()
+    scheduler.backtest()
 
     assert mock_trading_client.get_calendar_call_count > 0
 
 
 @pytest.mark.parametrize('method_name',
-                         ['_backtest_run', '_trade_run', 'backfill', 'log_scan'])
+                         ['backtest', '_trade_run', 'backfill', 'log_scan'])
 def test_email_send(mocker, method_name, mock_smtp, mock_alpaca, mock_trading_client, mock_engine):
     mocker.patch.object(image, 'MIMEImage', autospec=True)
     mocker.patch.object(multipart.MIMEMultipart, 'as_string', return_value='')
