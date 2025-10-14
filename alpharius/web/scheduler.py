@@ -117,7 +117,7 @@ def backtest():
     app.logger.info('Finish backtesting')
 
 
-@scheduler.task('cron', id='backtest', day_of_week='mon-fri',
+@scheduler.task('cron', id='log_scan', day_of_week='mon-fri',
                 hour=16, minute=5, timezone='America/New_York')
 @email_on_exception
 def log_scan():
