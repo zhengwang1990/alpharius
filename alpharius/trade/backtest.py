@@ -6,6 +6,7 @@ import math
 import os
 import signal
 import time
+import threading
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 import alpaca.trading as trading
@@ -93,7 +94,8 @@ class Backtest:
             ))
         self._market_dates = [market_day.date for market_day in calendar
                               if market_day.date < self._end_date.date()]
-        signal.signal(signal.SIGINT, self._safe_exit)
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGINT, self._safe_exit)
 
         self._run_start_time = None
         self._interday_load_time = 0
