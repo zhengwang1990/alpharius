@@ -75,7 +75,7 @@ class TqqqProcessor(Processor):
             if change > 0.8 * l2h:
                 self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                    f'Mean reversion strategy. Side: short. Change: {change * 100:.2f}%. '
-                                   f'Threshold: {l2h * 100:.2f}%. Single bar max {single_bar_max * 100:.2f}%')
+                                   f'Threshold: {l2h * 0.8 * 100:.2f}%. Single bar max {single_bar_max * 100:.2f}%')
             if change > l2h and single_bar_max < 0.5 * change:
                 self._positions[context.symbol] = {'side': 'short',
                                                    'strategy': 'mean_reversion',
@@ -89,14 +89,18 @@ class TqqqProcessor(Processor):
             if change < 0.8 * h2l:
                 self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                    f'Mean reversion strategy. Current price: {context.current_price}. '
-                                   f'Side: long. Change: {change * 100:.2f}%. Threshold: {h2l * 100:.2f}%.')
+                                   f'Side: long. Change: {change * 100:.2f}%. Threshold: {h2l * 0.8 * 100:.2f}%.')
             separator = len(intraday_closes) - 12
             start = max(0, len(intraday_closes) - 36)
             if (max(intraday_closes[separator:]) - min(intraday_closes[separator:]) >
                     3 * (max(intraday_closes[start:separator]) - min(intraday_closes[start:separator]))):
+                self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                                   f'Mean reversion strategy. High volatility in last hour. Skip.')
                 return
             bar_sizes = [abs(intraday_closes[i] - intraday_opens[i]) for i in range(-12, 0)]
             if bar_sizes[-1] > 5 * np.median(bar_sizes):
+                self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                                   f'Mean reversion strategy. Last bar size too large. Skip.')
                 return
             if change < h2l:
                 self._positions[context.symbol] = {'side': 'long',
