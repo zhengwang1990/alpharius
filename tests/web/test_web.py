@@ -151,6 +151,14 @@ def test_backtest(client, mock_engine, mocker):
              pd.to_datetime('2023-01-10T14:40:00-04:00'),
              pd.to_datetime('2023-01-10T15:35:00-04:00'),
              10, None, 0.01, None, None),
+            ('F', True, 'Processor', 11.4, 11.3,
+             pd.to_datetime('2023-01-10T15:40:00-04:00'),
+             pd.to_datetime('2023-01-10T15:50:00-04:00'),
+             10, None, 0.01, None, None),
+            ('G', True, 'Processor', 12.5, 12.3,
+             pd.to_datetime('2023-01-10T15:50:00-04:00'),
+             pd.to_datetime('2023-01-10T15:55:00-04:00'),
+             10, None, 0.01, None, None),
         ],
         # Transactions
         [

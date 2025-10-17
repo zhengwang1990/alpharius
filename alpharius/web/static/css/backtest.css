@@ -22,6 +22,10 @@
     text-align: center;
 }
 
+.card table .diff_half {
+    width: 50%;
+}
+
 .badge-shape {
     font-size: 11px;
 }

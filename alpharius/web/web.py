@@ -493,7 +493,19 @@ def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Tran
                  '<td></td><td></td><td class="lg-hidden"></td></tr><td class="lg-show"></td></tr>')
     a_set = {(t.symbol, t.processor, t.entry_time, t.exit_time) for t in a_transactions}
     b_set = {(t.symbol, t.processor, t.entry_time, t.exit_time) for t in b_transactions}
-    while i < len(a_transactions) and j < len(b_transactions):
+    while i < len(a_transactions) or j < len(b_transactions):
+        if i == len(a_transactions):
+            extra += 1
+            table['backtest'] += empty_row
+            table['trade'] += _get_row(b_transactions[j], html_class='diff_add')
+            j += 1
+            continue
+        elif j == len(b_transactions):
+            miss += 1
+            table['backtest'] += _get_row(a_transactions[i], html_class='diff_sub')
+            table['trade'] += empty_row
+            i += 1
+            continue
         a = a_transactions[i]
         b = b_transactions[j]
         if (a.symbol == b.symbol and a.processor == b.processor
