@@ -496,31 +496,30 @@ def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Tran
     while i < len(a_transactions) and j < len(b_transactions):
         a = a_transactions[i]
         b = b_transactions[j]
-        if a.symbol == b.symbol and a.processor == b.processor:
-            if (a.entry_time == b.entry_time
-                    and a.exit_time == b.exit_time):
-                comm += 1
-                table['backtest'] += _get_row(a_transactions[i])
-                table['trade'] += _get_row(b_transactions[j])
-                i += 1
-                j += 1
-            else:
-                if (a.symbol, a.processor, a.entry_time, a.exit_time) in b_set:
-                    extra += 1
-                    table['backtest'] += empty_row
-                    table['trade'] += _get_row(b_transactions[j], html_class='diff_add')
-                    j += 1
-                elif (b.symbol, b.processor, b.entry_time, b.exit_time) in a_set:
-                    miss += 1
-                    table['backtest'] += _get_row(a_transactions[i], html_class='diff_sub')
-                    table['trade'] += empty_row
-                    i += 1
-                else:
-                    time_diff += 1
-                    table['backtest'] += _get_row(a_transactions[i], html_class='diff_time')
-                    table['trade'] += _get_row(b_transactions[j], html_class='diff_time')
-                    i += 1
-                    j += 1
+        if (a.symbol == b.symbol and a.processor == b.processor
+                and a.entry_time == b.entry_time
+                and a.exit_time == b.exit_time):
+            comm += 1
+            table['backtest'] += _get_row(a_transactions[i])
+            table['trade'] += _get_row(b_transactions[j])
+            i += 1
+            j += 1
+        elif (a.symbol, a.processor, a.entry_time, a.exit_time) in b_set:
+            extra += 1
+            table['backtest'] += empty_row
+            table['trade'] += _get_row(b_transactions[j], html_class='diff_add')
+            j += 1
+        elif (b.symbol, b.processor, b.entry_time, b.exit_time) in a_set:
+            miss += 1
+            table['backtest'] += _get_row(a_transactions[i], html_class='diff_sub')
+            table['trade'] += empty_row
+            i += 1
+        elif a.symbol == b.symbol and a.processor == b.processor:
+            time_diff += 1
+            table['backtest'] += _get_row(a_transactions[i], html_class='diff_time')
+            table['trade'] += _get_row(b_transactions[j], html_class='diff_time')
+            i += 1
+            j += 1
         elif a.exit_time <= b.exit_time:
             miss += 1
             table['backtest'] += _get_row(a_transactions[i], html_class='diff_sub')
