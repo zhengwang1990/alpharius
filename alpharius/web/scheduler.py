@@ -6,6 +6,7 @@ import traceback
 from concurrent import futures
 
 import flask
+import pandas as pd
 import pytz
 from flask_apscheduler import APScheduler
 
@@ -13,7 +14,7 @@ import alpharius.data as data
 from alpharius.db import Db
 from alpharius.notification.email_sender import EmailSender
 from alpharius.trade import PROCESSORS, Backtest, Live
-from alpharius.utils import get_latest_day, TIME_ZONE
+from alpharius.utils import get_current_time, get_latest_day, TIME_ZONE
 from .client import Client
 
 app = flask.Flask(__name__)
@@ -25,6 +26,7 @@ scheduler.init_app(app)
 scheduler.start()
 lock = threading.RLock()
 job_status = 'idle'
+backtest_finish_time = None
 
 
 def email_on_exception(func):
@@ -73,9 +75,14 @@ def _trade_impl():
         app.logger.warning('Cannot acquire trade lock')
 
 
-def get_job_status():
+def get_job_status() -> str:
     global job_status
     return job_status
+
+
+def get_backtest_finish_time() -> pd.Timestamp | None:
+    global backtest_finish_time
+    return backtest_finish_time
 
 
 @scheduler.task('cron', id='trade', day_of_week='mon-fri',
@@ -99,6 +106,7 @@ def backfill():
                 hour=16, minute=15, timezone='America/New_York')
 @email_on_exception
 def backtest():
+    global backtest_finish_time
     app.logger.info('Start backtesting')
     latest_day = get_latest_day()
     calendar = Client().get_calendar()
@@ -115,6 +123,7 @@ def backtest():
         if transaction.exit_time.date() == latest_day:
             db_client.insert_backtest(transaction)
     app.logger.info('Finish backtesting')
+    backtest_finish_time = get_current_time()
 
 
 @scheduler.task('cron', id='log_scan', day_of_week='mon-fri',

@@ -73,11 +73,13 @@ class DownFourProcessor(Processor):
         if len(intraday_closes) >= N + 1 and intraday_closes[-N - 1] < intraday_opens[-N - 1] * 0.95:
             return
         h2l = context.h2l_avg
-        is_trade = losses[-2] < 0.268 * h2l and losses[-1] > 0.05 * h2l
-        if is_trade or (context.mode == Mode.TRADE and losses[-2] < 0.24 * h2l):
+        threshold1 = 0.268 * h2l
+        threshold2 = 0.05 * h2l
+        is_trade = losses[-2] < threshold1 and losses[-1] > threshold2
+        if is_trade or (context.mode == Mode.TRADE and losses[-2] < 0.8 * threshold1):
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                               f'Prev loss: {losses[-2] * 100:.2f}%. '
-                               f'Current loss: {losses[-1] * 100:.2f}%. '
+                               f'Prev loss: {losses[-2] * 100:.2f}%. Threshold1: <{threshold1 * 100:.2f}%. '
+                               f'Current loss: {losses[-1] * 100:.2f}%. Threshold2: >{threshold2 * 100:.2f}%. '
                                f'H2l: {h2l * 100:.2f}%. Current price {context.current_price}.')
         if is_trade:
             self._positions[context.symbol] = {'entry_time': context.current_time,

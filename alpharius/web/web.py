@@ -1,6 +1,5 @@
 import collections
 import datetime
-import difflib
 import functools
 import json
 import math
@@ -20,14 +19,14 @@ from alpharius.utils import (
     compute_bernoulli_ci95, Transaction
 )
 from .client import Client
-from .scheduler import get_job_status
+from .scheduler import get_job_status, get_backtest_finish_time
 
 bp = flask.Blueprint('web', __name__)
 
 # First time backtest is introduced
 FIRST_BACKTEST_DATE = '2023-01-06'
 # The time backtest cron job should finish.
-BACKTEST_FINISH_TIME = datetime.time(16, 30)
+DEFAULT_BACKTEST_FINISH_TIME = datetime.time(16, 30)
 ACCESS_KEY = 'access'
 ACCESS_VAL = os.environ.get('ACCESS_CODE')
 
@@ -550,7 +549,10 @@ def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Tran
 @access_control
 def backtest():
     current_time = get_current_time()
-    if current_time.time() < BACKTEST_FINISH_TIME:
+    backtest_finish_time = get_backtest_finish_time()
+    if backtest_finish_time is None or backtest_finish_time.date() != current_time.date():
+        backtest_finish_time = DEFAULT_BACKTEST_FINISH_TIME
+    if current_time.time() < backtest_finish_time:
         current_time -= datetime.timedelta(days=1)
     ndays = flask.request.args.get('ndays')
     ndays = int(ndays) if ndays and ndays.isdigit() else 7
