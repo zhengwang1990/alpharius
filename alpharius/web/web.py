@@ -552,6 +552,8 @@ def backtest():
     backtest_finish_time = get_backtest_finish_time()
     if backtest_finish_time is None or backtest_finish_time.date() != current_time.date():
         backtest_finish_time = DEFAULT_BACKTEST_FINISH_TIME
+    else:
+        backtest_finish_time = backtest_finish_time.time()
     if current_time.time() < backtest_finish_time:
         current_time -= datetime.timedelta(days=1)
     ndays = flask.request.args.get('ndays')

@@ -4,6 +4,8 @@ import time
 import pandas as pd
 import pytest
 from alpharius.web import web
+import alpharius.web.scheduler as scheduler
+from alpharius.utils import get_current_time
 
 
 @pytest.mark.parametrize('route',
@@ -181,6 +183,11 @@ def test_backtest(client, mock_engine, mocker):
         ],
     ]
 
+    assert client.get('/backtest').status_code == 200
+
+
+def test_backtest_with_finish_time(client):
+    scheduler.backtest_finish_time = get_current_time()
     assert client.get('/backtest').status_code == 200
 
 
