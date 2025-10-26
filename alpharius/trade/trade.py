@@ -14,6 +14,7 @@ matplotlib.use('agg')
 PROCESSORS = [
     processors.AbcdProcessor,
     processors.DownFourProcessor,
+    processors.H2lHourProcessor,
     processors.L2hProcessor,
     processors.O2lProcessor,
     processors.OpenHighProcessor,

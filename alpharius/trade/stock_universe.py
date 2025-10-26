@@ -91,7 +91,10 @@ class CachedStockUniverse(BaseStockUniverse):
                                   view_time.strftime('%F') + '.json')
         if os.path.isfile(cache_file):
             with open(cache_file, 'r') as f:
-                return json.load(f)
+                try:
+                    return json.load(f)
+                except json.JSONDecodeError:
+                    pass
         stock_universe = self.get_stock_universe_impl(view_time)
         with open(cache_file, 'w') as f:
             json.dump(stock_universe, f)

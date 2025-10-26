@@ -8,13 +8,12 @@ from alpharius.data import DataClient
 from .processor import Processor
 from ..common import (
     ActionType, Context, TradingFrequency, Position, PositionStatus,
-    ProcessorAction, Mode, DAYS_IN_A_QUARTER)
+    ProcessorAction, Mode, DAYS_IN_A_WEEK, DAYS_IN_A_QUARTER)
 from ..stock_universe import IntradayVolatilityStockUniverse
 
-NUM_UNIVERSE_SYMBOLS = 20
 EXIT_TIME = datetime.time(16, 0)
 # 3 hours only works if 1 hour and 2 hours are not triggered
-PARAMS = [(10, 1), (13, 1), (25, 1.75), (30, 2.25), (37, 2.25)]
+PARAMS = [(10, 1), (13, 1.15), (25, 1.75), (30, 2.25), (37, 2.25)]
 
 
 class H2lHourProcessor(Processor):
@@ -29,7 +28,8 @@ class H2lHourProcessor(Processor):
         self._stock_universe = IntradayVolatilityStockUniverse(lookback_start_date,
                                                                lookback_end_date,
                                                                data_client,
-                                                               num_stocks=NUM_UNIVERSE_SYMBOLS)
+                                                               num_stocks=10,
+                                                               num_top_volume=50)
 
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
@@ -56,24 +56,31 @@ class H2lHourProcessor(Processor):
         if t >= EXIT_TIME:
             return
         interday_closes = context.interday_lookback['Close'].tolist()
-        # Avoid short squeeze caused by retail trader
-        if max(interday_closes[-1], context.current_price) / interday_closes[-5] > 4:
+        interday_week_changes = [interday_closes[i] / interday_closes[i - 1] - 1 for i in range(-DAYS_IN_A_WEEK, 0)]
+        if any(abs(c) > 0.4 for c in interday_week_changes):
             return
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
         intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
-        if len(intraday_closes) < 10:
+        if len(intraday_closes) < PARAMS[0][0]:
             return
         if context.current_price > np.min(intraday_closes):
             return
-        if abs(context.current_price / context.prev_day_close - 1) > 0.5:
+        if abs(context.current_price / context.prev_day_close - 1) > 0.25:
             return
         intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
         if intraday_opens[-1] > context.prev_day_close > intraday_closes[-1]:
             return
         if interday_closes[-1] > 10 * np.min(interday_closes[-DAYS_IN_A_QUARTER:]):
             return
+        bar_sizes = [abs(intraday_closes[i] - intraday_opens[i]) for i in range(-min(30, len(intraday_opens)), 0)]
+        if bar_sizes[-1] > 3 * np.median(bar_sizes):
+            return
+        if abs(context.prev_day_close - intraday_opens[0]) > abs(intraday_opens[0] - context.current_price):
+            return
+        n_open_down = sum(intraday_closes[i] < intraday_opens[i] for i in range(6))
+        zd = max(n_open_down - 4, 0) * 0.05
         h2l_avg = context.h2l_avg
         h2l_std = context.h2l_std
         lower_threshold = max(h2l_avg - 3 * h2l_std, -0.5)
@@ -81,8 +88,10 @@ class H2lHourProcessor(Processor):
             if len(intraday_closes) < n:
                 continue
             current_loss = context.current_price / intraday_closes[-n] - 1
-            z0 = 0.1 if t < datetime.time(11, 0) or t > datetime.time(15, 0) else 0
-            upper_threshold = h2l_avg - (z + z0) * h2l_std
+            z0 = 0.15 if t < datetime.time(11, 0) or t > datetime.time(15, 0) else 0
+            if context.current_price < context.prev_day_close < intraday_closes[-n]:
+                z0 += 0.05
+            upper_threshold = h2l_avg - (z + z0 + zd) * h2l_std
             is_trade = lower_threshold < current_loss < upper_threshold
             if is_trade or (context.mode == Mode.TRADE and current_loss < upper_threshold * 0.8):
                 self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
@@ -96,15 +105,7 @@ class H2lHourProcessor(Processor):
 
     def _close_position(self, context: Context) -> Optional[ProcessorAction]:
         position = self._positions[context.symbol]
-        intraday_closes = context.intraday_lookback['Close']
-        index = -position['n'] - (context.current_time - position['entry_time']).seconds // 300
-        stop_loss = False
-        if len(intraday_closes) >= abs(index):
-            current_loss = context.current_price / intraday_closes[index] - 1
-            lower_threshold = max(context.h2l_avg - 3 * context.h2l_std, -0.5)
-            stop_loss = current_loss < lower_threshold
-        if (stop_loss or
-                context.current_time >= position['entry_time'] + datetime.timedelta(minutes=35) or
+        if (context.current_time >= position['entry_time'] + datetime.timedelta(minutes=30) or
                 context.current_time.time() >= EXIT_TIME):
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                f'Closing position. Current price {context.current_price}.')
