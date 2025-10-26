@@ -11,8 +11,6 @@ from ..common import (
     ProcessorAction, Mode, DAYS_IN_A_QUARTER)
 from ..stock_universe import IntradayVolatilityStockUniverse
 
-NUM_UNIVERSE_SYMBOLS = 40
-
 
 class H2lFiveMinProcessor(Processor):
 
@@ -25,7 +23,8 @@ class H2lFiveMinProcessor(Processor):
         self._stock_universe = IntradayVolatilityStockUniverse(lookback_start_date,
                                                                lookback_end_date,
                                                                data_client,
-                                                               num_stocks=NUM_UNIVERSE_SYMBOLS)
+                                                               num_stocks=10,
+                                                               num_top_volume=50)
         self._memo = dict()
 
     def get_trading_frequency(self) -> TradingFrequency:
@@ -57,7 +56,7 @@ class H2lFiveMinProcessor(Processor):
 
     def _open_position(self, context: Context) -> Optional[ProcessorAction]:
         t = context.current_time.time()
-        if not (datetime.time(10, 0) <= t < datetime.time(10, 30) or
+        if not (datetime.time(10, 5) <= t < datetime.time(10, 30) or
                 datetime.time(13, 0) <= t < datetime.time(15, 30)):
             return
         market_open_index = context.market_open_index
@@ -94,10 +93,10 @@ class H2lFiveMinProcessor(Processor):
 
     def _close_position(self, context: Context) -> Optional[ProcessorAction]:
         position = self._positions[context.symbol]
-        intraday_closes = context.intraday_lookback['Close']
+        intraday_closes = context.intraday_lookback['Close'].to_numpy()
         take_profit = len(intraday_closes) >= 2 and context.current_price > intraday_closes[-2]
         is_close = (take_profit or
-                    context.current_time >= position['entry_time'] + datetime.timedelta(minutes=10))
+                    context.current_time >= position['entry_time'] + datetime.timedelta(minutes=15))
         self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                            f'Closing position: {is_close}. Current price {context.current_price}.')
         if is_close:
