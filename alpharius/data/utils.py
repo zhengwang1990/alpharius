@@ -84,6 +84,8 @@ def load_intraday_dataset(symbols: Iterable[str],
     return res
 
 
+@retrying.retry(stop_max_attempt_number=3,
+                wait_exponential_multiplier=5000)
 def get_transactions(start_date: Optional[str], data_client: DataClient) -> List[Transaction]:
     """Gets transactions from start date until today.
 
