@@ -20,6 +20,7 @@ from ...fakes import FakeDataClient
         ([11], pd.Timestamp('2025-01-15 15:35:00-05')),
         ([1, 2, 3, 4, 5, 6, 7, 8], pd.Timestamp('2025-01-15 11:05:00-05')),
         ([23, 32, 32, 21, 21, 34], pd.Timestamp('2025-01-15 10:00:00-05')),
+        ([20 - i * 0.1 for i in range(100)], pd.Timestamp('2025-01-15 09:50:00-05')),
     ],
 )
 def test_all_processors(data, current_time):
