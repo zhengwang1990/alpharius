@@ -1,6 +1,7 @@
 import re
 
 import pandas as pd
+import pytest
 
 import alpharius.trade.processors as processors
 from alpharius.data import TimeInterval
@@ -9,16 +10,26 @@ from alpharius.trade import Context
 from ...fakes import FakeDataClient
 
 
-def test_all_processors():
+@pytest.mark.parametrize(
+    'data,current_time',
+    [
+        (None, pd.Timestamp('2025-01-15 10:35:00-05')),
+        ([100, 101, 102, 103, 104, 105, 106, 107, 108, 109], pd.Timestamp('2025-01-15 10:30:00-05')),
+        ([50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40], pd.Timestamp('2025-01-15 12:30:00-05')),
+        ([70, 75, 73, 69, 49, 32, 23, 87, 233, 314, 11, 12, 56], pd.Timestamp('2025-01-15 15:00:00-05')),
+        ([11], pd.Timestamp('2025-01-15 15:35:00-05')),
+        ([1, 2, 3, 4, 5, 6, 7, 8], pd.Timestamp('2025-01-15 11:05:00-05')),
+    ],
+)
+def test_all_processors(data, current_time):
     pattern = re.compile(r'^[A-Z]\w+Processor$')
-    data_client = FakeDataClient()
-    current_time = pd.Timestamp('2025-01-15 10:35:00-04')
+    data_client = FakeDataClient(data)
     interday_lookback = data_client.get_data('FAKE',
                                              start_time=pd.Timestamp('2024-01-15'),
                                              end_time=pd.Timestamp('2025-01-14'),
                                              time_interval=TimeInterval.DAY)
     intraday_lookback = data_client.get_data('FAKE',
-                                             start_time=pd.Timestamp('2025-01-15 09:00:00-04'),
+                                             start_time=pd.Timestamp('2025-01-15 09:00:00-05'),
                                              end_time=current_time,
                                              time_interval=TimeInterval.FIVE_MIN)
     for attr in dir(processors):

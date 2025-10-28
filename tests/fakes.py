@@ -384,11 +384,11 @@ class FakeDbEngine:
 
 
 class FakeDataClient(DataClient):
-    def __init__(self):
+    def __init__(self, data: Optional[List[float]] = None):
         self.get_data_call_count = 0
         self.get_last_trades_call_count = 0
-        self._value_cycle = itertools.cycle([42, 40, 41, 43, 42, 41.5, 40,
-                                             41, 42, 38, 41, 42])
+        data = data or [42, 40, 41, 43, 42, 41.5, 40, 41, 42, 38, 41, 42]
+        self._value_cycle = itertools.cycle(data)
 
     def get_data(self,
                  symbol: str,
@@ -416,8 +416,12 @@ class FakeDataClient(DataClient):
             pd_timestamp = pd.to_datetime(t, unit='s', utc=True).tz_convert(TIME_ZONE)
             if pd_timestamp.isoweekday() < 6:
                 index.append(pd_timestamp)
-                data.append([np.float32(42.0), np.float32(50.01), np.float32(35.02),
-                             np.float32(next(self._value_cycle)), np.uint32(123)])
+                open_price = next(self._value_cycle)
+                close_price = next(self._value_cycle)
+                high_price = max(open_price, close_price) * 1.01
+                low_price = min(open_price, close_price) * 0.99
+                data.append([np.float32(open_price), high_price, low_price,
+                             np.float32(close_price), np.uint32(123)])
         return pd.DataFrame(data, index=index, columns=DATA_COLUMNS)
 
     def get_last_trades(self, symbols: List[str]) -> Dict[str, float]:
