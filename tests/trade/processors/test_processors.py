@@ -19,6 +19,7 @@ from ...fakes import FakeDataClient
         ([70, 75, 73, 69, 49, 32, 23, 87, 233, 314, 11, 12, 56], pd.Timestamp('2025-01-15 15:00:00-05')),
         ([11], pd.Timestamp('2025-01-15 15:35:00-05')),
         ([1, 2, 3, 4, 5, 6, 7, 8], pd.Timestamp('2025-01-15 11:05:00-05')),
+        ([23, 32, 32, 21, 21, 34], pd.Timestamp('2025-01-15 10:00:00-05')),
     ],
 )
 def test_all_processors(data, current_time):
@@ -44,7 +45,7 @@ def test_all_processors(data, current_time):
 
             contexts = [Context(symbol,
                                 current_time,
-                                current_price=100.56,
+                                current_price=data[-1] + 2.5 if data else 100.42,
                                 interday_lookback=interday_lookback,
                                 intraday_lookback=intraday_lookback)
                         for symbol in stock_universe]
