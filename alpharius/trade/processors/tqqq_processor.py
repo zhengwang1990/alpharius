@@ -90,19 +90,21 @@ class TqqqProcessor(Processor):
                 self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                    f'Mean reversion strategy. Current price: {context.current_price}. '
                                    f'Side: long. Change: {change * 100:.2f}%. Threshold: {h2l * 0.8 * 100:.2f}%.')
-            separator = len(intraday_closes) - 12
-            start = max(0, len(intraday_closes) - 36)
-            if (max(intraday_closes[separator:]) - min(intraday_closes[separator:]) >
-                    3 * (max(intraday_closes[start:separator]) - min(intraday_closes[start:separator]))):
-                self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                                   f'Mean reversion strategy. High volatility in last hour. Skip.')
-                return
-            bar_sizes = [abs(intraday_closes[i] - intraday_opens[i]) for i in range(-12, 0)]
-            if bar_sizes[-1] > 5 * np.median(bar_sizes):
-                self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                                   f'Mean reversion strategy. Last bar size too large. Skip.')
-                return
-            if change < h2l:
+            is_trade = change < h2l
+            if is_trade:
+                separator = len(intraday_closes) - 12
+                start = max(0, len(intraday_closes) - 36)
+                if (max(intraday_closes[separator:]) - min(intraday_closes[separator:]) >
+                        3 * (max(intraday_closes[start:separator]) - min(intraday_closes[start:separator]))):
+                    self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                                       f'Mean reversion strategy. High volatility in last hour. Skip.')
+                    return
+                bar_sizes = [abs(intraday_closes[i] - intraday_opens[i]) for i in range(-12, 0)]
+                if bar_sizes[-1] > 5 * np.median(bar_sizes):
+                    self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                                       f'Mean reversion strategy. Last bar size too large. Skip.')
+                    return
+            if is_trade:
                 self._positions[context.symbol] = {'side': 'long',
                                                    'strategy': 'mean_reversion',
                                                    'entry_time': context.current_time}
@@ -152,19 +154,8 @@ class TqqqProcessor(Processor):
         if interday_closes[-1] > np.max(interday_closes[-DAYS_IN_A_MONTH:]) * 0.9:
             return
         market_open_index = context.market_open_index
-        intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
-        intraday_closes = context.intraday_lookback['Close'][market_open_index:].to_numpy()
-        if t == datetime.time(15, 30):
-            if len(intraday_closes) >= 12 and intraday_closes[-1] > intraday_closes[6] > intraday_opens[0]:
-                if max(intraday_closes) - context.current_price >= (max(intraday_closes) - min(intraday_closes)) * 0.1:
-                    return
-                if (intraday_closes[-1] - intraday_closes[-12] > 0.5 * (max(intraday_closes) - min(intraday_closes)) * 0.2
-                        and intraday_opens[0] - min(intraday_opens) < (max(intraday_opens) - min(intraday_opens)) * 0.05):
-                    return
-                if intraday_closes[-1] > intraday_opens[-1]:
-                    return _open_position('long')
-            else:
-                return
+        intraday_opens = context.intraday_lookback['Open'].to_numpy()[market_open_index:]
+        intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
         change_from_open = context.current_price / intraday_opens[0] - 1
         change_from_close = context.current_price / context.prev_day_close - 1
         h2l = context.h2l_avg
@@ -190,6 +181,10 @@ class TqqqProcessor(Processor):
                                    'Continuous up trend.')
                 return _open_position('long')
         if change_from_open > 0.7 * l2h:
+            bar_sizes = [abs(intraday_closes[ind] - intraday_opens[ind]) for ind in range(-12, 0)]
+            if bar_sizes[-1] > np.median(bar_sizes) * 5:
+                self._logger.debug('Last hour momentum. Last bar size too large. Skip.')
+                return
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] Last hour momentum strategy. '
                                f'Current price: {context.current_price}. '
                                f'Change from open [{change_from_open * 100:.2f}%] '
