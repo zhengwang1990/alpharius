@@ -404,12 +404,17 @@ class Client:
         result = {'dates': portfolio_dates[start_index:],
                   'symbols': ['My Portfolio'] + compare_symbols,
                   'values': [portfolio_values[start_index:]]}
+        all_dates = set(portfolio_dates)
         for symbol in compare_symbols:
+            # Make it resilient when portfolio_values misses some dates
+            for ind in bars[symbol].index:
+                if ind.strftime('%F') not in all_dates:
+                    bars[symbol].drop(ind, inplace=True)
             symbol_values = bars[symbol]['Close'].tolist()
             # In case symbol values do not include today's data
             if bars[symbol].index[-1].strftime('%F') != end_date:
                 symbol_values.append(self._alpaca.get_latest_trades([symbol])[symbol].p)
-            assert len(symbol_values) == len(portfolio_values)
+            assert len(symbol_values) == len(portfolio_values), f'Symbol {symbol} has a different length'
             result['values'].append(symbol_values[start_index:])
         app.logger.info('Time cost for get_daily_prices: [%.2fs]', time.time() - start)
         return result
