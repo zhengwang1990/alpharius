@@ -75,7 +75,7 @@ class TqqqProcessor(Processor):
             if change > 0.8 * l2h:
                 self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                    f'Mean reversion strategy. Side: short. Change: {change * 100:.2f}%. '
-                                   f'Threshold: {l2h * 0.8 * 100:.2f}%. Single bar max {single_bar_max * 100:.2f}%')
+                                   f'Threshold: {l2h * 100:.2f}%. Single bar max {single_bar_max * 100:.2f}%')
             if change > l2h and single_bar_max < 0.5 * change:
                 self._positions[context.symbol] = {'side': 'short',
                                                    'strategy': 'mean_reversion',
@@ -89,7 +89,7 @@ class TqqqProcessor(Processor):
             if change < 0.8 * h2l:
                 self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                    f'Mean reversion strategy. Current price: {context.current_price}. '
-                                   f'Side: long. Change: {change * 100:.2f}%. Threshold: {h2l * 0.8 * 100:.2f}%.')
+                                   f'Side: long. Change: {change * 100:.2f}%. Threshold: {h2l * 100:.2f}%.')
             is_trade = change < h2l
             if is_trade:
                 separator = len(intraday_closes) - 12
