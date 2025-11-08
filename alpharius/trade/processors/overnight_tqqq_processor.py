@@ -54,9 +54,13 @@ class OvernightTqqqProcessor(Processor):
             if context.current_time.isoweekday() == 5:
                 if (context.current_price / max(two_week_closes) < 0.85 or
                         context.current_price / interday_closes[-1] < 0.95):
+                    self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                                       + f' Large recent drop; Skip.')
                     return
                 price_high = max(intraday_high, context.prev_day_close)
                 if price_high / intraday_low - 1 > 0.06 and context.current_price < 0.94 * max(two_week_closes):
+                    self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                                       + f' Large volatility; Skip.')
                     return
             if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
                 return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
