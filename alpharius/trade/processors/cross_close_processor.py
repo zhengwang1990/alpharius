@@ -14,11 +14,6 @@ from ..stock_universe import IntradayVolatilityStockUniverse
 NUM_UNIVERSE_SYMBOLS = 20
 
 
-def _round_num(num: float):
-    magnitude = 10 ** (np.round(np.log10(num)) - 1)
-    return np.round(num / magnitude) * magnitude
-
-
 class CrossCloseProcessor(Processor):
     """Strategy acting on 5-min bar crossing previous day close."""
 
@@ -32,7 +27,8 @@ class CrossCloseProcessor(Processor):
         self._stock_universe = IntradayVolatilityStockUniverse(lookback_start_date,
                                                                lookback_end_date,
                                                                data_client,
-                                                               num_stocks=NUM_UNIVERSE_SYMBOLS)
+                                                               num_stocks=15,
+                                                               num_top_volume=50)
 
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
@@ -51,14 +47,14 @@ class CrossCloseProcessor(Processor):
         if self.is_active(context.symbol):
             return self._close_position(context)
         elif context.symbol not in self._positions:
-            action = self._open_break_short_position(context)
-            if action:
-                return action
+            # action = self._open_break_short_position(context)
+            # if action:
+            #     return action
             action = self._open_break_long_position(context)
             if action:
                 return action
-            action = self._open_reject_short_position(context)
-            return action
+            # action = self._open_reject_short_position(context)
+            # return action
 
     def _open_break_short_position(self, context: Context) -> Optional[ProcessorAction]:
         t = context.current_time.time()
@@ -100,20 +96,18 @@ class CrossCloseProcessor(Processor):
         intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
         if len(intraday_closes) < n_long + 1:
             return
-        level = None
         if intraday_closes[-2] < context.prev_day_close < intraday_closes[-1]:
             level = context.prev_day_close
-        elif (context.symbol != 'TQQQ' and
-              intraday_closes[-2] < _round_num(context.current_price) < intraday_closes[-1]):
-            level = _round_num(context.current_price)
-        if level is None:
+        else:
             return
         for i in range(-n_long, 0):
             if intraday_closes[i] < intraday_closes[i - 1]:
                 return
         if context.current_price != np.max(intraday_closes):
             return
-        if intraday_closes[-n_long] > 0.6 * np.max(intraday_closes) + 0.4 * np.min(intraday_closes):
+        max_close = np.max(intraday_closes)
+        min_close = np.min(intraday_closes)
+        if intraday_closes[-n_long] > 0.8 * max_close + 0.2 * min_close:
             return
         intraday_opens = context.intraday_lookback['Open'][market_open_index:]
         for i in range(len(intraday_closes) - n_long):
@@ -144,13 +138,9 @@ class CrossCloseProcessor(Processor):
         intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
         if len(intraday_closes) < n_long + 1:
             return
-        level = None
         if intraday_closes[-2] < intraday_closes[-1] < context.prev_day_close < intraday_highs[-1]:
             level = context.prev_day_close
-        elif (context.symbol != 'TQQQ' and
-              intraday_closes[-2] < intraday_closes[-1] < _round_num(context.current_price) < intraday_highs[-1]):
-            level = _round_num(context.current_price)
-        if level is None:
+        else:
             return
         prev_gain = intraday_closes[-2] / intraday_closes[-n_long] - 1
         if prev_gain < context.l2h_avg * 0.5:
