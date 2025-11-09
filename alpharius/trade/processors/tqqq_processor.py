@@ -56,6 +56,9 @@ class TqqqProcessor(Processor):
             action = self._cross_close(context, cmp_operator)
             if action:
                 return action
+        action = self._two_troughs(context)
+        if action:
+            return action
 
     def _mean_reversion(self, context: Context) -> Optional[ProcessorAction]:
         t = context.current_time.time()
@@ -327,6 +330,56 @@ class TqqqProcessor(Processor):
         self._positions[context.symbol] = position
         return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
+    def _two_troughs(self, context: Context) -> Optional[ProcessorAction]:
+        t = context.current_time.time()
+        if t < datetime.time(10, 30):
+            return
+        if t >= datetime.time(15, 0):
+            return
+        market_open_index = context.market_open_index
+        if market_open_index is None:
+            return
+        intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
+        intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
+        if len(intraday_closes) < 12:
+            return
+        if not (intraday_closes[-1] > intraday_opens[-1] and intraday_closes[-2] < intraday_opens[-2]):
+            return
+        low_i = np.argmin(intraday_closes)
+        if low_i < len(intraday_closes) - 14:  # Intraday low not too far away
+            return
+        intraday_high = max(intraday_closes)
+        intraday_low = min(intraday_closes)
+        if intraday_high / intraday_low - 1 < context.l2h_avg * 0.8:  # Enough volatility
+            return
+        high_i = low_i + np.argmax(intraday_closes[low_i:])
+        if high_i - low_i < 6:  # Enough time to reach a peak
+            return
+        second_high = intraday_closes[high_i]
+        if second_high / intraday_low - 1 < context.l2h_avg * 0.25:  # Enough raise for a small peak
+            return
+        if high_i > len(intraday_closes) - 4:  # Avoid small peak too close
+            return
+        # Enough drop from small peak
+        if second_high - context.current_price < context.current_price - intraday_low:
+            return
+        # Momentum to get small peak
+        increases = [intraday_closes[i] / intraday_opens[i] - 1 for i in range(low_i + 1, high_i)]
+        if sum(c < 0 for c in increases) > 2:
+            return
+        bar_sizes = [abs(intraday_closes[i] - intraday_opens[i]) for i in range(low_i, len(intraday_closes))]
+        median = np.median(bar_sizes)
+        # Last 2 bars have low volatility
+        if bar_sizes[-1] > 2 * median or bar_sizes[-2] > 2 * median:
+            return
+        self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] Two troughs strategy. '
+                           f'Current price: {context.current_price}. Intraday low: {intraday_low:.3f}.'
+                           f'Second peak: {second_high:.3f}. L2h: {context.l2h_avg * 100:.2f}%.')
+        self._positions[context.symbol] = {'entry_time': context.current_time,
+                                           'strategy': 'two_troughs',
+                                           'side': 'long'}
+        return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
+
     def _close_position(self, context: Context) -> Optional[ProcessorAction]:
         def exit_position():
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
@@ -340,6 +393,7 @@ class TqqqProcessor(Processor):
         action = ProcessorAction(context.symbol, action_type, 1)
         market_open_index = context.market_open_index
         intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
+        entry_index = len(intraday_closes) - (context.current_time - position['entry_time']).seconds // 300 - 1
         strategy = position['strategy']
         if strategy == 'last_hour_momentum':
             # Stop loss
@@ -369,7 +423,6 @@ class TqqqProcessor(Processor):
             if (context.current_time >= position['entry_time'] + datetime.timedelta(minutes=60)
                     or context.current_time.time() >= datetime.time(15, 0)):
                 return exit_position()
-            entry_index = len(intraday_closes) - (context.current_time - position['entry_time']).seconds // 300 - 1
             if entry_index >= 0:
                 entry_price = intraday_closes[entry_index]
                 if intraday_closes[-1] < intraday_closes[-2]:
@@ -377,3 +430,12 @@ class TqqqProcessor(Processor):
                         return exit_position()
                     elif context.current_price > entry_price * 1.005 and intraday_closes[-2] < intraday_closes[-3]:
                         return exit_position()
+        if strategy == 'two_troughs':
+            stop_loss = False
+            if entry_index >= 0:
+                entry_price = intraday_closes[entry_index]
+                stop_loss = context.current_price / entry_price - 1 < -0.015
+            if (context.current_time >= position['entry_time'] + datetime.timedelta(minutes=35)
+                    or context.current_time.time() >= datetime.time(15, 0)
+                    or stop_loss):
+                return exit_position()
