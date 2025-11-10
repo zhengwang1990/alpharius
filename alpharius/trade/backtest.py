@@ -1,12 +1,16 @@
+import builtins
 import collections
 import datetime
 import difflib
 import functools
+import keyword
 import math
 import os
+import re
 import signal
 import time
 import threading
+import warnings
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 import alpaca.trading as trading
@@ -15,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tabulate
+from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
 try:
     import git
@@ -41,6 +46,8 @@ from .common import (
     get_unique_actions, get_header)
 
 _MAX_WORKERS = 20
+
+warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
 
 class Backtest:
@@ -131,6 +138,10 @@ class Backtest:
         repo = git.Repo(BASE_DIR)
         html = ''
         max_num_line = 0
+        regex_template = r'((&nbsp;|[\w\.\(\)\[\]_]|(<[^>]+>))*?)((?<![A-Za-z\-_\.])({})(?![A-Za-z\-_=]))'
+        keyword_pattern = re.compile(regex_template.format('|'.join(keyword.kwlist)), re.VERBOSE)
+        builtin_names = [b for b in dir(builtins) if b.islower()] + ['self']
+        builtin_pattern = re.compile(regex_template.format('|'.join(builtin_names), re.VERBOSE))
         for item in repo.head.commit.diff(None):
             old_content, new_content = [], []
             if item.change_type != 'A':
@@ -144,7 +155,27 @@ class Backtest:
             max_num_line = max(max_num_line, len(old_content), len(new_content))
             html_diff = difflib.HtmlDiff(wrapcolumn=120)
             html += f'<div><h1>{item.b_path}</h1>'
-            html += html_diff.make_table(old_content, new_content, context=True)
+            diff_table = html_diff.make_table(old_content, new_content, context=True)
+            if item.b_path.endswith('.py'):
+                soup = BeautifulSoup(diff_table, 'html.parser')
+                for td in soup.find_all('td'):
+                    content = td.decode_contents()
+                    if '#' in content:
+                        continue
+                    if any(k in content for k in keyword.kwlist):
+                        content = keyword_pattern.sub(
+                            r'\1<span class="python_keyword">\4</span>',
+                            content,
+                        )
+                    if any(k in content for k in builtin_names):
+                        content = builtin_pattern.sub(
+                            r'\1<span class="python_builtin">\5</span>',
+                            content,
+                        )
+                    td.clear()
+                    td.append(BeautifulSoup(content, 'html.parser'))
+                diff_table = str(soup)
+            html += diff_table
             html += '</div>'
         if html:
             current_dir = os.path.dirname(os.path.realpath(__file__))
@@ -152,7 +183,7 @@ class Backtest:
             header_width = (int(np.log10(max_num_line)) + 1) * 7 + 6
             with open(template_file, 'r') as f:
                 template = f.read()
-            with open(os.path.join(self._output_dir, 'diff.html'), 'w') as f:
+            with open(os.path.join(self._output_dir, 'diff.html'), 'w', encoding='utf-8') as f:
                 f.write(template.format(
                     header_width=header_width, html=html, output_num=self._output_num,
                     logo_path=os.path.join(current_dir, 'html', 'diff.png')))
