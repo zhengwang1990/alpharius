@@ -47,8 +47,6 @@ from .common import (
 
 _MAX_WORKERS = 20
 
-warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
-
 
 class Backtest:
 
@@ -135,6 +133,7 @@ class Backtest:
             self._processors.append(processor)
 
     def _record_diff(self):
+        warnings.filterwarnings('ignore', category=MarkupResemblesLocatorWarning)
         repo = git.Repo(BASE_DIR)
         html = ''
         max_num_line = 0
