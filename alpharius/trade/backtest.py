@@ -137,10 +137,12 @@ class Backtest:
         repo = git.Repo(BASE_DIR)
         html = ''
         max_num_line = 0
-        regex_template = r'((&nbsp;|[\w\.\(\)\[\]_]|(<[^>]+>))*?)((?<![A-Za-z\-_\.])({})(?![A-Za-z\-_=]))'
+        regex_template = r'(?<![A-Za-z\-_\.])({})(?![A-Za-z\-_=])'
         keyword_pattern = re.compile(regex_template.format('|'.join(keyword.kwlist)), re.VERBOSE)
         builtin_names = [b for b in dir(builtins) if b.islower()] + ['self']
         builtin_pattern = re.compile(regex_template.format('|'.join(builtin_names), re.VERBOSE))
+        method_pattern = re.compile(r'(def[\w <>\/]*?(\s|&nbsp;))(\w+)(\()', re.VERBOSE)
+        class_pattern = re.compile(r'(class[\w <>\/]*?(\s|&nbsp;))(\w+)(\()', re.VERBOSE)
         for item in repo.head.commit.diff(None):
             old_content, new_content = [], []
             if item.change_type != 'A':
@@ -159,20 +161,23 @@ class Backtest:
                 soup = BeautifulSoup(diff_table, 'html.parser')
                 for td in soup.find_all('td'):
                     content = td.decode_contents()
+                    comment = ''
                     if '#' in content:
-                        continue
+                        ind = content.find('#')
+                        content, comment = content[:ind], content[ind:]
                     if any(k in content for k in keyword.kwlist):
-                        content = keyword_pattern.sub(
-                            r'\1<span class="python_keyword">\4</span>',
-                            content,
-                        )
+                        content = keyword_pattern.sub(r'<span class="python_keyword">\1</span>', content)
                     if any(k in content for k in builtin_names):
-                        content = builtin_pattern.sub(
-                            r'\1<span class="python_builtin">\5</span>',
-                            content,
-                        )
+                        content = builtin_pattern.sub(r'<span class="python_builtin">\1</span>', content)
+                    if 'def' in content:
+                        content = method_pattern.sub(r'\1<span class="python_method">\3</span>\4', content)
+                    if 'class' in content:
+                        content = class_pattern.sub(r'\1<span class="python_class">\3</span>\4', content)
+                    content += comment
                     td.clear()
-                    td.append(BeautifulSoup(content, 'html.parser'))
+                    content_soup = BeautifulSoup(content, 'html.parser')
+                    if str(content_soup):
+                        td.append(content_soup)
                 diff_table = str(soup)
             html += diff_table
             html += '</div>'
