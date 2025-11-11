@@ -557,7 +557,7 @@ def backtest():
     if current_time.time() < backtest_finish_time:
         current_time -= datetime.timedelta(days=1)
     ndays = flask.request.args.get('ndays')
-    ndays = int(ndays) if ndays and ndays.isdigit() else 1
+    ndays = int(ndays) if ndays and ndays.isdigit() else 7
     start_time = pd.to_datetime(current_time.strftime('%F')) - datetime.timedelta(days=ndays)
     start_time = max(start_time, pd.to_datetime(FIRST_BACKTEST_DATE))
     start_time = start_time.tz_localize(TIME_ZONE)
