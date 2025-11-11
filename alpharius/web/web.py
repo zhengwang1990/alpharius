@@ -489,7 +489,7 @@ def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Tran
     miss, extra, time_diff, comm = 0, 0, 0, 0
     i, j = 0, 0
     empty_row = ('<tr><td>&nbsp</td><td class="xs-hidden"></td><td class="lg-hidden"></td>'
-                 '<td></td><td></td><td class="lg-hidden"></td></tr><td class="lg-show"></td></tr>')
+                 '<td></td><td></td><td></td></tr>')
     a_set = {(t.symbol, t.processor, t.entry_time, t.exit_time) for t in a_transactions}
     b_set = {(t.symbol, t.processor, t.entry_time, t.exit_time) for t in b_transactions}
     while i < len(a_transactions) or j < len(b_transactions):
@@ -557,7 +557,7 @@ def backtest():
     if current_time.time() < backtest_finish_time:
         current_time -= datetime.timedelta(days=1)
     ndays = flask.request.args.get('ndays')
-    ndays = int(ndays) if ndays and ndays.isdigit() else 7
+    ndays = int(ndays) if ndays and ndays.isdigit() else 1
     start_time = pd.to_datetime(current_time.strftime('%F')) - datetime.timedelta(days=ndays)
     start_time = max(start_time, pd.to_datetime(FIRST_BACKTEST_DATE))
     start_time = start_time.tz_localize(TIME_ZONE)
