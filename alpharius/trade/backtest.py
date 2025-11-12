@@ -137,7 +137,7 @@ class Backtest:
         repo = git.Repo(BASE_DIR)
         html = ''
         max_num_line = 0
-        regex_template = r'(?<![A-Za-z\-_\.])({})(?![A-Za-z\-_=])'
+        regex_template = r'(?<![A-Za-z\-_\.\'"])({})(?![A-Za-z\-_=])'
         keyword_pattern = re.compile(regex_template.format('|'.join(keyword.kwlist)), re.VERBOSE)
         builtin_names = [b for b in dir(builtins) if b.islower()] + ['self']
         builtin_pattern = re.compile(regex_template.format('|'.join(builtin_names), re.VERBOSE))
