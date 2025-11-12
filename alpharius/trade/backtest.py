@@ -165,6 +165,12 @@ class Backtest:
                     if '#' in content:
                         ind = content.find('#')
                         content, comment = content[:ind], content[ind:]
+                        while sum(c == "'" for c in content) % 2 == 1 or sum(c == '"' for c in content) % 2 == 1:
+                            content, comment = content + comment, ''
+                            ind = content.find('#', ind + 1)
+                            if ind < 0:
+                                break
+                            content, comment = content[:ind], content[ind:]
                     if any(k in content for k in keyword.kwlist):
                         content = keyword_pattern.sub(r'<span class="python_keyword">\1</span>', content)
                     if any(k in content for k in builtin_names):
@@ -173,7 +179,17 @@ class Backtest:
                         content = method_pattern.sub(r'\1<span class="python_method">\3</span>\4', content)
                     if 'class' in content:
                         content = class_pattern.sub(r'\1<span class="python_class">\3</span>\4', content)
-                    content += comment
+                    if comment:
+                        comment_span = '<span class="python_comment">'
+                        decorated_comment = comment_span
+                        for c in comment:
+                            if c == '<':
+                                decorated_comment += '</span>'
+                            decorated_comment += c
+                            if c == '>':
+                                decorated_comment += comment_span
+                        decorated_comment += '</span>'
+                        content += decorated_comment
                     td.clear()
                     content_soup = BeautifulSoup(content, 'html.parser')
                     if str(content_soup):
