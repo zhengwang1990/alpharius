@@ -74,6 +74,9 @@ class OvernightTqqqProcessor(Processor):
                     return
             if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
                 return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
+            else:
+                if context.current_price > context.prev_day_close * 1.05:
+                    return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
         if (2 * one_week_std > two_week_std > four_week_std > 0.05
                 and context.current_price / interday_closes[-1] - 1 < -0.07
                 and context.symbol == 'SQQQ'):

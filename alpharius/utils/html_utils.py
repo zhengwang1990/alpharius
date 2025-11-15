@@ -16,7 +16,7 @@ builtin_pattern = re.compile(regex_template.format('|'.join(builtin_names), re.V
 method_pattern = re.compile(r'(def[\w <>\/]*?(\s|&nbsp;))(\w+)(\()', re.VERBOSE)
 class_pattern = re.compile(r'(class[\w <>\/]*?(\s|&nbsp;))(\w+)([\:\(])', re.VERBOSE)
 string_pattern = re.compile(r'(([\"\'])(?:(?=(\\?))\3.)*?\2)')
-number_pattern = re.compile(r'(&nbsp;|\=|\(|\s)(\d+\.?\d*)')
+number_pattern = re.compile(r'(&nbsp;|\=|\(|\s|\-|\+|\*|\/)(\d+\.?\d*)')
 
 
 def highlight_diff_table(diff_table: str) -> str:
