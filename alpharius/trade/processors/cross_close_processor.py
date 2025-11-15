@@ -27,7 +27,7 @@ class CrossCloseProcessor(Processor):
         self._stock_universe = IntradayVolatilityStockUniverse(lookback_start_date,
                                                                lookback_end_date,
                                                                data_client,
-                                                               num_stocks=15,
+                                                               num_stocks=10,
                                                                num_top_volume=50)
 
     def get_trading_frequency(self) -> TradingFrequency:
@@ -103,15 +103,15 @@ class CrossCloseProcessor(Processor):
         for i in range(-n_long, 0):
             if intraday_closes[i] < intraday_closes[i - 1]:
                 return
-        if context.current_price != np.max(intraday_closes):
-            return
         max_close = np.max(intraday_closes)
+        if context.current_price != max_close:
+            return
         min_close = np.min(intraday_closes)
         if intraday_closes[-n_long] > 0.8 * max_close + 0.2 * min_close:
             return
-        intraday_opens = context.intraday_lookback['Open'][market_open_index:]
+        intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
         for i in range(len(intraday_closes) - n_long):
-            if intraday_opens[i] < level < intraday_closes[i]:
+            if intraday_closes[i] > level and intraday_closes[i] > intraday_opens[i]:
                 break
         else:
             return
