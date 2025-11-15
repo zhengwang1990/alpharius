@@ -50,6 +50,7 @@ class OvernightTqqqProcessor(Processor):
                                + f'{two_week_std=:.4f}, {intraday_change=:.4f}')
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                + f'interday_closes {interday_closes[-3:]}')
+            two_week_max = max(two_week_closes)
             # If large drop and it's Friday, don't buy
             if context.current_time.isoweekday() == 5:
                 if (context.current_price / max(two_week_closes) < 0.85 or
@@ -58,9 +59,18 @@ class OvernightTqqqProcessor(Processor):
                                        + f' Large recent drop; Skip.')
                     return
                 price_high = max(intraday_high, context.prev_day_close)
-                if price_high / intraday_low - 1 > 0.06 and context.current_price < 0.94 * max(two_week_closes):
+                if price_high / intraday_low - 1 > 0.06 and context.current_price < 0.94 * two_week_max:
                     self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
                                        + f' Large volatility; Skip.')
+                    return
+            else:
+                six_week_closes = interday_closes[-6 * DAYS_IN_A_WEEK:]
+                # If grows too much, starts to drop and today's volatility is low
+                if (context.current_price < 0.9 * two_week_max
+                        and two_week_max > 1.3 * min(six_week_closes)
+                        and context.prev_day_close * 1.06 > context.current_price > context.prev_day_close * 0.97):
+                    self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                                       + f' Recent pullback; Skip.')
                     return
             if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
                 return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)

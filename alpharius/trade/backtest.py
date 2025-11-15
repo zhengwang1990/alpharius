@@ -1,16 +1,12 @@
-import builtins
 import collections
 import datetime
 import difflib
 import functools
-import keyword
 import math
 import os
-import re
 import signal
 import time
 import threading
-import warnings
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 import alpaca.trading as trading
@@ -19,7 +15,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tabulate
-from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
 try:
     import git
@@ -35,6 +30,7 @@ from alpharius.utils import (
     compute_risks,
     compute_drawdown,
     compute_bernoulli_ci95,
+    highlight_diff_table,
     get_all_symbols,
     get_trading_client,
 )
@@ -133,16 +129,9 @@ class Backtest:
             self._processors.append(processor)
 
     def _record_diff(self):
-        warnings.filterwarnings('ignore', category=MarkupResemblesLocatorWarning)
         repo = git.Repo(BASE_DIR)
         html = ''
         max_num_line = 0
-        regex_template = r'(?<![A-Za-z\-_\.\'"])({})(?![A-Za-z\-_=])'
-        keyword_pattern = re.compile(regex_template.format('|'.join(keyword.kwlist)), re.VERBOSE)
-        builtin_names = [b for b in dir(builtins) if b.islower()] + ['self']
-        builtin_pattern = re.compile(regex_template.format('|'.join(builtin_names), re.VERBOSE))
-        method_pattern = re.compile(r'(def[\w <>\/]*?(\s|&nbsp;))(\w+)(\()', re.VERBOSE)
-        class_pattern = re.compile(r'(class[\w <>\/]*?(\s|&nbsp;))(\w+)(\()', re.VERBOSE)
         for item in repo.head.commit.diff(None):
             old_content, new_content = [], []
             if item.change_type != 'A':
@@ -158,43 +147,7 @@ class Backtest:
             html += f'<div><h1>{item.b_path}</h1>'
             diff_table = html_diff.make_table(old_content, new_content, context=True)
             if item.b_path.endswith('.py'):
-                soup = BeautifulSoup(diff_table, 'html.parser')
-                for td in soup.find_all('td'):
-                    content = td.decode_contents()
-                    comment = ''
-                    if '#' in content:
-                        ind = content.find('#')
-                        content, comment = content[:ind], content[ind:]
-                        while sum(c == "'" for c in content) % 2 == 1 or sum(c == '"' for c in content) % 2 == 1:
-                            content, comment = content + comment, ''
-                            ind = content.find('#', ind + 1)
-                            if ind < 0:
-                                break
-                            content, comment = content[:ind], content[ind:]
-                    if any(k in content for k in keyword.kwlist):
-                        content = keyword_pattern.sub(r'<span class="python_keyword">\1</span>', content)
-                    if any(k in content for k in builtin_names):
-                        content = builtin_pattern.sub(r'<span class="python_builtin">\1</span>', content)
-                    if 'def' in content:
-                        content = method_pattern.sub(r'\1<span class="python_method">\3</span>\4', content)
-                    if 'class' in content:
-                        content = class_pattern.sub(r'\1<span class="python_class">\3</span>\4', content)
-                    if comment:
-                        comment_span = '<span class="python_comment">'
-                        decorated_comment = comment_span
-                        for c in comment:
-                            if c == '<':
-                                decorated_comment += '</span>'
-                            decorated_comment += c
-                            if c == '>':
-                                decorated_comment += comment_span
-                        decorated_comment += '</span>'
-                        content += decorated_comment
-                    td.clear()
-                    content_soup = BeautifulSoup(content, 'html.parser')
-                    if str(content_soup):
-                        td.append(content_soup)
-                diff_table = str(soup)
+                diff_table = highlight_diff_table(diff_table)
             html += diff_table
             html += '</div>'
         if html:
