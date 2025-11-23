@@ -217,7 +217,7 @@ class TqqqProcessor(Processor):
             if day_change > 0.3 * context.h2l_avg:
                 return
         market_open_index = context.market_open_index
-        intraday_closes = context.intraday_lookback['Close'][market_open_index:]
+        intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
         if len(intraday_closes) < 5:
             return
         change_today = context.current_price / context.prev_day_close - 1
