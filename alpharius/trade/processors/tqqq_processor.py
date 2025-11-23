@@ -163,8 +163,13 @@ class TqqqProcessor(Processor):
         change_from_close = context.current_price / context.prev_day_close - 1
         h2l = context.h2l_avg
         if change_from_open < 0.7 * h2l or change_from_close < 2 * h2l:
+            if context.current_price - np.min(intraday_closes) > np.max(intraday_closes) - context.current_price:
+                # No momentum
+                return
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] Last hour momentum strategy. '
-                               f'Current price: {context.current_price}.')
+                               f'Current price: {context.current_price}. H2l: {h2l * 100:.2f}%. '
+                               f'Change from open [{change_from_open * 100:.2f}%]. '
+                               f'Change from prev close [{change_from_close * 100:.2f}%].')
             return _open_position('short')
         l2h = context.l2h_avg
         change_from_min = context.current_price / np.min(intraday_closes) - 1
