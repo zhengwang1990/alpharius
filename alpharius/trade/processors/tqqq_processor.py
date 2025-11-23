@@ -406,6 +406,13 @@ class TqqqProcessor(Processor):
             if context.current_time.time() == datetime.time(16, 0):
                 return exit_position()
         if strategy == 'mean_reversion':
+            if (side == 'short' and
+                    context.current_time >= position['entry_time'] + datetime.timedelta(minutes=30)
+                    and entry_index >= 0
+                    and context.current_price < intraday_closes[entry_index] * 0.985
+                    and intraday_closes[-1] > intraday_closes[-2] > intraday_closes[-3]):
+                # Take profit if upward momentum
+                return exit_position()
             if context.current_time >= position['entry_time'] + datetime.timedelta(minutes=60):
                 return exit_position()
         if strategy == 'first_hour_momentum':
