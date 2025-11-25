@@ -609,6 +609,12 @@ def job_status():
     return get_job_status()
 
 
+@bp.route('/robots.txt')
+def robots_txt():
+    print("robots.txt")
+    return flask.send_from_directory('static', 'txt/robots.txt')
+
+
 @bp.route('/file/<path:filepath>')
 def get_file(filepath):
     with open(filepath, 'r') as f:

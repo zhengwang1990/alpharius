@@ -42,6 +42,8 @@ def load_interday_dataset(symbols: Iterable[str],
                           start_time: pd.Timestamp,
                           end_time: pd.Timestamp,
                           data_client: DataClient) -> Dict[str, pd.DataFrame]:
+    if end_time.isoweekday() == 7:  # Improve cache hit
+        end_time = end_time - datetime.timedelta(days=1)
     cache_key = hash_str(','.join(sorted(symbols)) + start_time.strftime('%F') + end_time.strftime('%F'))
     if cache_key in _interday_dataset_cache:
         return _interday_dataset_cache[cache_key]
