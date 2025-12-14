@@ -93,16 +93,30 @@ class CrossCloseProcessor(Processor):
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
-        intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
+        intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
         if len(intraday_closes) < n_long + 1:
             return
         if intraday_closes[-2] < context.prev_day_close < intraday_closes[-1]:
             level = context.prev_day_close
         else:
             return
-        for i in range(-n_long, 0):
-            if intraday_closes[i] < intraday_closes[i - 1]:
+        interday_closes = context.interday_lookback['Close'].to_numpy()
+        if context.prev_day_close > min(interday_closes[-5:]) * 1.3:
+            return
+        n_dec = sum(intraday_closes[i] < intraday_closes[i - 1] for i in range(-n_long, 0))
+        if context.current_price / intraday_closes[-n_long] - 1 < context.l2h_avg * 0.3:
+            if n_dec > 0:
                 return
+        else:
+            if n_dec > 2:
+                return
+        bar_sizes = [intraday_closes[i] - intraday_closes[i - 1]
+                     for i in range(-n_long, 0)
+                     if intraday_closes[i] - intraday_closes[i - 1] > 0]
+        if bar_sizes[-1] > 2.5 * np.median(bar_sizes):
+            return
+        if context.current_time.time() < datetime.time(10, 30) and bar_sizes[-1] == max(bar_sizes):
+            return
         max_close = np.max(intraday_closes)
         if context.current_price != max_close:
             return
