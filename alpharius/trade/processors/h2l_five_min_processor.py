@@ -56,9 +56,12 @@ class H2lFiveMinProcessor(Processor):
 
     def _open_position(self, context: Context) -> Optional[ProcessorAction]:
         t = context.current_time.time()
-        if not (datetime.time(10, 5) <= t < datetime.time(10, 30) or
-                datetime.time(13, 0) <= t < datetime.time(15, 30)):
+        if t <= datetime.time(10, 0) or t >= datetime.time(15, 30):
             return
+        if datetime.time(10, 30) <= t < datetime.time(13, 0):
+            ratio = 0.75
+        else:
+            ratio = 0.5
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
@@ -77,7 +80,7 @@ class H2lFiveMinProcessor(Processor):
         prev_loss = intraday_closes[-2] / intraday_opens[-2] - 1
         current_loss = context.current_price / intraday_closes[-2] - 1
         lower_threshold = context.h2l_avg * 1.5
-        upper_threshold = context.h2l_avg * 0.5
+        upper_threshold = context.h2l_avg * ratio
         is_trade = lower_threshold < prev_loss < upper_threshold and prev_loss < current_loss < 0
         if is_trade or (context.mode == Mode.TRADE and prev_loss < upper_threshold * 0.8):
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '

@@ -78,6 +78,8 @@ class OvernightTqqqProcessor(Processor):
                 if (context.current_price > context.prev_day_close * 1.05 or
                         (min(four_week_closes) / max(four_week_closes) - 1 > -0.15
                          and intraday_low > context.prev_day_close * 0.99)):
+                    self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                                       + f' Upward momentum; Buy.')
                     return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
         if (2 * one_week_std > two_week_std > four_week_std > 0.05
                 and context.current_price / interday_closes[-1] - 1 < -0.07
