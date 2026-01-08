@@ -101,9 +101,9 @@ def test_trade_transactions_executed(mocker):
     live = trade.Live(processors=[], data_client=FakeDataClient())
     expected_transactions = [
         {'symbol': 'A', 'action_type': trade.ActionType.BUY_TO_OPEN,
-         'qty': None, 'side': 'buy', 'notional': 895.5},
+         'qty': None, 'side': 'buy', 'notional': 900},
         {'symbol': 'B', 'action_type': trade.ActionType.SELL_TO_OPEN,
-         'qty': 8, 'side': 'sell', 'notional': None},
+         'qty': 9, 'side': 'sell', 'notional': None},
         {'symbol': 'QQQ', 'action_type': trade.ActionType.SELL_TO_CLOSE,
          'qty': 10, 'side': 'sell'},
         {'symbol': 'GOOG', 'action_type': trade.ActionType.BUY_TO_CLOSE,

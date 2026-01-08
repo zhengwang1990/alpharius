@@ -187,7 +187,7 @@ class CrossCloseProcessor(Processor):
         position = self._positions[context.symbol]
         side = position['side']
         if side == 'short':
-            intraday_closes = context.intraday_lookback['Close']
+            intraday_closes = context.intraday_lookback['Close'].to_numpy()
             take_profit = (context.current_time == position['entry_time'] + datetime.timedelta(minutes=5)
                            and context.current_price < intraday_closes[-2])
             # Stop when there is an up bar

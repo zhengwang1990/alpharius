@@ -343,11 +343,10 @@ class Live:
             if action.type == ActionType.BUY_TO_OPEN:
                 side = 'buy'
                 qty = None
-                # Only use 99.5% to avoid exceeding daytrading_buying_power
-                notional = int(cash_to_trade * 99.5) / 100
+                notional = int(cash_to_trade * 100) / 100
             else:
                 side = 'sell'
-                qty = int(cash_to_trade * 0.995 / action.price)
+                qty = int(cash_to_trade / action.price)
                 notional = None
             order_id = self._place_order(symbol=symbol, side=side, qty=qty, notional=notional)
             if order_id:
