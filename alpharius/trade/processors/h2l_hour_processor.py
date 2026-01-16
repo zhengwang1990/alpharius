@@ -89,7 +89,7 @@ class H2lHourProcessor(Processor):
                 continue
             current_loss = context.current_price / intraday_closes[-n] - 1
             z0 = 0.15 if t < datetime.time(11, 0) or t > datetime.time(15, 0) else 0
-            if context.current_price < context.prev_day_close < intraday_closes[-n]:
+            if context.current_price < context.prev_day_close < intraday_opens[-n]:
                 z0 += 0.05
             upper_threshold = h2l_avg - (z + z0 + zd) * h2l_std
             is_trade = lower_threshold < current_loss < upper_threshold
