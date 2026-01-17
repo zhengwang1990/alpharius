@@ -111,7 +111,8 @@ class Client:
         else:
             result['equity_5y'][-1] = current_equity
         time_points = copy.copy(result['time_5y'])
-        result['equity_1d'][-1] = current_equity
+        if result['equity_1d']:
+            result['equity_1d'][-1] = current_equity
         result['prev_close'] = (result['equity_5y'][-2]
                                 if len(result['equity_5y']) > 2 else math.nan)
         for time_period, time_delta in [('1w', relativedelta(weeks=1)),
@@ -165,7 +166,7 @@ class Client:
                 i += 1
         result['time_5y'] = result['time_5y'][:i]
         result['equity_5y'] = result['equity_5y'][:i]
-        if result['time_1d'][-1] > '09:30':
+        if result['time_1d'] and result['time_1d'][-1] > '09:30':
             for i in range(len(result['time_1d'])):
                 if result['time_1d'][i] >= '09:30':
                     result['time_1d'] = result['time_1d'][i:]
