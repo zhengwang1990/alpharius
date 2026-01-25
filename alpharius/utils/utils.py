@@ -10,13 +10,13 @@ import re
 import time
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 import alpaca.trading as trading
 import numpy as np
 import pandas as pd
-import pytz
 
-TIME_ZONE = pytz.timezone('America/New_York')
+TIME_ZONE = ZoneInfo('America/New_York')
 ALPACA_API_KEY_ENV = 'APCA_API_KEY_ID'
 ALPACA_SECRET_KEY_ENV = 'APCA_API_SECRET_KEY'
 

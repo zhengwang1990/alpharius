@@ -15,13 +15,11 @@ import alpaca_trade_api as tradeapi
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pytz
 import retrying
 
 import alpharius.data as data
-from alpharius.utils import get_today
+from alpharius.utils import get_today, TIME_ZONE
 
-_TIME_ZONE = pytz.timezone('America/New_York')
 _SMTP_HOST = 'smtp.163.com'
 _SMTP_PORT = 25
 _HTML_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'html')
@@ -226,7 +224,7 @@ class EmailSender:
         with open(html_template_path, 'r') as f:
             html_template = f.read()
         error_time = pd.Timestamp(
-            int(time.time()), unit='s', tz=_TIME_ZONE).strftime('%F %H:%M')
+            int(time.time()), unit='s', tz=TIME_ZONE).strftime('%F %H:%M')
         error_message = error_message or ''
         error_message = html.escape(error_message)
         message.attach(text.MIMEText(html_template.format(

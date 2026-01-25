@@ -66,7 +66,6 @@ class AlpacaClient(DataClient):
             bars.sort(key=lambda b: b.timestamp)
         except AttributeError:
             bars = []
-        assert TIME_ZONE is not None, f'Timezone is not defined'
         index = pd.DatetimeIndex([pd.Timestamp(b.timestamp).tz_convert(TIME_ZONE) for b in bars])
         data = [[np.float32(b.open), np.float32(b.high), np.float32(b.low), np.float32(b.close), np.uint32(b.volume)]
                 for b in bars]

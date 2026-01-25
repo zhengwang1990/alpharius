@@ -4,10 +4,10 @@ import os
 import threading
 import traceback
 from concurrent import futures
+from zoneinfo import ZoneInfo
 
 import flask
 import pandas as pd
-import pytz
 from flask_apscheduler import APScheduler
 
 import alpharius.data as data
@@ -131,7 +131,7 @@ def backtest():
 @email_on_exception
 def log_scan():
     app.logger.info('Start log scan')
-    today_str = datetime.datetime.now(pytz.timezone('America/New_York')).strftime('%F')
+    today_str = datetime.datetime.now(ZoneInfo('America/New_York')).strftime('%F')
     results = Db().get_logs(today_str)
     error_lines = []
     for logger, content in results:
