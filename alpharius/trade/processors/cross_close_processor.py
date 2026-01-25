@@ -1,6 +1,6 @@
 import datetime
-import pytz
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -23,7 +23,7 @@ class CrossCloseProcessor(Processor):
                  lookback_end_date: pd.Timestamp,
                  data_client: DataClient,
                  output_dir: str,
-                 logging_timezone: Optional[pytz.timezone] = None) -> None:
+                 logging_timezone: Optional[ZoneInfo] = None) -> None:
         super().__init__(output_dir, logging_timezone)
         self._positions = dict()
         self._stock_universe = IntradayVolatilityStockUniverse(lookback_start_date,

@@ -2,9 +2,9 @@ import abc
 import functools
 import inspect
 import re
-import pytz
 import os
 from typing import Optional, List, Type, Union
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -14,7 +14,7 @@ from ..common import logging_config, Context, ProcessorAction, Position, Trading
 
 class Processor(abc.ABC):
 
-    def __init__(self, output_dir: str, logging_timezone: Optional[pytz.timezone] = None) -> None:
+    def __init__(self, output_dir: str, logging_timezone: Optional[ZoneInfo] = None) -> None:
         split = re.findall('[A-Z][^A-Z]*', type(self).__name__)
         logger_name = '_'.join([s.lower() for s in split])
         self._output_dir = output_dir
@@ -72,7 +72,7 @@ def instantiate_processor(
         lookback_end_date: pd.Timestamp,
         data_client: DataClient,
         output_dir: str,
-        logging_timezone: Optional[pytz.timezone] = None,
+        logging_timezone: Optional[ZoneInfo] = None,
         **kwargs) -> Processor:
 
     if isinstance(processor_class, Processor):

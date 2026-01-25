@@ -1,7 +1,7 @@
 import datetime
 import operator
-import pytz
 from typing import Any, Callable, List, Optional
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -14,7 +14,7 @@ class TqqqProcessor(Processor):
 
     def __init__(self,
                  output_dir: str,
-                 logging_timezone: Optional[pytz.timezone] = None) -> None:
+                 logging_timezone: Optional[ZoneInfo] = None) -> None:
         super().__init__(output_dir, logging_timezone)
         self._positions = dict()
         self._early_signal = None

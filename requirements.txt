@@ -13,7 +13,6 @@ psycopg2
 pytest
 pytest-mock
 python-dateutil
-pytz
 ratelimiter
 requests
 retrying

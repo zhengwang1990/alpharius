@@ -6,11 +6,11 @@ import threading
 import time
 from concurrent import futures
 from typing import List, Optional, Type, Union
+from zoneinfo import ZoneInfo
 
 import alpaca.trading as trading
 import pandas as pd
 import numpy as np
-import pytz
 import retrying
 from alpaca.common import APIError
 from sqlalchemy import exc
@@ -43,7 +43,7 @@ class Live:
     def __init__(self,
                  processors: List[Union[Type[Processor], Processor]],
                  data_client: DataClient,
-                 logging_timezone: Optional[pytz.timezone] = None) -> None:
+                 logging_timezone: Optional[ZoneInfo] = None) -> None:
         self._output_dir = os.path.join(OUTPUT_DIR, 'live',
                                         datetime.datetime.now().strftime('%F'))
         os.makedirs(self._output_dir, exist_ok=True)

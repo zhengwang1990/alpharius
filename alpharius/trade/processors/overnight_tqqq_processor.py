@@ -1,6 +1,6 @@
 import datetime
-import pytz
 from typing import List, Optional
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ class OvernightTqqqProcessor(Processor):
 
     def __init__(self,
                  output_dir: str,
-                 logging_timezone: Optional[pytz.timezone] = None) -> None:
+                 logging_timezone: Optional[ZoneInfo] = None) -> None:
         super().__init__(output_dir, logging_timezone)
 
     def get_trading_frequency(self) -> TradingFrequency:
