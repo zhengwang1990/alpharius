@@ -139,7 +139,7 @@ class AbcdProcessor(Processor):
     def _close_position(self, context: Context) -> Optional[ProcessorAction]:
         position = self._positions[context.symbol]
         side = position['side']
-        intraday_closes = context.intraday_lookback['Close']
+        intraday_closes = context.intraday_lookback['Close'].to_numpy()
         take_profit = (context.current_time == position['entry_time'] + datetime.timedelta(minutes=30)
                        and len(intraday_closes) >= 7)
         if side == 'long':

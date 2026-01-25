@@ -155,7 +155,7 @@ def get_transactions(start_date: Optional[str], data_client: DataClient) -> List
         gl_pct = None
         slippage = None
         slippage_pct = None
-        is_long = order.side == 'buy'
+        is_long = order.side == trading.OrderSide.BUY
         if order.symbol in position_symbols:
             position_symbols.remove(order.symbol)
         else:
@@ -169,7 +169,7 @@ def get_transactions(start_date: Optional[str], data_client: DataClient) -> List
                     entry_price = float(prev_order.filled_avg_price)
                     gl = (exit_price - entry_price) * qty
                     gl_pct = exit_price / entry_price - 1
-                    is_long = prev_order.side == 'buy'
+                    is_long = prev_order.side == trading.OrderSide.BUY
                     if not is_long:
                         gl *= -1
                         gl_pct *= -1
@@ -184,7 +184,10 @@ def get_transactions(start_date: Optional[str], data_client: DataClient) -> List
                         slippage_pct = gl_pct - theory_gl_pct
                         slippage = slippage_pct * qty * entry_price
                     orders_used[j] = True
-                    break
+                    if float(prev_order.filled_qty) >= 0.95 * qty:
+                        break
+                    else:
+                        qty -= float(prev_order.filled_qty)
         transactions.append(
             Transaction(order.symbol, is_long, None, entry_price, exit_price, entry_time,
                         exit_time, qty, gl, gl_pct, slippage, slippage_pct))
