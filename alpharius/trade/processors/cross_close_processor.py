@@ -55,6 +55,9 @@ class CrossCloseProcessor(Processor):
             action = self._open_break_long_position(context)
             if action:
                 return action
+            action = self._open_reject_short_position(context)
+            if action:
+                return action
 
     def _open_break_long_position(self, context: Context) -> Optional[ProcessorAction]:
         n_long = 6
@@ -149,36 +152,55 @@ class CrossCloseProcessor(Processor):
             return ProcessorAction(context.symbol, ActionType.SELL_TO_OPEN, 1)
 
     def _open_reject_short_position(self, context: Context) -> Optional[ProcessorAction]:
-        n_long = 6
+        n_bar = 6
         t = context.current_time.time()
-        if t >= datetime.time(11, 0):
+        if not datetime.time(10, 30) <= t < datetime.time(15, 0):
             return
-        interday_closes = list(context.interday_lookback['Close'])
+        interday_closes = context.interday_lookback['Close'].to_numpy()
         if len(interday_closes) < DAYS_IN_A_MONTH or interday_closes[-1] < 0.5 * interday_closes[-DAYS_IN_A_MONTH]:
             return
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
-        intraday_highs = context.intraday_lookback['High'].tolist()[market_open_index:]
-        intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
-        if len(intraday_closes) < n_long + 1:
+        intraday_highs = context.intraday_lookback['High'].to_numpy()[market_open_index:]
+        intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
+        if len(intraday_closes) < n_bar + 1:
             return
-        if intraday_closes[-2] < intraday_closes[-1] < context.prev_day_close < intraday_highs[-1]:
+        if intraday_closes[-2] < context.prev_day_close < intraday_highs[-1]:
+            level = context.prev_day_close
+        elif intraday_closes[-3] < context.prev_day_close < intraday_closes[-1]:
             level = context.prev_day_close
         else:
             return
-        prev_gain = intraday_closes[-2] / intraday_closes[-n_long] - 1
+        prev_gain = intraday_closes[-2] / intraday_closes[-n_bar] - 1
         if prev_gain < context.l2h_avg * 0.5:
             return
-        intraday_opens = context.intraday_lookback['Open'][market_open_index:]
-        for i in range(-1, -n_long - 1, -1):
-            if intraday_opens[i] > intraday_closes[i]:
-                break
-        else:
+        intraday_opens = context.intraday_lookback['Open'].to_numpy()[market_open_index:]
+        if intraday_opens[0] > context.prev_day_close:
+            return
+        ups = []
+        downs = []
+        for i in range(-1, -n_bar, -1):
+            bar_change = intraday_closes[i] - intraday_opens[i]
+            if bar_change > 0:
+                ups.append(bar_change)
+            else:
+                downs.append(-bar_change)
+        abs_bars = [abs(intraday_closes[i] - intraday_opens[i]) for i in range(len(intraday_closes))]
+        bar_median = np.median(abs_bars)
+        if not any(b > bar_median for b in ups):
+            return
+        if not any(b > bar_median for b in downs):
+            return
+        bar_90 = np.percentile(abs_bars, 90)
+        if any(b > 3 * bar_90 for b in ups):
+            return
+        if max(intraday_closes) > 2 * min(intraday_closes):
             return
         self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                           f'Prev gain: {prev_gain * 100:.2f}%. L2h: {context.l2h_avg * 100:.2f}%. '
-                           f'Level: {level}. High: {intraday_highs[-1]}. '
+                           f'Last {n_bar} bar gain: {prev_gain * 100:.2f}%. '
+                           f'L2h: {context.l2h_avg * 100:.2f}%. Level: {level:.2f}. '
+                           f'High: {intraday_highs[-1]:.2f}. '
                            f'Current price: {context.current_price}. Side: short.')
         self._positions[context.symbol] = {'entry_time': context.current_time,
                                            'status': PositionStatus.PENDING,
