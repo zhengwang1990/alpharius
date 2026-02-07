@@ -14,7 +14,7 @@ from ..stock_universe import IntradayVolatilityStockUniverse
 
 EXIT_TIME = datetime.time(16, 0)
 # 3 hours only works if 1 hour and 2 hours are not triggered
-PARAMS = [(10, 1), (13, 1.15), (25, 1.75), (30, 2.25), (37, 2.25)]
+PARAMS = [(10, 1), (13, 1.15), (25, 2.0), (30, 2.25), (37, 2.25)]
 
 
 class H2lHourProcessor(Processor):
@@ -57,7 +57,7 @@ class H2lHourProcessor(Processor):
         t = context.current_time.time()
         if t >= EXIT_TIME:
             return
-        interday_closes = context.interday_lookback['Close'].tolist()
+        interday_closes = context.interday_lookback['Close'].to_numpy()
         interday_week_changes = [interday_closes[i] / interday_closes[i - 1] - 1 for i in range(-DAYS_IN_A_WEEK, 0)]
         if any(abs(c) > 0.4 for c in interday_week_changes):
             return
@@ -67,7 +67,8 @@ class H2lHourProcessor(Processor):
         intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
         if len(intraday_closes) < PARAMS[0][0]:
             return
-        if context.current_price > np.min(intraday_closes):
+        intraday_low = np.min(intraday_closes)
+        if context.current_price > intraday_low and intraday_closes[-2] > intraday_low:
             return
         if abs(context.current_price / context.prev_day_close - 1) > 0.25:
             return
@@ -100,6 +101,14 @@ class H2lHourProcessor(Processor):
                                    f'Current loss: {current_loss * 100:.2f}%. N: {n}. '
                                    f'Threshold: {lower_threshold * 100:.2f}% ~ {upper_threshold * 100:.2f}%. '
                                    f'Current price {context.current_price}.')
+            if is_trade:
+                interday_opens = context.interday_lookback['Open'].to_numpy()
+                current_change = abs(context.current_price - intraday_opens[0])
+                weekly_changes = [abs(interday_closes[i] - interday_opens[i]) for i in range(-DAYS_IN_A_WEEK * 2, 0)]
+                if current_change < np.median(weekly_changes) * 2:
+                    self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                                       f' Total intraday change is not volatile enough. Skip.')
+                    return
             if is_trade:
                 self._positions[context.symbol] = {'entry_time': context.current_time,
                                                    'status': PositionStatus.PENDING, 'n': n}
