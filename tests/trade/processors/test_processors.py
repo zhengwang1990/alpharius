@@ -1,4 +1,5 @@
 import re
+from datetime import timedelta
 
 import pandas as pd
 import pytest
@@ -30,10 +31,15 @@ def test_all_processors(data, current_time):
                                              start_time=pd.Timestamp('2024-01-15'),
                                              end_time=pd.Timestamp('2025-01-14'),
                                              time_interval=TimeInterval.DAY)
-    intraday_lookback = data_client.get_data('FAKE',
-                                             start_time=pd.Timestamp('2025-01-15 09:00:00-05'),
-                                             end_time=current_time,
-                                             time_interval=TimeInterval.FIVE_MIN)
+    intraday_lookback_start = data_client.get_data('FAKE',
+                                                   start_time=pd.Timestamp('2025-01-15 09:00:00-05'),
+                                                   end_time=current_time,
+                                                   time_interval=TimeInterval.FIVE_MIN)
+    end_time = current_time + timedelta(hours=1)
+    intraday_lookback_end = data_client.get_data('FAKE',
+                                                 start_time=pd.Timestamp('2025-01-15 09:00:00-05'),
+                                                 end_time=end_time,
+                                                 time_interval=TimeInterval.FIVE_MIN)
     for attr in dir(processors):
         if pattern.match(attr):
             processor_cls = getattr(processors, attr)
@@ -48,9 +54,19 @@ def test_all_processors(data, current_time):
                                 current_time,
                                 current_price=data[-1] + 2.5 if data else 100.42,
                                 interday_lookback=interday_lookback,
-                                intraday_lookback=intraday_lookback)
+                                intraday_lookback=intraday_lookback_start)
                         for symbol in stock_universe]
             processor.setup([], current_time)
             transactions = processor.process_all_data(contexts)
             for transaction in transactions:
                 processor.ack(transaction.symbol)
+            # Make a fake ack so we can test close position
+            if not transactions and stock_universe:
+                processor.ack((stock_universe[0]))
+            contexts = [Context(symbol,
+                                end_time,
+                                current_price=data[-1] + 10 if data else 90.42,
+                                interday_lookback=interday_lookback,
+                                intraday_lookback=intraday_lookback_end)
+                        for symbol in stock_universe]
+            processor.process_all_data(contexts)
