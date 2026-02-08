@@ -84,8 +84,12 @@ class OvernightTqqqProcessor(Processor):
         if (2 * one_week_std > two_week_std > four_week_std > 0.05
                 and context.current_price / interday_closes[-1] - 1 < -0.07
                 and context.symbol == 'SQQQ'):
-            if context.current_price / min(interday_closes[-3 * DAYS_IN_A_MONTH:]) > 1.6:
-                return
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                                + f'{two_week_std=:.4f}, {four_week_std=:.4f}')
-            return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
+            if context.current_price / min(interday_closes[-3 * DAYS_IN_A_MONTH:]) > 1.6:
+                self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                                   + f'Large increase in recent quarter; skip.')
+                return
+            # Only trade half for safety reason. The SQQQ historical data is not well-adjusted, causing
+            # unreliable backtesting results. We can change it to 1 once the strategy is proved to be good.
+            return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 0.5)
