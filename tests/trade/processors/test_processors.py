@@ -24,8 +24,9 @@ from ...fakes import FakeDataClient
         ([20 - i * 0.1 for i in range(100)], pd.Timestamp('2025-01-15 09:50:00-05'), 2.5),
         ([41.0, 40.0, 39.7, 45.1, 44.3, 38.1, 37.1, 38.11, 43.3, 41.5, 41.1, 42.0, 44.0, 41.2, 38.15, 42.0, 40.0, 47.2],
          pd.Timestamp('2025-01-15 11:00:00-05'), -5),
-        ([20 + i * 0.1 for i in range(100)] + [50 - i * 0.3 for i in range(100)],
+        ([20 + i * 0.1 for i in range(50)] + [50 - i * 0.3 for i in range(100)],
          pd.Timestamp('2025-01-15 15:05:00-05'), 1),
+        ([20 + i * 0.1 for i in range(100)], pd.Timestamp('2025-01-15 10:00:00-05'), 1),
     ],
 )
 def test_all_processors(data, current_time, current_price_adjust):
