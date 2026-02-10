@@ -12,19 +12,21 @@ from ...fakes import FakeDataClient
 
 
 @pytest.mark.parametrize(
-    'data,current_time',
+    'data,current_time,current_price_adjust',
     [
-        (None, pd.Timestamp('2025-01-15 10:35:00-05')),
-        ([100, 101, 102, 103, 104, 105, 106, 107, 108, 109], pd.Timestamp('2025-01-15 10:30:00-05')),
-        ([50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40], pd.Timestamp('2025-01-15 12:30:00-05')),
-        ([70, 75, 73, 69, 49, 32, 23, 87, 233, 314, 11, 12, 56], pd.Timestamp('2025-01-15 15:00:00-05')),
-        ([11], pd.Timestamp('2025-01-15 15:35:00-05')),
-        ([1, 2, 3, 4, 5, 6, 7, 8], pd.Timestamp('2025-01-15 11:05:00-05')),
-        ([23, 32, 32, 21, 21, 34], pd.Timestamp('2025-01-15 10:00:00-05')),
-        ([20 - i * 0.1 for i in range(100)], pd.Timestamp('2025-01-15 09:50:00-05')),
+        (None, pd.Timestamp('2025-01-15 10:35:00-05'), None),
+        ([100, 101, 102, 103, 104, 105, 106, 107, 108, 109], pd.Timestamp('2025-01-15 10:30:00-05'), 2.5),
+        ([50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40], pd.Timestamp('2025-01-15 12:30:00-05'), 2.5),
+        ([70, 75, 73, 69, 49, 32, 23, 87, 233, 314, 11, 12, 56], pd.Timestamp('2025-01-15 15:00:00-05'), 2.5),
+        ([11], pd.Timestamp('2025-01-15 15:35:00-05'), 2.5),
+        ([1, 2, 3, 4, 5, 6, 7, 8], pd.Timestamp('2025-01-15 11:05:00-05'), 2.5),
+        ([23, 32, 32, 21, 21, 34], pd.Timestamp('2025-01-15 10:00:00-05'), 2.5),
+        ([20 - i * 0.1 for i in range(100)], pd.Timestamp('2025-01-15 09:50:00-05'), 2.5),
+        ([41.0, 40.0, 39.7, 45.1, 44.3, 38.1, 37.1, 38.11, 43.3, 41.5, 41.1, 42.0, 44.0, 41.2, 38.15, 42.0, 40.0, 47.2],
+         pd.Timestamp('2025-01-15 11:00:00-05'), -5),
     ],
 )
-def test_all_processors(data, current_time):
+def test_all_processors(data, current_time, current_price_adjust):
     pattern = re.compile(r'^[A-Z]\w+Processor$')
     data_client = FakeDataClient(data)
     interday_lookback = data_client.get_data('FAKE',
@@ -52,7 +54,7 @@ def test_all_processors(data, current_time):
 
             contexts = [Context(symbol,
                                 current_time,
-                                current_price=data[-1] + 2.5 if data else 100.42,
+                                current_price=data[-1] + current_price_adjust if data else 100.42,
                                 interday_lookback=interday_lookback,
                                 intraday_lookback=intraday_lookback_start)
                         for symbol in stock_universe]
