@@ -144,21 +144,24 @@ class Live:
             time.sleep(10)
 
         # Process
-        processed = []
+        processed = set()
         while time.time() < self._market_close:
             current_time = pd.to_datetime(pd.Timestamp(int(time.time()), unit='s', tz=TIME_ZONE))
             next_minute = current_time + datetime.timedelta(minutes=1)
+            checkpoint_time = pd.to_datetime(
+                pd.Timestamp.combine(self._today.date(),
+                                     datetime.time(int(next_minute.hour),
+                                                   int(next_minute.minute)))).tz_localize(TIME_ZONE)
             if int(current_time.minute) % 5 == 4:
-                checkpoint_time = pd.to_datetime(
-                    pd.Timestamp.combine(self._today.date(),
-                                         datetime.time(int(next_minute.hour),
-                                                       int(next_minute.minute)))).tz_localize(TIME_ZONE)
                 trigger_seconds = 50
                 if checkpoint_time.timestamp() == self._market_close:
                     trigger_seconds -= 15
                 if current_time.second > trigger_seconds and checkpoint_time not in processed:
                     self._process(checkpoint_time)
-                    processed.append(checkpoint_time)
+                    processed.add(checkpoint_time)
+            if int(current_time.minute) % 30 == 3 and checkpoint_time not in processed:
+                self._update_interday_data()
+                processed.add(checkpoint_time)
             time.sleep(1)
 
         self._upload_log()
@@ -265,6 +268,31 @@ class Live:
                 intraday_lookback.at[intraday_lookback.index[-1], 'Close'] = np.float32(price)
         self._logger.info('Intraday data updated for [%d] symbols. Time elapsed [%.2fs]',
                           len(tasks), time.time() - update_start)
+
+    def _update_interday_data(self):
+        """Verifies interday data is correct."""
+        update_start = time.time()
+        universe_symbols: set[str] = set()
+        for symbols in self._stock_universe.values():
+            universe_symbols.update(symbols)
+        history_start = self._today - datetime.timedelta(days=INTERDAY_LOOKBACK_LOAD)
+        interday_data = load_interday_dataset(universe_symbols,
+                                              history_start,
+                                              self._today,
+                                              self._data_client)
+        for symbol, interday_lookback in interday_data.items():
+            old_interday_lookback = self._interday_data.get(symbol)
+            if old_interday_lookback is None:
+                self._logger.warning('Filled missing interday data for symbol [%s]', symbol)
+                self._interday_data[symbol] = interday_lookback
+            else:
+                if not interday_lookback.equals(old_interday_lookback):
+                    differences = interday_lookback.compare(old_interday_lookback, result_names=('old', 'new'))
+                    self._logger.warning('Inconsistent interday data for symbol [%s]\n%s',
+                                         symbol, differences)
+                    self._interday_data[symbol] = interday_lookback
+        self._logger.info('Interday data updated for [%d] symbols. Time elapsed [%.2fs]',
+                          len(universe_symbols), time.time() - update_start)
 
     def _get_position(self, symbol: str) -> Optional[Position]:
         for position in self._positions:
