@@ -260,6 +260,8 @@ class TqqqProcessor(Processor):
         if interday_closes.iloc[-1] / interday_closes.iloc[-2] - 1 > context.l2h_avg:
             return
         market_open_index = context.market_open_index
+        if market_open_index is None:
+            return
         intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
         open_price = intraday_opens[0]
         open_gain = open_price / context.prev_day_close - 1
@@ -272,9 +274,9 @@ class TqqqProcessor(Processor):
             if intraday_closes[i] < intraday_closes[i - 6]:
                 return
         self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] Open high momentum strategy. '
-                           f'Current price: {context.current_price}. '
-                           f'Open gain: {open_gain * 100:.2f}%. '
-                           f'H2l [{context.l2h_avg * 100:.2f}%].')
+                           f'Current price: {context.current_price}. Prev close price: {context.prev_day_close}. '
+                           f'Open gain: {open_gain * 100:.2f}%. Open price: {open_price:.2f}. '
+                           f'L2h [{context.l2h_avg * 100:.2f}%].')
         self._positions[context.symbol] = {'entry_time': context.current_time,
                                            'strategy': 'open_high_momentum',
                                            'side': 'long'}
