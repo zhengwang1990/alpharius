@@ -32,6 +32,7 @@ class OvernightTqqqProcessor(Processor):
         intraday_low = min(context.intraday_lookback['Low'].values[market_open_index:])
         intraday_change = intraday_high / intraday_low - 1
         interday_closes = context.interday_lookback['Close'].values
+        interday_opens = context.interday_lookback['Open'].values
         two_week_closes = interday_closes[-2 * DAYS_IN_A_WEEK:]
         two_week_changes = [two_week_closes[i] / two_week_closes[i - 1] - 1 for i in range(1, len(two_week_closes))]
         two_week_std = np.std(two_week_changes)
@@ -72,6 +73,11 @@ class OvernightTqqqProcessor(Processor):
                     self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
                                        + f' Recent pullback; Skip.')
                     return
+            if all(interday_opens[i] < interday_closes[i] and interday_opens[i] < interday_closes[i - 1]
+                   for i in range(-5, 0)):
+                self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                                   + 'Bad recent performance; Skip.')
+                return
             if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
                 return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
             else:
