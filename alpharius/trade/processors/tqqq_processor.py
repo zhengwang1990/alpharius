@@ -59,6 +59,9 @@ class TqqqProcessor(Processor):
         action = self._two_troughs(context)
         if action:
             return action
+        action = self._low_open_high_close(context)
+        if action:
+            return action
 
     def _mean_reversion(self, context: Context) -> Optional[ProcessorAction]:
         t = context.current_time.time()
@@ -387,6 +390,33 @@ class TqqqProcessor(Processor):
                                            'side': 'long'}
         return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
+    def _low_open_high_close(self, context: Context) -> Optional[ProcessorAction]:
+        if context.current_time.time() > datetime.time(10, 30):
+            return
+        market_open_index = context.market_open_index
+        if market_open_index is None:
+            return
+        interday_opens = context.interday_lookback['Open'].to_numpy()
+        interday_closes = context. interday_lookback['Close'].to_numpy()
+        for i in range(-2, 0):
+            if not interday_opens[i] < interday_closes[i-1] < interday_closes[i]:
+                return
+        intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
+        intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
+        if context.current_price > intraday_opens[0]:
+            return
+        if context.current_price < intraday_opens[-1]:
+            return
+        intraday_lows = context.intraday_lookback['Low'].tolist()[market_open_index:-1] or [1]
+        if (context.current_price / min(intraday_closes) - 1 > 0.005 or
+                context.current_price / min(intraday_lows) - 1 > 0.01):
+            self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] Low open high close strategy. '
+                               f'Current price: {context.current_price}.')
+            self._positions[context.symbol] = {'entry_time': context.current_time,
+                                               'strategy': 'low_open_high_close',
+                                               'side': 'long'}
+            return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
+
     def _close_position(self, context: Context) -> Optional[ProcessorAction]:
         def exit_position():
             self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
@@ -452,4 +482,14 @@ class TqqqProcessor(Processor):
             if (context.current_time >= position['entry_time'] + datetime.timedelta(minutes=35)
                     or context.current_time.time() >= datetime.time(15, 0)
                     or stop_loss):
+                return exit_position()
+        if strategy == 'low_open_high_close':
+            take_profit = False
+            if entry_index >= 0:
+                entry_price = intraday_closes[entry_index]
+                if context.current_price / entry_price - 1 > 0.01:
+                    take_profit = True
+            if (context.current_time >= position['entry_time'] + datetime.timedelta(minutes=30)
+                    or context.current_time.time() >= datetime.time(16, 0)
+                    or take_profit):
                 return exit_position()
