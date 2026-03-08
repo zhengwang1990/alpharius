@@ -76,7 +76,14 @@ class OvernightTqqqProcessor(Processor):
             if all(interday_opens[i] < interday_closes[i] and interday_opens[i] < interday_closes[i - 1]
                    for i in range(-5, 0)):
                 self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
-                                   + 'Bad recent performance; Skip.')
+                                   + 'Bad recent performance in last 5 days; Skip.')
+                return
+            four_week_max = max(four_week_closes)
+            if (context.today_open / four_week_max - 1 < -0.15 and
+                    interday_opens[-1] < interday_closes[-1] and interday_opens[-1] < interday_closes[-2]
+                    and context.today_open < interday_closes[-1] < context.current_price):
+                self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                                   + 'Bad pattern in correction period; Skip.')
                 return
             if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
                 return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
