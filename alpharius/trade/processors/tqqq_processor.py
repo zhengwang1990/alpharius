@@ -398,9 +398,13 @@ class TqqqProcessor(Processor):
             return
         interday_opens = context.interday_lookback['Open'].to_numpy()
         interday_closes = context. interday_lookback['Close'].to_numpy()
-        for i in range(-2, 0):
-            if not interday_opens[i] < interday_closes[i-1] < interday_closes[i]:
-                return
+        last_two_day_inc = all(interday_opens[i] < interday_closes[i - 1] < interday_closes[i] for i in range(-2, 0))
+        last_six_day_inc = sum(interday_opens[i] < interday_closes[i] for i in range(-6, 0))
+        last_six_day_inc_strict = sum(
+            interday_opens[i] < interday_closes[i - 1] < interday_closes[i] for i in range(-6, 0)
+        )
+        if not (last_two_day_inc or (last_six_day_inc >= 5 and last_six_day_inc_strict >= 3)):
+            return
         intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
         intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
         if context.current_price > intraday_opens[0]:
