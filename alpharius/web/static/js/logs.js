@@ -1,25 +1,28 @@
 const elem = document.getElementById("datepicker");
-const tz_offset = new Date().getTimezoneOffset() * 60000;
-const min_date = Date.parse(DATES[0]) + tz_offset;
-const max_date = Date.parse(DATES[DATES.length - 1]) + tz_offset;
-const date_set = new Set();
-for (d of DATES) {
-    date_set.add(Date.parse(d) + tz_offset);
+function parseLocalDate(s) {
+    const [y, m, d] = s.split('-').map(Number);
+    return new Date(y, m - 1, d);
 }
-var dates_disabled = [];
-for (var d = min_date; d <= max_date; d += 86400000) {
-    if (!date_set.has(d)) {
-        dates_disabled.push(d);
+const min_date = parseLocalDate(DATES[0]);
+const max_date = parseLocalDate(DATES[DATES.length - 1]);
+
+const date_set = new Set(DATES.map(d => parseLocalDate(d).getTime()));
+
+const dates_disabled = [];
+
+for (let d = new Date(min_date); d <= max_date; d.setDate(d.getDate() + 1)) {
+    if (!date_set.has(d.getTime())) {
+        dates_disabled.push(new Date(d));
     }
 }
 const datepicker = new Datepicker(elem, {
     autohide: true,
-    format: "M dd yyyy",
+    format: "yyyy-mm-dd",
     minDate: min_date,
     maxDate: max_date,
     datesDisabled: dates_disabled,
 });
-datepicker.setDate(Date.parse(CURRENT_DATE) + tz_offset);
+datepicker.setDate(parseLocalDate(CURRENT_DATE));
 elem.addEventListener("changeDate", function(event){
     location.href = "logs?date=" + datepicker.getDate("yyyy-mm-dd");
 });

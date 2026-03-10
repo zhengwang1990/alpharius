@@ -1,13 +1,13 @@
 const intraday_datepicker = new Datepicker(document.getElementById("intraday-datepicker"), {
     autohide: true,
-    format: "M dd yyyy",
+    format: "yyyy-mm-dd",
     maxDate: new Date(),
     daysOfWeekDisabled: [0, 6]
 });
 
 const daily_datepicker = new DateRangePicker(document.getElementById("daily-datepicker"), {
     autohide: true,
-    format: "M dd yyyy",
+    format: "yyyy-mm-dd",
     maxDate: new Date(),
     daysOfWeekDisabled: [0, 6]
 });
