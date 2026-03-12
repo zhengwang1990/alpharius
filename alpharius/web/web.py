@@ -480,6 +480,12 @@ def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Tran
                                gl=get_signed_percentage(t.gl_pct),
                                arrow=get_colored_value('', 'green' if t.gl_pct > 0 else 'red', with_arrow=True))
 
+    def _normalize_time(t: pd.Timestamp | None) -> pd.Timestamp | None:
+        # Normalize transactions whose orders are not filled in time
+        if t is None:
+            return t
+        return t - datetime.timedelta(minutes=t.minute % 5)
+
     for trans in [a_transactions, b_transactions]:
         trans.sort(key=lambda t: (t.exit_time, t.symbol))
     t0 = a_transactions[0] if a_transactions else b_transactions[0]
@@ -490,8 +496,8 @@ def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Tran
     i, j = 0, 0
     empty_row = ('<tr><td>&nbsp</td><td class="xs-hidden"></td><td class="lg-hidden"></td>'
                  '<td></td><td></td><td></td></tr>')
-    a_set = {(t.symbol, t.processor, t.entry_time, t.exit_time) for t in a_transactions}
-    b_set = {(t.symbol, t.processor, t.entry_time, t.exit_time) for t in b_transactions}
+    a_set = {(t.symbol, t.processor, t.entry_time, _normalize_time(t.exit_time)) for t in a_transactions}
+    b_set = {(t.symbol, t.processor, t.entry_time, _normalize_time(t.exit_time)) for t in b_transactions}
     while i < len(a_transactions) or j < len(b_transactions):
         if i == len(a_transactions):
             extra += 1
@@ -509,18 +515,18 @@ def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Tran
         b = b_transactions[j]
         if (a.symbol == b.symbol and a.processor == b.processor
                 and a.entry_time == b.entry_time
-                and a.exit_time == b.exit_time):
+                and _normalize_time(a.exit_time) == _normalize_time(b.exit_time)):
             comm += 1
             table['backtest'] += _get_row(a_transactions[i])
             table['trade'] += _get_row(b_transactions[j])
             i += 1
             j += 1
-        elif (a.symbol, a.processor, a.entry_time, a.exit_time) in b_set:
+        elif (a.symbol, a.processor, a.entry_time, _normalize_time(a.exit_time)) in b_set:
             extra += 1
             table['backtest'] += empty_row
             table['trade'] += _get_row(b_transactions[j], html_class='diff_add')
             j += 1
-        elif (b.symbol, b.processor, b.entry_time, b.exit_time) in a_set:
+        elif (b.symbol, b.processor, b.entry_time, _normalize_time(b.exit_time)) in a_set:
             miss += 1
             table['backtest'] += _get_row(a_transactions[i], html_class='diff_sub')
             table['trade'] += empty_row
@@ -531,7 +537,7 @@ def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Tran
             table['trade'] += _get_row(b_transactions[j], html_class='diff_time')
             i += 1
             j += 1
-        elif a.exit_time <= b.exit_time:
+        elif _normalize_time(a.exit_time) <= _normalize_time(b.exit_time):
             miss += 1
             table['backtest'] += _get_row(a_transactions[i], html_class='diff_sub')
             table['trade'] += empty_row

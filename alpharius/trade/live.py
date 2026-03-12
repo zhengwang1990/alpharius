@@ -222,9 +222,9 @@ class Live:
                             for pa in processor_actions])
         self._logger.info('Got [%d] actions to process.', len(actions))
 
-        executed_closes = self._trade(actions)
+        close_actions = self._trade(actions)
         self._db_thread = threading.Thread(target=self._update_db,
-                                           args=(executed_closes,))
+                                           args=(close_actions,))
         self._db_thread.start()
 
     def _update_intraday_data(self,
@@ -308,18 +308,17 @@ class Live:
 
         close_actions = [action for action in unique_actions
                          if action.type in [ActionType.BUY_TO_CLOSE, ActionType.SELL_TO_CLOSE]]
-        executed_closes = self._close_positions(close_actions)
+        self._close_positions(close_actions)
 
         open_actions = [action for action in unique_actions
                         if action.type in [ActionType.BUY_TO_OPEN, ActionType.SELL_TO_OPEN]]
         self._open_positions(open_actions)
 
-        return executed_closes
+        return close_actions
 
-    def _close_positions(self, actions: List[Action]) -> List[Action]:
+    def _close_positions(self, actions: List[Action]) -> None:
         """Closes positions instructed by input actions."""
         self._update_positions()
-        executed_closes = []
         order_ids = []
         for action in actions:
             assert action.type in [ActionType.BUY_TO_CLOSE, ActionType.SELL_TO_CLOSE]
@@ -339,10 +338,8 @@ class Live:
             order_id = self._place_order(symbol=symbol, side=side, qty=qty)
             if order_id:
                 order_ids.append(order_id)
-            executed_closes.append(action)
 
         self._wait_for_order_to_fill(order_ids)
-        return executed_closes
 
     def _open_positions(self, actions: List[Action]) -> None:
         """Opens positions instructed by input actions."""
@@ -432,28 +429,36 @@ class Live:
         else:
             self._logger.warning('[%d] orders not filled: %s', len(orders), orders)
 
-    def _update_db(self, executed_closes: List[Action]) -> None:
+    def _update_db(self, close_actions: List[Action]) -> None:
+        if not close_actions:
+            return
         current_time = time.time()
         self._upload_log()
-        time.sleep(15)
-        if executed_closes:
+        wait_time = 15
+        actions = {action.symbol: action for action in close_actions}
+        # Some transactions may come late, so we wait up to 4 min to fill all transactions
+        for i in range(4):
+            if not actions:
+                break
+            time.sleep(wait_time)
             transactions = get_transactions(self._today.strftime('%F'), self._data_client)
-            actions = {action.symbol: action for action in executed_closes}
             for transaction in transactions:
                 symbol = transaction.symbol
                 if transaction.gl_pct is None:
                     continue
                 if symbol not in actions or current_time - transaction.exit_time.timestamp() > 100:
                     continue
-                transaction.processor = actions[symbol].processor.name
+                action = actions.pop(symbol)
+                transaction.processor = action.processor.name
                 try:
                     self._db.insert_transaction(transaction)
                 except exc.SQLAlchemyError as e:
                     self._logger.error('[%s] Transaction inserting encountered an error\n%s', symbol, e)
-            try:
-                self._db.update_aggregation(self._today.strftime('%F'))
-            except exc.SQLAlchemyError as e:
-                self._logger.error('Aggregation updating encountered an error\n%s', e)
+            wait_time *= 2
+        try:
+            self._db.update_aggregation(self._today.strftime('%F'))
+        except exc.SQLAlchemyError as e:
+            self._logger.error('Aggregation updating encountered an error\n%s', e)
 
     def _upload_log(self):
         try:

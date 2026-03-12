@@ -26,7 +26,8 @@ class ExpProcessor(Processor):
         self._stock_universe = IntradayVolatilityStockUniverse(lookback_start_date,
                                                                lookback_end_date,
                                                                data_client,
-                                                               num_stocks=NUM_UNIVERSE_SYMBOLS)
+                                                               num_stocks=10,
+                                                               num_top_volume=50)
 
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
@@ -49,17 +50,33 @@ class ExpProcessor(Processor):
 
     def _open_position(self, context: Context) -> Optional[ProcessorAction]:
         t = context.current_time.time()
-        if t >= EXIT_TIME:
+        if t != datetime.time(9, 40):
             return
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
-        intraday_closes = context.intraday_lookback['Close'][market_open_index:]
-        is_trade = False
-        if is_trade:
-            self._positions[context.symbol] = {'entry_time': context.current_time,
-                                               'status': PositionStatus.PENDING}
-            return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
+        intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
+        intraday_opens = context.intraday_lookback['Open'].to_numpy()[market_open_index:]
+        if len(intraday_closes) < 2:
+            return
+        threshold = context.l2h_avg
+        if intraday_opens[0] < context.prev_day_close:
+            return
+        first_bar = intraday_closes[0] - intraday_opens[0]
+        if first_bar < threshold:
+            return
+        if first_bar < intraday_opens[0] - context.prev_day_close:
+            return
+        if intraday_closes[1] < intraday_opens[1]:
+            return
+        interday_highs = context.interday_lookback['High']
+        if not context.current_price > max(interday_highs[-20:]):
+            return
+        if intraday_closes[1] - intraday_opens[1] > threshold:
+            return
+        self._positions[context.symbol] = {'entry_time': context.current_time,
+                                           'status': PositionStatus.PENDING}
+        return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
     def _close_position(self, context: Context) -> Optional[ProcessorAction]:
         position = self._positions[context.symbol]
