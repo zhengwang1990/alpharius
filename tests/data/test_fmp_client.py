@@ -18,7 +18,7 @@ def fake_get(url, params, *args, **kwargs):
                 'low': 145.72,
                 'high': 146,
                 'close': 145.79,
-                'volume': 1492644
+                'volume': 1492644,
             }
         ]
     elif 'historical-price-eod/full' in url:
@@ -39,20 +39,13 @@ def fake_get(url, params, *args, **kwargs):
                     'changePercent': 1.57077,
                     'vwap': 175.44,
                     'label': 'October 06, 23',
-                    'changeOverTime': 0.0157077
+                    'changeOverTime': 0.0157077,
                 },
             ],
         }
     elif 'batch-quote-short' in url:
         symbols = params['symbols'].split(',')
-        content = [
-            {
-                'symbol': symbol,
-                'price': 145.85,
-                'volume': 42822124
-            }
-            for symbol in symbols
-        ]
+        content = [{'symbol': symbol, 'price': 145.85, 'volume': 42822124} for symbol in symbols]
     else:
         raise ValueError('url not recognized')
     response = requests.Response()
@@ -66,16 +59,12 @@ def mock_requests(mocker):
     mocker.patch.object(requests, 'get', side_effect=fake_get)
 
 
-@pytest.mark.parametrize('time_interval',
-                         [data.TimeInterval.FIVE_MIN,
-                          data.TimeInterval.HOUR,
-                          data.TimeInterval.DAY])
+@pytest.mark.parametrize('time_interval', [data.TimeInterval.FIVE_MIN, data.TimeInterval.HOUR, data.TimeInterval.DAY])
 def test_get_data(time_interval):
     client = data.FmpClient()
-    d = client.get_data('AAPL',
-                        start_time=pd.Timestamp('2024-03-26'),
-                        end_time=pd.Timestamp('2024-03-27'),
-                        time_interval=time_interval)
+    d = client.get_data(
+        'AAPL', start_time=pd.Timestamp('2024-03-26'), end_time=pd.Timestamp('2024-03-27'), time_interval=time_interval
+    )
     assert len(d) > 0
 
 

@@ -5,7 +5,6 @@ import warnings
 
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
-
 warnings.filterwarnings('ignore', category=MarkupResemblesLocatorWarning)
 
 regex_template = r'(?<![A-Za-z\-_\.\'">])({})(?![A-Za-z\-_=])'
@@ -46,7 +45,7 @@ def highlight_diff_table(diff_table: str) -> str:
         i = 0
         while i < len(content):
             c = content[i]
-            if (c == '<' and 'span' in content[i:i + 6]) or i == len(content) - 1:
+            if (c == '<' and 'span' in content[i : i + 6]) or i == len(content) - 1:
                 if i == len(content) - 1:
                     token += c
                 token = string_pattern.sub(r'<span class="python_string">\1</span>', token)

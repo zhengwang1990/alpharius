@@ -3,13 +3,13 @@ import time
 
 import pandas as pd
 import pytest
-from alpharius.web import web
+
 import alpharius.web.scheduler as scheduler
 from alpharius.utils import get_current_time
+from alpharius.web import web
 
 
-@pytest.mark.parametrize('route',
-                         ['/', '/dashboard_data'])
+@pytest.mark.parametrize('route', ['/', '/dashboard_data'])
 def test_dashboard(route, client, mock_alpaca, mock_data_client):
     assert client.get(route).status_code == 200
     assert mock_alpaca.get_portfolio_history_call_count > 0
@@ -18,24 +18,40 @@ def test_dashboard(route, client, mock_alpaca, mock_data_client):
     assert mock_data_client.get_data_call_count > 0
 
 
-@pytest.mark.parametrize('route',
-                         ['/transactions',
-                          '/transactions?page=2',
-                          '/transactions?processor=Processor1'])
+@pytest.mark.parametrize('route', ['/transactions', '/transactions?page=2', '/transactions?processor=Processor1'])
 def test_transactions(route, client, mock_engine):
     mock_engine.conn.execute.side_effect = [
-        [(pd.to_datetime('2022-11-02').date(), 'Processor1',
-          100, 0.01, 0, 0, 3, 2, 1, 0, 1000)],
+        [(pd.to_datetime('2022-11-02').date(), 'Processor1', 100, 0.01, 0, 0, 3, 2, 1, 0, 1000)],
         iter([[2]]),
         [
-            ('SYMA', True, 'Processor', 11.1, 12.3,
-             pd.to_datetime('2022-11-03T09:35:00-04:00'),
-             pd.to_datetime('2022-11-03T10:35:00-04:00'),
-             10, 100, 0.01, -100, -0.01),
-            ('SYMB', False, 'Processor', 11.1, 12.3,
-             pd.to_datetime('2022-11-03T09:35:00-04:00'),
-             pd.to_datetime('2022-11-03T10:35:00-04:00'),
-             10, 100, 0.01, None, None),
+            (
+                'SYMA',
+                True,
+                'Processor',
+                11.1,
+                12.3,
+                pd.to_datetime('2022-11-03T09:35:00-04:00'),
+                pd.to_datetime('2022-11-03T10:35:00-04:00'),
+                10,
+                100,
+                0.01,
+                -100,
+                -0.01,
+            ),
+            (
+                'SYMB',
+                False,
+                'Processor',
+                11.1,
+                12.3,
+                pd.to_datetime('2022-11-03T09:35:00-04:00'),
+                pd.to_datetime('2022-11-03T10:35:00-04:00'),
+                10,
+                100,
+                0.01,
+                None,
+                None,
+            ),
         ],
     ]
 
@@ -45,12 +61,10 @@ def test_transactions(route, client, mock_engine):
 
 def test_analytics(client, mock_alpaca, mock_engine, mock_data_client):
     mock_engine.conn.execute.return_value = [
-        (pd.to_datetime('2022-11-02').date(), 'Processor1',
-         100, 0.01, 0, 0, 3, 2, 1, 0, 1000),
-        (pd.to_datetime('2022-11-03').date(), 'Processor1',
-         100, 0.01, 10, 0.01, 2, 2, 0, 2, 1000),
-        (pd.to_datetime('2022-11-03').date(), 'Processor2',
-         100, 0.01, -10, -0.01, 3, 2, 1, 1, 1000)]
+        (pd.to_datetime('2022-11-02').date(), 'Processor1', 100, 0.01, 0, 0, 3, 2, 1, 0, 1000),
+        (pd.to_datetime('2022-11-03').date(), 'Processor1', 100, 0.01, 10, 0.01, 2, 2, 0, 2, 1000),
+        (pd.to_datetime('2022-11-03').date(), 'Processor2', 100, 0.01, -10, -0.01, 3, 2, 1, 1, 1000),
+    ]
 
     assert client.get('/analytics').status_code == 200
     assert mock_engine.conn.execute.call_count == 1
@@ -67,13 +81,13 @@ def test_logs(client, mock_engine):
     More error messages.
     """)
     mock_engine.conn.execute.side_effect = [
-        [[pd.to_datetime('2022-11-03').date()],
-         [pd.to_datetime('2022-11-03').date()],
-         [pd.to_datetime('2022-11-03').date()],
-         [pd.to_datetime('2022-11-03').date()]],
-        [['Trading', fake_data],
-         ['Processor1', fake_data],
-         ['Processor2', fake_data]],
+        [
+            [pd.to_datetime('2022-11-03').date()],
+            [pd.to_datetime('2022-11-03').date()],
+            [pd.to_datetime('2022-11-03').date()],
+            [pd.to_datetime('2022-11-03').date()],
+        ],
+        [['Trading', fake_data], ['Processor1', fake_data], ['Processor2', fake_data]],
     ]
 
     assert client.get('/logs').status_code == 200
@@ -84,13 +98,15 @@ def test_job_status(client):
 
 
 def test_get_annual_return():
-    dates = [pd.to_datetime(t, utc=True, unit='s').strftime('%F')
-             for t in range(int(pd.to_datetime('2017-01-01', utc=True).timestamp()),
-                            int(pd.to_datetime('2022-10-01', utc=True).timestamp()),
-                            86400)]
-    daily_prices = {'dates': dates,
-                    'symbols': ['My Portfolio', 'SPY', 'QQQ'],
-                    'values': [[100] * len(dates)] * 3}
+    dates = [
+        pd.to_datetime(t, utc=True, unit='s').strftime('%F')
+        for t in range(
+            int(pd.to_datetime('2017-01-01', utc=True).timestamp()),
+            int(pd.to_datetime('2022-10-01', utc=True).timestamp()),
+            86400,
+        )
+    ]
+    daily_prices = {'dates': dates, 'symbols': ['My Portfolio', 'SPY', 'QQQ'], 'values': [[100] * len(dates)] * 3}
 
     annual_return = web._get_annual_return(daily_prices)
 
@@ -98,31 +114,43 @@ def test_get_annual_return():
 
 
 def test_get_risks():
-    dates = [pd.to_datetime(t, utc=True, unit='s').strftime('%F')
-             for t in range(int(pd.to_datetime('2017-01-01', utc=True).timestamp()),
-                            int(pd.to_datetime('2022-01-01', utc=True).timestamp()) + 1,
-                            86400)]
-    daily_prices = {'dates': dates,
-                    'symbols': ['My Portfolio', 'SPY', 'QQQ'],
-                    'values': [[100 + i * 0.01 for i in range(len(dates))]] * 3}
+    dates = [
+        pd.to_datetime(t, utc=True, unit='s').strftime('%F')
+        for t in range(
+            int(pd.to_datetime('2017-01-01', utc=True).timestamp()),
+            int(pd.to_datetime('2022-01-01', utc=True).timestamp()) + 1,
+            86400,
+        )
+    ]
+    daily_prices = {
+        'dates': dates,
+        'symbols': ['My Portfolio', 'SPY', 'QQQ'],
+        'values': [[100 + i * 0.01 for i in range(len(dates))]] * 3,
+    }
     risks = web._get_risks(daily_prices)
 
     assert len(risks) == 6  # only show last 5 years + ALL
 
 
-@pytest.mark.parametrize('route',
-                         ['/charts',
-                          ('/charts?date=2022-11-18&symbol=QQQ'
-                           '&start_date=2022-11-13&end_date=2022-11-20'),
-                          ('/charts?date=2022-11-18&symbol=QQQ'
-                           '&start_date=2022-11-14&end_date=2022-11-18')])
+@pytest.mark.parametrize(
+    'route',
+    [
+        '/charts',
+        ('/charts?date=2022-11-18&symbol=QQQ&start_date=2022-11-13&end_date=2022-11-20'),
+        ('/charts?date=2022-11-18&symbol=QQQ&start_date=2022-11-14&end_date=2022-11-18'),
+    ],
+)
 def test_charts(route, client):
     assert client.get(route).status_code == 200
 
 
-@pytest.mark.parametrize('route',
-                         ['/charts_data?date=2022-11-18&symbol=QQQ&timeframe=intraday',
-                          '/charts_data?start_date=2022-11-13&end_date=2022-11-23&symbol=QQQ&timeframe=daily'])
+@pytest.mark.parametrize(
+    'route',
+    [
+        '/charts_data?date=2022-11-18&symbol=QQQ&timeframe=intraday',
+        '/charts_data?start_date=2022-11-13&end_date=2022-11-23&symbol=QQQ&timeframe=daily',
+    ],
+)
 def test_charts_data(route, client, mock_data_client):
     assert client.get(route).status_code == 200
     assert mock_data_client.get_data_call_count > 0
@@ -133,53 +161,152 @@ def test_backtest(client, mock_engine, mocker):
     mocker.patch.object(time, 'time', return_value=1673450000)
     mock_engine.conn.execute.side_effect = [
         # Aggregation
-        [(pd.to_datetime('2022-11-02').date(), 'Processor1',
-          100, 0.01, 0, 0, 3, 2, 1, 0, 1000)],
+        [(pd.to_datetime('2022-11-02').date(), 'Processor1', 100, 0.01, 0, 0, 3, 2, 1, 0, 1000)],
         # Backtest transactions
         [
-            ('A', True, 'Processor', 11.1, 12.3,
-             pd.to_datetime('2023-01-10T09:35:00-04:00'),
-             pd.to_datetime('2023-01-10T10:35:00-04:00'),
-             10, None, 0.01, None, None),
-            ('C', True, 'Processor', 11.1, 12.3,
-             pd.to_datetime('2023-01-10T10:40:00-04:00'),
-             pd.to_datetime('2023-01-10T11:35:00-04:00'),
-             10, None, 0.01, None, None),
-            ('D', True, 'Processor', 11.1, 12.3,
-             pd.to_datetime('2023-01-10T13:40:00-04:00'),
-             pd.to_datetime('2023-01-10T14:35:00-04:00'),
-             10, None, 0.01, None, None),
-            ('E', True, 'Processor', 11.1, 12.3,
-             pd.to_datetime('2023-01-10T14:40:00-04:00'),
-             pd.to_datetime('2023-01-10T15:35:00-04:00'),
-             10, None, 0.01, None, None),
-            ('F', True, 'Processor', 11.4, 11.3,
-             pd.to_datetime('2023-01-10T15:40:00-04:00'),
-             pd.to_datetime('2023-01-10T15:50:00-04:00'),
-             10, None, 0.01, None, None),
-            ('G', True, 'Processor', 12.5, 12.3,
-             pd.to_datetime('2023-01-10T15:50:00-04:00'),
-             pd.to_datetime('2023-01-10T15:55:00-04:00'),
-             10, None, 0.01, None, None),
+            (
+                'A',
+                True,
+                'Processor',
+                11.1,
+                12.3,
+                pd.to_datetime('2023-01-10T09:35:00-04:00'),
+                pd.to_datetime('2023-01-10T10:35:00-04:00'),
+                10,
+                None,
+                0.01,
+                None,
+                None,
+            ),
+            (
+                'C',
+                True,
+                'Processor',
+                11.1,
+                12.3,
+                pd.to_datetime('2023-01-10T10:40:00-04:00'),
+                pd.to_datetime('2023-01-10T11:35:00-04:00'),
+                10,
+                None,
+                0.01,
+                None,
+                None,
+            ),
+            (
+                'D',
+                True,
+                'Processor',
+                11.1,
+                12.3,
+                pd.to_datetime('2023-01-10T13:40:00-04:00'),
+                pd.to_datetime('2023-01-10T14:35:00-04:00'),
+                10,
+                None,
+                0.01,
+                None,
+                None,
+            ),
+            (
+                'E',
+                True,
+                'Processor',
+                11.1,
+                12.3,
+                pd.to_datetime('2023-01-10T14:40:00-04:00'),
+                pd.to_datetime('2023-01-10T15:35:00-04:00'),
+                10,
+                None,
+                0.01,
+                None,
+                None,
+            ),
+            (
+                'F',
+                True,
+                'Processor',
+                11.4,
+                11.3,
+                pd.to_datetime('2023-01-10T15:40:00-04:00'),
+                pd.to_datetime('2023-01-10T15:50:00-04:00'),
+                10,
+                None,
+                0.01,
+                None,
+                None,
+            ),
+            (
+                'G',
+                True,
+                'Processor',
+                12.5,
+                12.3,
+                pd.to_datetime('2023-01-10T15:50:00-04:00'),
+                pd.to_datetime('2023-01-10T15:55:00-04:00'),
+                10,
+                None,
+                0.01,
+                None,
+                None,
+            ),
         ],
         # Transactions
         [
-            ('A', True, 'Processor', 11.1, 12.3,
-             pd.to_datetime('2023-01-10T09:35:00-04:00'),
-             pd.to_datetime('2023-01-10T10:35:00-04:00'),
-             10, 1, 0.01, -1, -0.01),
-            ('B', True, 'Processor', 11.1, 12.3,
-             pd.to_datetime('2023-01-10T09:35:00-04:00'),
-             pd.to_datetime('2023-01-10T10:35:00-04:00'),
-             10, 1, 0.01, -1, -0.01),
-            ('C', True, 'Processor', 11.1, 12.3,
-             pd.to_datetime('2023-01-10T10:40:00-04:00'),
-             pd.to_datetime('2023-01-10T11:35:00-04:00'),
-             10, None, 0.01, None, None),
-            ('E', True, 'Processor', 11.1, 12.3,
-             pd.to_datetime('2023-01-10T14:45:00-04:00'),
-             pd.to_datetime('2023-01-10T15:45:00-04:00'),
-             10, None, 0.01, None, None),
+            (
+                'A',
+                True,
+                'Processor',
+                11.1,
+                12.3,
+                pd.to_datetime('2023-01-10T09:35:00-04:00'),
+                pd.to_datetime('2023-01-10T10:35:00-04:00'),
+                10,
+                1,
+                0.01,
+                -1,
+                -0.01,
+            ),
+            (
+                'B',
+                True,
+                'Processor',
+                11.1,
+                12.3,
+                pd.to_datetime('2023-01-10T09:35:00-04:00'),
+                pd.to_datetime('2023-01-10T10:35:00-04:00'),
+                10,
+                1,
+                0.01,
+                -1,
+                -0.01,
+            ),
+            (
+                'C',
+                True,
+                'Processor',
+                11.1,
+                12.3,
+                pd.to_datetime('2023-01-10T10:40:00-04:00'),
+                pd.to_datetime('2023-01-10T11:35:00-04:00'),
+                10,
+                None,
+                0.01,
+                None,
+                None,
+            ),
+            (
+                'E',
+                True,
+                'Processor',
+                11.1,
+                12.3,
+                pd.to_datetime('2023-01-10T14:45:00-04:00'),
+                pd.to_datetime('2023-01-10T15:45:00-04:00'),
+                10,
+                None,
+                0.01,
+                None,
+                None,
+            ),
         ],
     ]
 

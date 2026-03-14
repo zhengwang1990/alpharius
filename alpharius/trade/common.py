@@ -3,13 +3,11 @@ import datetime
 import functools
 import logging
 import os
-
 from enum import Enum
 from typing import List, Optional
 
 import numpy as np
 import pandas as pd
-
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 CACHE_DIR = os.path.join(BASE_DIR, 'cache')
@@ -104,8 +102,7 @@ def logging_config(logging_file=None, detail=True, name=None, timezone=None) -> 
     logger.setLevel(logging.DEBUG)
     logger.propagate = False
     if detail:
-        formatter = logging.Formatter(
-            '[%(levelname)s] [%(asctime)s] [%(filename)s:%(lineno)d] %(message)s')
+        formatter = logging.Formatter('[%(levelname)s] [%(asctime)s] [%(filename)s:%(lineno)d] %(message)s')
     else:
         formatter = logging.Formatter('%(message)s')
     stream_handler = logging.StreamHandler()
@@ -130,14 +127,15 @@ def get_header(title):
 
 
 class Context:
-
-    def __init__(self,
-                 symbol: str,
-                 current_time: pd.Timestamp,
-                 current_price: float,
-                 interday_lookback: pd.DataFrame,
-                 intraday_lookback: Optional[pd.DataFrame],
-                 mode: Optional[Mode] = None) -> None:
+    def __init__(
+        self,
+        symbol: str,
+        current_time: pd.Timestamp,
+        current_price: float,
+        interday_lookback: pd.DataFrame,
+        intraday_lookback: Optional[pd.DataFrame],
+        mode: Optional[Mode] = None,
+    ) -> None:
         self.symbol = symbol
         self.current_time = current_time
         self.current_price = current_price

@@ -80,8 +80,7 @@ def get_current_time() -> pd.Timestamp:
 def get_today() -> pd.Timestamp:
     """Gets a datetime object of today at 00:00 NY time."""
     # Mocking time.time() will change the behavior of the method.
-    return pd.to_datetime(pd.Timestamp.combine(get_current_time().date(),
-                                               datetime.time(0, 0))).tz_localize(TIME_ZONE)
+    return pd.to_datetime(pd.Timestamp.combine(get_current_time().date(), datetime.time(0, 0))).tz_localize(TIME_ZONE)
 
 
 def get_latest_day() -> datetime.date:
@@ -96,8 +95,8 @@ def get_latest_day() -> datetime.date:
 
 
 def compute_risks(
-        values: List[float],
-        market_values: List[float],
+    values: List[float],
+    market_values: List[float],
 ) -> Tuple[Optional[float], Optional[float], float]:
     """Computes alpha, beta and sharpe ratio risk factors.
 
@@ -108,15 +107,13 @@ def compute_risks(
     returns:
       A tuple consists of alpha, beta and sharpe ratio, in order.
     """
-    profits = [values[k + 1] / values[k] -
-               1 for k in range(len(values) - 1)]
+    profits = [values[k + 1] / values[k] - 1 for k in range(len(values) - 1)]
     r = np.average(profits)
     std = np.std(profits)
     s = r / std * np.sqrt(252) if std > 0 else math.nan
     a, b = math.nan, math.nan
     if len(values) == len(market_values) and len(values) > 2:
-        market_profits = [market_values[k + 1] / market_values[k] - 1
-                          for k in range(len(market_values) - 1)]
+        market_profits = [market_values[k + 1] / market_values[k] - 1 for k in range(len(market_values) - 1)]
         mr = np.average(market_profits)
         mvar = np.var(market_profits)
         b = np.cov(market_profits, profits, bias=True)[0, 1] / mvar
@@ -167,14 +164,20 @@ def get_all_symbols() -> List[str]:
     secret_key = os.environ[ALPACA_SECRET_KEY_ENV]
     trading_client = trading.TradingClient(api_key, secret_key)
     assets = trading_client.get_all_assets(
-        filter=trading.GetAssetsRequest(status=trading.AssetStatus.ACTIVE,
-                                        asset_class=trading.AssetClass.US_EQUITY,
-                                        attributes='options_enabled'),
+        filter=trading.GetAssetsRequest(
+            status=trading.AssetStatus.ACTIVE, asset_class=trading.AssetClass.US_EQUITY, attributes='options_enabled'
+        ),
     )
-    symbols = [asset.symbol for asset in assets if
-               asset.easy_to_borrow and asset.fractionable and asset.marginable
-               and asset.tradable and asset.shortable
-               or asset.symbol in ['QQQ', 'SPY', 'TQQQ', 'SQQQ', 'UCO', 'NUGT']]
+    symbols = [
+        asset.symbol
+        for asset in assets
+        if asset.easy_to_borrow
+        and asset.fractionable
+        and asset.marginable
+        and asset.tradable
+        and asset.shortable
+        or asset.symbol in ['QQQ', 'SPY', 'TQQQ', 'SQQQ', 'UCO', 'NUGT']
+    ]
     symbols = [symbol for symbol in symbols if symbol.isalpha()]
     return symbols
 

@@ -4,6 +4,7 @@ import pytest
 import sqlalchemy
 
 from alpharius.web import create_app
+
 from .. import fakes
 
 

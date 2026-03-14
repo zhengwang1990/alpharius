@@ -10,7 +10,8 @@ import sqlalchemy
 import alpharius.data as data
 import alpharius.trade as trade
 from alpharius.utils import TIME_ZONE
-from ..fakes import Account, FakeTradingClient, FakeProcessor, FakeDbEngine, FakeDataClient
+
+from ..fakes import Account, FakeDataClient, FakeDbEngine, FakeProcessor, FakeTradingClient
 
 
 @pytest.fixture(autouse=True)
@@ -37,10 +38,10 @@ def patch_market_close(mocker, next_close: int):
     )
 
 
-@pytest.mark.parametrize("trading_frequency",
-                         [trade.TradingFrequency.FIVE_MIN,
-                          trade.TradingFrequency.CLOSE_TO_CLOSE,
-                          trade.TradingFrequency.CLOSE_TO_OPEN])
+@pytest.mark.parametrize(
+    'trading_frequency',
+    [trade.TradingFrequency.FIVE_MIN, trade.TradingFrequency.CLOSE_TO_CLOSE, trade.TradingFrequency.CLOSE_TO_OPEN],
+)
 def test_run_success(mock_trading_client, trading_frequency):
     fake_processor = FakeProcessor(trading_frequency)
     live = trade.Live(processors=[fake_processor], data_client=FakeDataClient())
@@ -78,8 +79,7 @@ def test_not_run_on_market_close_day(mocker, mock_trading_client):
 def test_not_run_if_far_from_market_open(mocker, mock_trading_client):
     data_client = FakeDataClient()
     live = trade.Live(processors=[], data_client=data_client)
-    mocker.patch.object(time, 'time',
-                        return_value=mock_trading_client.get_clock().next_open.timestamp() - 4000)
+    mocker.patch.object(time, 'time', return_value=mock_trading_client.get_clock().next_open.timestamp() - 4000)
 
     live.run()
 
@@ -89,8 +89,7 @@ def test_not_run_if_far_from_market_open(mocker, mock_trading_client):
 
 def test_small_position_not_open(mocker, mock_trading_client):
     live = trade.Live(processors=[FakeProcessor(trade.TradingFrequency.CLOSE_TO_OPEN)], data_client=FakeDataClient())
-    mocker.patch.object(FakeTradingClient, 'get_account',
-                        return_value=Account('id', '2000', '0.1', '8000'))
+    mocker.patch.object(FakeTradingClient, 'get_account', return_value=Account('id', '2000', '0.1', '8000'))
 
     live.run()
 
@@ -100,18 +99,15 @@ def test_small_position_not_open(mocker, mock_trading_client):
 def test_trade_transactions_executed(mocker):
     live = trade.Live(processors=[], data_client=FakeDataClient())
     expected_transactions = [
-        {'symbol': 'A', 'action_type': trade.ActionType.BUY_TO_OPEN,
-         'qty': None, 'side': 'buy', 'notional': 900},
-        {'symbol': 'B', 'action_type': trade.ActionType.SELL_TO_OPEN,
-         'qty': 9, 'side': 'sell', 'notional': None},
-        {'symbol': 'QQQ', 'action_type': trade.ActionType.SELL_TO_CLOSE,
-         'qty': 10, 'side': 'sell'},
-        {'symbol': 'GOOG', 'action_type': trade.ActionType.BUY_TO_CLOSE,
-         'qty': 10, 'side': 'buy'},
+        {'symbol': 'A', 'action_type': trade.ActionType.BUY_TO_OPEN, 'qty': None, 'side': 'buy', 'notional': 900},
+        {'symbol': 'B', 'action_type': trade.ActionType.SELL_TO_OPEN, 'qty': 9, 'side': 'sell', 'notional': None},
+        {'symbol': 'QQQ', 'action_type': trade.ActionType.SELL_TO_CLOSE, 'qty': 10, 'side': 'sell'},
+        {'symbol': 'GOOG', 'action_type': trade.ActionType.BUY_TO_CLOSE, 'qty': 10, 'side': 'buy'},
     ]
-    actions = [trade.Action(t['symbol'], t['action_type'], 1, 100,
-                            FakeProcessor(trade.TradingFrequency.FIVE_MIN))
-               for t in expected_transactions]
+    actions = [
+        trade.Action(t['symbol'], t['action_type'], 1, 100, FakeProcessor(trade.TradingFrequency.FIVE_MIN))
+        for t in expected_transactions
+    ]
     mock_place_order = mocker.patch.object(trade.Live, '_place_order')
 
     live._trade(actions)
@@ -123,12 +119,11 @@ def test_trade_transactions_executed(mocker):
 
 def test_trade_transactions_skipped(mock_trading_client):
     live = trade.Live(processors=[], data_client=FakeDataClient())
-    actions = [trade.Action('QQQ', trade.ActionType.BUY_TO_CLOSE, 1, 100,
-                            FakeProcessor(trade.TradingFrequency.FIVE_MIN)),
-               trade.Action('GOOG', trade.ActionType.SELL_TO_CLOSE, 1, 100,
-                            FakeProcessor(trade.TradingFrequency.FIVE_MIN)),
-               trade.Action('AAPL', trade.ActionType.SELL_TO_CLOSE, 1, 100,
-                            FakeProcessor(trade.TradingFrequency.FIVE_MIN))]
+    actions = [
+        trade.Action('QQQ', trade.ActionType.BUY_TO_CLOSE, 1, 100, FakeProcessor(trade.TradingFrequency.FIVE_MIN)),
+        trade.Action('GOOG', trade.ActionType.SELL_TO_CLOSE, 1, 100, FakeProcessor(trade.TradingFrequency.FIVE_MIN)),
+        trade.Action('AAPL', trade.ActionType.SELL_TO_CLOSE, 1, 100, FakeProcessor(trade.TradingFrequency.FIVE_MIN)),
+    ]
 
     live._trade(actions)
 
@@ -142,8 +137,9 @@ def test_update_db(mocker, mock_engine):
     mocker.patch('builtins.open', mocker.mock_open(read_data='data'))
     mocker.patch.object(time, 'time', return_value=exit_time.timestamp() + 30)
     live = trade.Live(processors=[], data_client=FakeDataClient())
-    live._update_db([trade.Action('QQQ', trade.ActionType.SELL_TO_CLOSE, 1, 100,
-                                  FakeProcessor(trade.TradingFrequency.FIVE_MIN))])
+    live._update_db(
+        [trade.Action('QQQ', trade.ActionType.SELL_TO_CLOSE, 1, 100, FakeProcessor(trade.TradingFrequency.FIVE_MIN))]
+    )
 
     assert mock_engine.conn.execute.call_count == 3
 
@@ -166,8 +162,11 @@ def test_adjust_price(mocker):
     mocker.patch.object(
         FakeDataClient,
         'get_daily',
-        return_value=pd.DataFrame(index=[pd.to_datetime(1615987800, utc=True, unit='s').tz_convert(TIME_ZONE)],
-                                  data=[[1] * len(columns)], columns=columns),
+        return_value=pd.DataFrame(
+            index=[pd.to_datetime(1615987800, utc=True, unit='s').tz_convert(TIME_ZONE)],
+            data=[[1] * len(columns)],
+            columns=columns,
+        ),
     )
     live = trade.Live(
         processors=[FakeProcessor(trade.TradingFrequency.CLOSE_TO_OPEN)],

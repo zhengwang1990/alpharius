@@ -20,9 +20,9 @@ def test_highlight_diff_table():
         </table>
         """)
     diff_table = highlight_diff_table(diff_table)
-    assert "python_keyword" in diff_table
-    assert "python_builtin" in diff_table
-    assert "python_class" in diff_table
-    assert "python_method" in diff_table
-    assert "python_string" in diff_table
-    assert "python_number" in diff_table
+    assert 'python_keyword' in diff_table
+    assert 'python_builtin' in diff_table
+    assert 'python_class' in diff_table
+    assert 'python_method' in diff_table
+    assert 'python_string' in diff_table
+    assert 'python_number' in diff_table

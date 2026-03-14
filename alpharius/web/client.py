@@ -17,8 +17,11 @@ from flask import Flask
 
 import alpharius.data as data
 from alpharius.utils import (
-    construct_charts_link, get_signed_percentage, get_colored_value,
-    get_latest_day, TIME_ZONE,
+    TIME_ZONE,
+    construct_charts_link,
+    get_colored_value,
+    get_latest_day,
+    get_signed_percentage,
 )
 
 app = Flask(__name__)
@@ -26,10 +29,9 @@ app = Flask(__name__)
 START_DATE = '2023-03-14'
 
 
-def get_time_vs_equity(history_equity: List[float],
-                       history_time: List[int],
-                       time_format: str,
-                       cash_reserve: float) -> Tuple[List[str], List[float]]:
+def get_time_vs_equity(
+    history_equity: List[float], history_time: List[int], time_format: str, cash_reserve: float
+) -> Tuple[List[str], List[float]]:
     time_list = []
     equity_list = []
     for i, (e, t) in enumerate(zip(history_equity, history_time)):
@@ -57,7 +59,6 @@ def round_time(t: pd.Timestamp, time_fmt_with_year: bool):
 
 
 class Client:
-
     def __init__(self):
         self._alpaca = tradeapi.REST()
         self._data_client = data.FmpClient()
@@ -65,9 +66,8 @@ class Client:
     def get_calendar(self):
         latest_day = get_latest_day()
         calendar = self._alpaca.get_calendar(
-            start=max((latest_day - relativedelta(years=5)).strftime('%F'),
-                      START_DATE),
-            end=latest_day.strftime('%F'))
+            start=max((latest_day - relativedelta(years=5)).strftime('%F'), START_DATE), end=latest_day.strftime('%F')
+        )
         return calendar
 
     @retrying.retry(stop_max_attempt_number=2, wait_exponential_multiplier=1000)
@@ -81,27 +81,25 @@ class Client:
         tasks = dict()
         with futures.ThreadPoolExecutor(max_workers=2) as pool:
             for start_index, timeframe in [(-1, '5Min'), (0, '1D')]:
-                extended_hours = True if start_index == - 1 else False
-                tasks[timeframe] = pool.submit(self._alpaca.get_portfolio_history,
-                                               date_start=market_dates[start_index].strftime('%F'),
-                                               date_end=market_dates[-1].strftime('%F'),
-                                               period=None,
-                                               timeframe=timeframe,
-                                               extended_hours=extended_hours)
+                extended_hours = True if start_index == -1 else False
+                tasks[timeframe] = pool.submit(
+                    self._alpaca.get_portfolio_history,
+                    date_start=market_dates[start_index].strftime('%F'),
+                    date_end=market_dates[-1].strftime('%F'),
+                    period=None,
+                    timeframe=timeframe,
+                    extended_hours=extended_hours,
+                )
             histories = dict()
             for timeframe in ['5Min', '1D']:
                 histories[timeframe] = tasks[timeframe].result()
         cash_reserve = float(os.environ.get('CASH_RESERVE', 0))
         result['time_1d'], result['equity_1d'] = get_time_vs_equity(
-            histories['5Min'].equity,
-            histories['5Min'].timestamp,
-            '%H:%M',
-            cash_reserve)
+            histories['5Min'].equity, histories['5Min'].timestamp, '%H:%M', cash_reserve
+        )
         result['time_5y'], result['equity_5y'] = get_time_vs_equity(
-            histories['1D'].equity,
-            histories['1D'].timestamp,
-            '%F',
-            cash_reserve)
+            histories['1D'].equity, histories['1D'].timestamp, '%F', cash_reserve
+        )
         # Current equity value is wrong from get_portfolio_history
         current_equity = max(float(self._alpaca.get_account().equity) - cash_reserve, 0)
         result['current_equity'] = f'{current_equity:,.2f}'
@@ -113,14 +111,15 @@ class Client:
         time_points = copy.copy(result['time_5y'])
         if result['equity_1d']:
             result['equity_1d'][-1] = current_equity
-        result['prev_close'] = (result['equity_5y'][-2]
-                                if len(result['equity_5y']) > 2 else math.nan)
-        for time_period, time_delta in [('1w', relativedelta(weeks=1)),
-                                        ('2w', relativedelta(weeks=2)),
-                                        ('1m', relativedelta(months=1)),
-                                        ('6m', relativedelta(months=6)),
-                                        ('ytd', None),
-                                        ('1y', relativedelta(years=1))]:
+        result['prev_close'] = result['equity_5y'][-2] if len(result['equity_5y']) > 2 else math.nan
+        for time_period, time_delta in [
+            ('1w', relativedelta(weeks=1)),
+            ('2w', relativedelta(weeks=2)),
+            ('1m', relativedelta(months=1)),
+            ('6m', relativedelta(months=6)),
+            ('ytd', None),
+            ('1y', relativedelta(years=1)),
+        ]:
             if time_period == 'ytd':
                 new_year_day = f'{latest_day.year}-01-01'
                 cut_i = len(result['time_5y']) - 1
@@ -140,27 +139,23 @@ class Client:
                     break
         for time_period in ['1d', '1w', '2w', '1m', '6m', 'ytd', '1y', '5y']:
             if time_period == '1d':
-                base_value = (result['prev_close']
-                              if result['prev_close'] > 0 else current_equity)
+                base_value = result['prev_close'] if result['prev_close'] > 0 else current_equity
             else:
-                base_value = (result['equity_' + time_period][0]
-                              if result['equity_' + time_period] else current_equity)
+                base_value = result['equity_' + time_period][0] if result['equity_' + time_period] else current_equity
             change = current_equity - base_value
             percent = current_equity / base_value - 1
             result['change_' + time_period] = get_colored_value(
-                f'{change:+.2f} ({percent * 100:+.2f}%)',
-                'green' if change >= 0 else 'red',
-                with_arrow=True)
+                f'{change:+.2f} ({percent * 100:+.2f}%)', 'green' if change >= 0 else 'red', with_arrow=True
+            )
             result['color_' + time_period] = 'green' if change >= 0 else 'red'
         i = 0
         month_max = month_min = 0
         for j in range(len(result['time_5y'])):
             if j % 30 == 0:
-                month_max = np.max(result['equity_5y'][j:j + 30])
-                month_min = np.min(result['equity_5y'][j:j + 30])
+                month_max = np.max(result['equity_5y'][j : j + 30])
+                month_min = np.min(result['equity_5y'][j : j + 30])
             equity = result['equity_5y'][j]
-            if (j % 3 == 0 or j == len(result['time_5y']) - 1 or
-                    equity == month_max or equity == month_min):
+            if j % 3 == 0 or j == len(result['time_5y']) - 1 or equity == month_max or equity == month_min:
                 result['time_5y'][i] = result['time_5y'][j]
                 result['equity_5y'][i] = equity
                 i += 1
@@ -176,20 +171,15 @@ class Client:
         with futures.ThreadPoolExecutor(max_workers=3) as pool:
             lock = threading.RLock()
             for symbol in compare_symbols:
-                tasks[symbol] = pool.submit(self.get_compare_symbol, symbol,
-                                            market_dates[-1], time_points,
-                                            result, lock)
+                tasks[symbol] = pool.submit(
+                    self.get_compare_symbol, symbol, market_dates[-1], time_points, result, lock
+                )
             for symbol in compare_symbols:
                 tasks[symbol].result()
         app.logger.info('Time cost for get_portfolio_histories: [%.2fs]', time.time() - start)
         return result
 
-    def get_compare_symbol(self,
-                           symbol: str,
-                           latest_day,
-                           time_points,
-                           portfolio_histories,
-                           lock: threading.RLock):
+    def get_compare_symbol(self, symbol: str, latest_day, time_points, portfolio_histories, lock: threading.RLock):
         day_bars = self._data_client.get_data(
             symbol,
             pd.Timestamp.combine(latest_day, datetime.time(0, 0)).tz_localize(TIME_ZONE),
@@ -205,10 +195,8 @@ class Client:
                 dict_1d[t_open] = bar['Open']
             dict_1d[t_close] = bar['Close']
         year_bars = self._data_client.get_data(
-            symbol,
-            pd.Timestamp(time_points[0]),
-            pd.Timestamp(time_points[-1]),
-            data.TimeInterval.DAY)
+            symbol, pd.Timestamp(time_points[0]), pd.Timestamp(time_points[-1]), data.TimeInterval.DAY
+        )
         dict_5y = dict()
         for index, bar in year_bars.iterrows():
             index: pd.Timestamp
@@ -231,9 +219,11 @@ class Client:
                 portfolio_base = portfolio_histories['prev_close']
             else:
                 symbol_base = symbol_values[timeframe][0] if symbol_values[timeframe] else current_symbol_value
-                portfolio_base = (portfolio_histories['equity_' + timeframe][0]
-                                  if portfolio_histories['equity_' + timeframe]
-                                  else portfolio_histories['equity_1d'][-1])
+                portfolio_base = (
+                    portfolio_histories['equity_' + timeframe][0]
+                    if portfolio_histories['equity_' + timeframe]
+                    else portfolio_histories['equity_1d'][-1]
+                )
             for i in range(len(symbol_values[timeframe])):
                 if symbol_values[timeframe][i] is not None:
                     symbol_values[timeframe][i] = symbol_values[timeframe][i] / symbol_base * portfolio_base
@@ -249,9 +239,9 @@ class Client:
         start = time.time()
         result = []
         calendar = self.get_calendar()
-        orders = self._alpaca.list_orders(status='closed',
-                                          after=calendar[calendar_index - 1].date.strftime('%F'),
-                                          direction='desc')
+        orders = self._alpaca.list_orders(
+            status='closed', after=calendar[calendar_index - 1].date.strftime('%F'), direction='desc'
+        )
         orders_used = [False] * len(orders)
         positions = self._alpaca.list_positions()
         position_symbols = set([position.symbol for position in positions])
@@ -265,13 +255,15 @@ class Client:
                 break
             price = float(order.filled_avg_price)
             qty = float(order.filled_qty)
-            order_obj = {'symbol': order.symbol,
-                         'side': order.side,
-                         'price': f'{price:.4g}',
-                         'value': f'{price * qty:.2f}',
-                         'link': construct_charts_link(order.symbol, filled_at.strftime('%F')),
-                         'gl': '',
-                         'time': round_time(filled_at, time_fmt_with_year)}
+            order_obj = {
+                'symbol': order.symbol,
+                'side': order.side,
+                'price': f'{price:.4g}',
+                'value': f'{price * qty:.2f}',
+                'link': construct_charts_link(order.symbol, filled_at.strftime('%F')),
+                'gl': '',
+                'time': round_time(filled_at, time_fmt_with_year),
+            }
             if order.symbol in position_symbols:
                 position_symbols.remove(order.symbol)
             elif not orders_used[i]:
@@ -313,15 +305,17 @@ class Client:
             gl = current_price / entry_price - 1
             if side == 'short':
                 gl *= -1
-            result.append({
-                'symbol': symbol,
-                'current_price': f'{current_price:.4g}',
-                'value': f'{value:.2f}' if value < 1000 else f'{value:.0f}',
-                'side': side,
-                'day_change': get_signed_percentage(info['change']),
-                'gl': get_signed_percentage(gl),
-                'link': construct_charts_link(symbol, last_trading_day),
-            })
+            result.append(
+                {
+                    'symbol': symbol,
+                    'current_price': f'{current_price:.4g}',
+                    'value': f'{value:.2f}' if value < 1000 else f'{value:.0f}',
+                    'side': side,
+                    'day_change': get_signed_percentage(info['change']),
+                    'gl': get_signed_percentage(gl),
+                    'link': construct_charts_link(symbol, last_trading_day),
+                }
+            )
         result.sort(key=lambda p: p['symbol'])
         app.logger.info('Time cost for get_current_positions: [%.2fs]', time.time() - start)
         return result
@@ -337,17 +331,21 @@ class Client:
         tasks = dict()
         with futures.ThreadPoolExecutor(max_workers=4) as pool:
             for symbol in symbols:
-                tasks[symbol] = pool.submit(self._data_client.get_daily,
-                                            symbol=symbol,
-                                            day=pd.Timestamp(prev_day),
-                                            time_interval=data.TimeInterval.DAY)
+                tasks[symbol] = pool.submit(
+                    self._data_client.get_daily,
+                    symbol=symbol,
+                    day=pd.Timestamp(prev_day),
+                    time_interval=data.TimeInterval.DAY,
+                )
             today_str = datetime.datetime.today().astimezone(TIME_ZONE).strftime('%b %d')
             trading_day = calendar[-1].date.strftime('%b %d')
             for symbol in symbols:
                 bars = tasks[symbol].result()
-                result[symbol] = {'price': current_prices[symbol],
-                                  'change': current_prices[symbol] / bars['Close'].iloc[0] - 1,
-                                  'date': trading_day if trading_day != today_str else 'Today'}
+                result[symbol] = {
+                    'price': current_prices[symbol],
+                    'change': current_prices[symbol] / bars['Close'].iloc[0] - 1,
+                    'date': trading_day if trading_day != today_str else 'Today',
+                }
         return result
 
     def get_market_watch(self):
@@ -356,9 +354,11 @@ class Client:
         watch_symbols = ['QQQ', 'SPY', 'DIA', 'TQQQ']
         infos = self.get_info_today(watch_symbols)
         for symbol, info in infos.items():
-            result[symbol] = {'price': f'{info["price"]:.2f}',
-                              'change': get_signed_percentage(info['change'], with_arrow=True),
-                              'date': info['date']}
+            result[symbol] = {
+                'price': f'{info["price"]:.2f}',
+                'change': get_signed_percentage(info['change'], with_arrow=True),
+                'date': info['date'],
+            }
         app.logger.info('Time cost for get_market_watch: [%.2fs]', time.time() - start)
         return result
 
@@ -367,28 +367,28 @@ class Client:
         start = time.time()
         calendar = self.get_calendar()
         end_date = calendar[-1].date.strftime('%F')
-        portfolio_result = self._alpaca.get_portfolio_history(date_start=START_DATE,
-                                                              date_end=end_date,
-                                                              timeframe='1D',
-                                                              extended_hours=False)
+        portfolio_result = self._alpaca.get_portfolio_history(
+            date_start=START_DATE, date_end=end_date, timeframe='1D', extended_hours=False
+        )
         cash_reserve = float(os.environ.get('CASH_RESERVE', 0))
         portfolio_dates = []
         portfolio_values = []
         for t, e in zip(portfolio_result.timestamp, portfolio_result.equity):
             if e is None:
                 continue
-            portfolio_dates.append(
-                pd.to_datetime(t, utc=True, unit='s').tz_convert(TIME_ZONE).strftime('%F'))
+            portfolio_dates.append(pd.to_datetime(t, utc=True, unit='s').tz_convert(TIME_ZONE).strftime('%F'))
             portfolio_values.append(max(e - cash_reserve, 0))
         compare_symbols = ['QQQ', 'SPY']
         tasks, bars = dict(), dict()
         with futures.ThreadPoolExecutor(max_workers=2) as pool:
             for symbol in compare_symbols:
-                tasks[symbol] = pool.submit(self._data_client.get_data,
-                                            symbol=symbol,
-                                            start_time=pd.Timestamp(portfolio_dates[0]),
-                                            end_time=pd.Timestamp(end_date),
-                                            time_interval=data.TimeInterval.DAY)
+                tasks[symbol] = pool.submit(
+                    self._data_client.get_data,
+                    symbol=symbol,
+                    start_time=pd.Timestamp(portfolio_dates[0]),
+                    end_time=pd.Timestamp(end_date),
+                    time_interval=data.TimeInterval.DAY,
+                )
             for symbol in compare_symbols:
                 bars[symbol] = tasks[symbol].result()
         current_value = max(float(self._alpaca.get_account().equity) - cash_reserve, 0)
@@ -402,9 +402,11 @@ class Client:
         start_index = 0
         while start_index < len(portfolio_values) and portfolio_values[start_index] == 0:
             start_index += 1
-        result = {'dates': portfolio_dates[start_index:],
-                  'symbols': ['My Portfolio'] + compare_symbols,
-                  'values': [portfolio_values[start_index:]]}
+        result = {
+            'dates': portfolio_dates[start_index:],
+            'symbols': ['My Portfolio'] + compare_symbols,
+            'values': [portfolio_values[start_index:]],
+        }
         all_dates = set(portfolio_dates)
         for symbol in compare_symbols:
             # Make it resilient when portfolio_values misses some dates
@@ -423,24 +425,25 @@ class Client:
     @retrying.retry(stop_max_attempt_number=2, wait_exponential_multiplier=1000)
     def get_charts(self, start_date: str, end_date: str, symbol: str, timeframe: str):
         start_time = pd.to_datetime(
-            pd.Timestamp.combine(pd.to_datetime(start_date).date(),
-                                 datetime.time(0, 0))).tz_localize(TIME_ZONE)
+            pd.Timestamp.combine(pd.to_datetime(start_date).date(), datetime.time(0, 0))
+        ).tz_localize(TIME_ZONE)
         end_time = pd.to_datetime(
-            pd.Timestamp.combine(pd.to_datetime(end_date).date(),
-                                 datetime.time(23, 59))).tz_localize(TIME_ZONE)
+            pd.Timestamp.combine(pd.to_datetime(end_date).date(), datetime.time(23, 59))
+        ).tz_localize(TIME_ZONE)
         if timeframe == 'intraday':
             time_interval = data.TimeInterval.FIVE_MIN
         else:
             time_interval = data.TimeInterval.DAY
-        bars = self._data_client.get_data(symbol=symbol,
-                                          start_time=start_time,
-                                          end_time=end_time,
-                                          time_interval=time_interval)
+        bars = self._data_client.get_data(
+            symbol=symbol, start_time=start_time, end_time=end_time, time_interval=time_interval
+        )
         if timeframe == 'intraday':
-            prev_close = self._data_client.get_data(symbol=symbol,
-                                                    start_time=start_time - datetime.timedelta(days=7),
-                                                    end_time=start_time - datetime.timedelta(days=1),
-                                                    time_interval=data.TimeInterval.DAY)['Close'].iloc[-1]
+            prev_close = self._data_client.get_data(
+                symbol=symbol,
+                start_time=start_time - datetime.timedelta(days=7),
+                end_time=start_time - datetime.timedelta(days=1),
+                time_interval=data.TimeInterval.DAY,
+            )['Close'].iloc[-1]
             prev_close = float(prev_close)
         else:
             prev_close = None
@@ -458,16 +461,20 @@ class Client:
             if timeframe == 'intraday' and not '04:00' <= label <= '19:55':
                 continue
             labels.append(label)
-            price = {'h': float(bar['High']), 'l': float(bar['Low']), 'o': float(bar['Open']),
-                     'c': float(bar['Close']), 'x': label, 's': [float(bar['Open']), float(bar['Close'])]}
+            price = {
+                'h': float(bar['High']),
+                'l': float(bar['Low']),
+                'o': float(bar['Open']),
+                'c': float(bar['Close']),
+                'x': label,
+                's': [float(bar['Open']), float(bar['Close'])],
+            }
             prices.append(price)
             volume = {'x': label, 's': int(bar['Volume']), 'g': int(bar['Close'] >= bar['Open'])}
             volumes.append(volume)
-        return {'labels': labels, 'prices': prices, 'volumes': volumes,
-                'prev_close': prev_close, 'name': name}
+        return {'labels': labels, 'prices': prices, 'volumes': volumes, 'prev_close': prev_close, 'name': name}
 
     @retrying.retry(stop_max_attempt_number=2, wait_exponential_multiplier=1000)
     def get_all_symbols(self):
         assets = self._alpaca.list_assets()
-        return sorted(list(set([asset.symbol for asset in assets
-                                if re.match('^[A-Z]*$', asset.symbol)])))
+        return sorted(list(set([asset.symbol for asset in assets if re.match('^[A-Z]*$', asset.symbol)])))

@@ -3,8 +3,8 @@ import os
 import re
 
 from flask import Flask, make_response, render_template
-from . import scheduler
-from . import web
+
+from . import scheduler, web
 
 
 def handle_exception(e):
@@ -14,9 +14,7 @@ def handle_exception(e):
     if error_module is not None and 'builtin' not in error_module:
         error_name = error_module + '.' + error_name
     error_message = re.sub(r'([a-z]*api[a-z]*=)[a-zA-Z0-9]+', r'\1<detached>', str(e))
-    resp = make_response(render_template('exception.html',
-                                         error_name=error_name,
-                                         error_message=error_message))
+    resp = make_response(render_template('exception.html', error_name=error_name, error_message=error_message))
     resp.status_code = 500
     return resp
 

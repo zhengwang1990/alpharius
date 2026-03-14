@@ -6,42 +6,49 @@ import numpy as np
 import pandas as pd
 
 from alpharius.data import DataClient
-from .processor import Processor
+
 from ..common import (
-    ActionType, Context, TradingFrequency, Position, PositionStatus,
-    ProcessorAction, Mode, DAYS_IN_A_QUARTER)
+    DAYS_IN_A_QUARTER,
+    ActionType,
+    Context,
+    Mode,
+    Position,
+    PositionStatus,
+    ProcessorAction,
+    TradingFrequency,
+)
 from ..stock_universe import IntradayVolatilityStockUniverse
+from .processor import Processor
 
 
 class H2lFiveMinProcessor(Processor):
-
-    def __init__(self,
-                 lookback_start_date: pd.Timestamp,
-                 lookback_end_date: pd.Timestamp,
-                 data_client: DataClient,
-                 output_dir: str,
-                 logging_timezone: Optional[ZoneInfo] = None) -> None:
+    def __init__(
+        self,
+        lookback_start_date: pd.Timestamp,
+        lookback_end_date: pd.Timestamp,
+        data_client: DataClient,
+        output_dir: str,
+        logging_timezone: Optional[ZoneInfo] = None,
+    ) -> None:
         super().__init__(output_dir, logging_timezone)
-        self._stock_universe = IntradayVolatilityStockUniverse(lookback_start_date,
-                                                               lookback_end_date,
-                                                               data_client,
-                                                               num_stocks=10,
-                                                               num_top_volume=50)
+        self._stock_universe = IntradayVolatilityStockUniverse(
+            lookback_start_date, lookback_end_date, data_client, num_stocks=10, num_top_volume=50
+        )
         self._memo = dict()
 
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
     def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
-        to_remove = [symbol for symbol, position in self._positions.items()
-                     if position['status'] != PositionStatus.ACTIVE]
+        to_remove = [
+            symbol for symbol, position in self._positions.items() if position['status'] != PositionStatus.ACTIVE
+        ]
         for symbol in to_remove:
             self._positions.pop(symbol)
         self._memo = dict()
 
     def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
-        return list(set(self._stock_universe.get_stock_universe(view_time) +
-                        list(self._positions.keys())))
+        return list(set(self._stock_universe.get_stock_universe(view_time) + list(self._positions.keys())))
 
     def process_data(self, context: Context) -> Optional[ProcessorAction]:
         if self.is_active(context.symbol):
@@ -85,25 +92,27 @@ class H2lFiveMinProcessor(Processor):
         upper_threshold = context.h2l_avg * ratio
         is_trade = lower_threshold < prev_loss < upper_threshold and prev_loss < current_loss < 0
         if is_trade or (context.mode == Mode.TRADE and prev_loss < upper_threshold * 0.8):
-            self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                               f'Prev loss: {prev_loss * 100:.2f}%. '
-                               f'Current loss: {current_loss * 100:.2f}%. '
-                               f'Threshold: {lower_threshold * 100:.2f}% ~ {upper_threshold * 100:.2f}%. '
-                               f'Current price: {context.current_price}. '
-                               f'Prev open/close price: {intraday_opens[-2]}/{intraday_closes[-2]}.')
+            self._logger.debug(
+                f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                f'Prev loss: {prev_loss * 100:.2f}%. '
+                f'Current loss: {current_loss * 100:.2f}%. '
+                f'Threshold: {lower_threshold * 100:.2f}% ~ {upper_threshold * 100:.2f}%. '
+                f'Current price: {context.current_price}. '
+                f'Prev open/close price: {intraday_opens[-2]}/{intraday_closes[-2]}.'
+            )
         if is_trade:
-            self._positions[context.symbol] = {'entry_time': context.current_time,
-                                               'status': PositionStatus.PENDING}
+            self._positions[context.symbol] = {'entry_time': context.current_time, 'status': PositionStatus.PENDING}
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
     def _close_position(self, context: Context) -> Optional[ProcessorAction]:
         position = self._positions[context.symbol]
         intraday_closes = context.intraday_lookback['Close'].to_numpy()
         take_profit = len(intraday_closes) >= 2 and context.current_price > intraday_closes[-2]
-        is_close = (take_profit or
-                    context.current_time >= position['entry_time'] + datetime.timedelta(minutes=15))
-        self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                           f'Closing position: {is_close}. Current price {context.current_price}.')
+        is_close = take_profit or context.current_time >= position['entry_time'] + datetime.timedelta(minutes=15)
+        self._logger.debug(
+            f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+            f'Closing position: {is_close}. Current price {context.current_price}.'
+        )
         if is_close:
             position['status'] = PositionStatus.CLOSED
             return ProcessorAction(context.symbol, ActionType.SELL_TO_CLOSE, 1)

@@ -5,15 +5,12 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
+from ..common import DAYS_IN_A_MONTH, DAYS_IN_A_WEEK, ActionType, Context, ProcessorAction, TradingFrequency
 from .processor import Processor
-from ..common import ActionType, Context, TradingFrequency, ProcessorAction, DAYS_IN_A_WEEK, DAYS_IN_A_MONTH
 
 
 class OvernightTqqqProcessor(Processor):
-
-    def __init__(self,
-                 output_dir: str,
-                 logging_timezone: Optional[ZoneInfo] = None) -> None:
+    def __init__(self, output_dir: str, logging_timezone: Optional[ZoneInfo] = None) -> None:
         super().__init__(output_dir, logging_timezone)
 
     def get_trading_frequency(self) -> TradingFrequency:
@@ -33,7 +30,7 @@ class OvernightTqqqProcessor(Processor):
         intraday_change = intraday_high / intraday_low - 1
         interday_closes = context.interday_lookback['Close'].values
         interday_opens = context.interday_lookback['Open'].values
-        two_week_closes = interday_closes[-2 * DAYS_IN_A_WEEK:]
+        two_week_closes = interday_closes[-2 * DAYS_IN_A_WEEK :]
         two_week_changes = [two_week_closes[i] / two_week_closes[i - 1] - 1 for i in range(1, len(two_week_closes))]
         two_week_std = np.std(two_week_changes)
 
@@ -41,67 +38,100 @@ class OvernightTqqqProcessor(Processor):
         one_week_changes = [one_week_closes[i] / one_week_closes[i - 1] - 1 for i in range(1, len(one_week_closes))]
         one_week_std = np.std(one_week_changes)
 
-        four_week_closes = interday_closes[-4 * DAYS_IN_A_WEEK:]
+        four_week_closes = interday_closes[-4 * DAYS_IN_A_WEEK :]
         four_week_changes = [four_week_closes[i] / four_week_closes[i - 1] - 1 for i in range(1, len(four_week_closes))]
         four_week_std = np.std(four_week_changes)
 
-        if (two_week_std < 0.05 and intraday_change < 0.09
-                and context.current_price / max(two_week_closes) > 0.8 and context.symbol == 'TQQQ'):
-            self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                               + f'{two_week_std=:.4f}, {intraday_change=:.4f}')
-            self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                               + f'interday_closes {interday_closes[-3:]}')
+        if (
+            two_week_std < 0.05
+            and intraday_change < 0.09
+            and context.current_price / max(two_week_closes) > 0.8
+            and context.symbol == 'TQQQ'
+        ):
+            self._logger.debug(
+                f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                + f'{two_week_std=:.4f}, {intraday_change=:.4f}'
+            )
+            self._logger.debug(
+                f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                + f'interday_closes {interday_closes[-3:]}'
+            )
             two_week_max = max(two_week_closes)
             # If large drop and it's Friday, don't buy
             if context.current_time.isoweekday() == 5:
-                if (context.current_price / max(two_week_closes) < 0.85 or
-                        context.current_price / interday_closes[-1] < 0.95):
-                    self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
-                                       + f' Large recent drop; Skip.')
+                if (
+                    context.current_price / max(two_week_closes) < 0.85
+                    or context.current_price / interday_closes[-1] < 0.95
+                ):
+                    self._logger.debug(
+                        f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                        + ' Large recent drop; Skip.'
+                    )
                     return
                 price_high = max(intraday_high, context.prev_day_close)
                 if price_high / intraday_low - 1 > 0.06 and context.current_price < 0.94 * two_week_max:
-                    self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
-                                       + f' Large volatility; Skip.')
+                    self._logger.debug(
+                        f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]' + ' Large volatility; Skip.'
+                    )
                     return
             else:
-                six_week_closes = interday_closes[-6 * DAYS_IN_A_WEEK:]
+                six_week_closes = interday_closes[-6 * DAYS_IN_A_WEEK :]
                 # If grows too much, starts to drop and today's volatility is low
-                if (context.current_price < 0.9 * two_week_max
-                        and two_week_max > 1.3 * min(six_week_closes)
-                        and context.prev_day_close * 1.06 > context.current_price > context.prev_day_close * 0.97):
-                    self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
-                                       + f' Recent pullback; Skip.')
+                if (
+                    context.current_price < 0.9 * two_week_max
+                    and two_week_max > 1.3 * min(six_week_closes)
+                    and context.prev_day_close * 1.06 > context.current_price > context.prev_day_close * 0.97
+                ):
+                    self._logger.debug(
+                        f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]' + ' Recent pullback; Skip.'
+                    )
                     return
-            if all(interday_opens[i] < interday_closes[i] and interday_opens[i] < interday_closes[i - 1]
-                   for i in range(-5, 0)):
-                self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
-                                   + 'Bad recent performance in last 5 days; Skip.')
+            if all(
+                interday_opens[i] < interday_closes[i] and interday_opens[i] < interday_closes[i - 1]
+                for i in range(-5, 0)
+            ):
+                self._logger.debug(
+                    f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                    + 'Bad recent performance in last 5 days; Skip.'
+                )
                 return
             four_week_max = max(four_week_closes)
-            if (context.today_open / four_week_max - 1 < -0.15 and
-                    interday_opens[-1] < interday_closes[-1] and interday_opens[-1] < interday_closes[-2]
-                    and context.today_open < interday_closes[-1] < context.current_price):
-                self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
-                                   + 'Bad pattern in correction period; Skip.')
+            if (
+                context.today_open / four_week_max - 1 < -0.15
+                and interday_opens[-1] < interday_closes[-1]
+                and interday_opens[-1] < interday_closes[-2]
+                and context.today_open < interday_closes[-1] < context.current_price
+            ):
+                self._logger.debug(
+                    f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                    + 'Bad pattern in correction period; Skip.'
+                )
                 return
             if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
                 return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
             else:
-                if (context.current_price > context.prev_day_close * 1.05 or
-                        (min(four_week_closes) / max(four_week_closes) - 1 > -0.15
-                         and intraday_low > context.prev_day_close * 0.99)):
-                    self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
-                                       + f' Upward momentum; Buy.')
+                if context.current_price > context.prev_day_close * 1.05 or (
+                    min(four_week_closes) / max(four_week_closes) - 1 > -0.15
+                    and intraday_low > context.prev_day_close * 0.99
+                ):
+                    self._logger.debug(
+                        f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]' + ' Upward momentum; Buy.'
+                    )
                     return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
-        if (2 * one_week_std > two_week_std > four_week_std > 0.05
-                and context.current_price / interday_closes[-1] - 1 < -0.07
-                and context.symbol == 'SQQQ'):
-            self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                               + f'{two_week_std=:.4f}, {four_week_std=:.4f}')
-            if context.current_price / min(interday_closes[-3 * DAYS_IN_A_MONTH:]) > 1.6:
-                self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                                   + f'Large increase in recent quarter; skip.')
+        if (
+            2 * one_week_std > two_week_std > four_week_std > 0.05
+            and context.current_price / interday_closes[-1] - 1 < -0.07
+            and context.symbol == 'SQQQ'
+        ):
+            self._logger.debug(
+                f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                + f'{two_week_std=:.4f}, {four_week_std=:.4f}'
+            )
+            if context.current_price / min(interday_closes[-3 * DAYS_IN_A_MONTH :]) > 1.6:
+                self._logger.debug(
+                    f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                    + 'Large increase in recent quarter; skip.'
+                )
                 return
             # Only trade half for safety reason. The SQQQ historical data is not well-adjusted, causing
             # unreliable backtesting results. We can change it to 1 once the strategy is proved to be good.

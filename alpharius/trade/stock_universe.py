@@ -11,9 +11,13 @@ import numpy as np
 import pandas as pd
 
 from alpharius.data import DataClient, load_interday_dataset
-from alpharius.utils import ALPACA_API_KEY_ENV, ALPACA_SECRET_KEY_ENV, TIME_ZONE, hash_str, get_all_symbols
+from alpharius.utils import ALPACA_API_KEY_ENV, ALPACA_SECRET_KEY_ENV, TIME_ZONE, get_all_symbols, hash_str
+
 from .common import (
-    DAYS_IN_A_QUARTER, DAYS_IN_A_MONTH, CACHE_DIR, timestamp_to_index,
+    CACHE_DIR,
+    DAYS_IN_A_MONTH,
+    DAYS_IN_A_QUARTER,
+    timestamp_to_index,
 )
 from .constants import COMPANY_SYMBOLS
 
@@ -23,9 +27,7 @@ _STOCK_UNIVERSE_CACHE_ROOT = os.path.join(CACHE_DIR, 'stock_universe')
 class BaseStockUniverse:
     """Stock universe returns all tradable symbols."""
 
-    def __init__(self,
-                 lookback_start_date: pd.Timestamp,
-                 lookback_end_date: pd.Timestamp) -> None:
+    def __init__(self, lookback_start_date: pd.Timestamp, lookback_end_date: pd.Timestamp) -> None:
         api_key = os.environ[ALPACA_API_KEY_ENV]
         secret_key = os.environ[ALPACA_SECRET_KEY_ENV]
         trading_client = trading.TradingClient(api_key, secret_key)
@@ -33,7 +35,8 @@ class BaseStockUniverse:
             filters=trading.GetCalendarRequest(
                 start=lookback_start_date.date(),
                 end=lookback_end_date.date(),
-            ))
+            )
+        )
         self._lookback_start_date = lookback_start_date
         self._lookback_end_date = lookback_end_date
         self._market_dates = [day.date for day in calendar]
@@ -87,8 +90,7 @@ class CachedStockUniverse(BaseStockUniverse):
         return self._cache_dir
 
     def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
-        cache_file = os.path.join(self.get_cache_dir(),
-                                  view_time.strftime('%F') + '.json')
+        cache_file = os.path.join(self.get_cache_dir(), view_time.strftime('%F') + '.json')
         if os.path.isfile(cache_file):
             with open(cache_file, 'r') as f:
                 try:
@@ -106,33 +108,33 @@ class CachedStockUniverse(BaseStockUniverse):
 
 
 class DataBasedStockUniverse(BaseStockUniverse):
-
-    def __init__(self,
-                 lookback_start_date: pd.Timestamp,
-                 lookback_end_date: pd.Timestamp,
-                 data_client: DataClient) -> None:
+    def __init__(
+        self, lookback_start_date: pd.Timestamp, lookback_end_date: pd.Timestamp, data_client: DataClient
+    ) -> None:
         super().__init__(lookback_start_date, lookback_end_date)
-        self._historical_data = load_interday_dataset(get_all_symbols(),
-                                                      lookback_start_date,
-                                                      lookback_end_date,
-                                                      data_client)
+        self._historical_data = load_interday_dataset(
+            get_all_symbols(), lookback_start_date, lookback_end_date, data_client
+        )
 
 
 class TopVolumeUniverse(DataBasedStockUniverse, CachedStockUniverse):
-
-    def __init__(self,
-                 lookback_start_date: pd.Timestamp,
-                 lookback_end_date: pd.Timestamp,
-                 data_client: DataClient,
-                 num_stocks: int = 100) -> None:
+    def __init__(
+        self,
+        lookback_start_date: pd.Timestamp,
+        lookback_end_date: pd.Timestamp,
+        data_client: DataClient,
+        num_stocks: int = 100,
+    ) -> None:
         super().__init__(lookback_start_date, lookback_end_date, data_client)
         self._company_symbols = set(COMPANY_SYMBOLS)
         self._num_stocks = num_stocks
 
     def _get_dollar_volume(self, symbol: str, prev_day_ind: int) -> float:
         hist = self._historical_data[symbol]
-        pv = [hist['Close'].iloc[i] * hist['Volume'].iloc[i]
-              for i in range(max(prev_day_ind - DAYS_IN_A_MONTH + 1, 0), prev_day_ind + 1)]
+        pv = [
+            hist['Close'].iloc[i] * hist['Volume'].iloc[i]
+            for i in range(max(prev_day_ind - DAYS_IN_A_MONTH + 1, 0), prev_day_ind + 1)
+        ]
         return np.average(pv) if pv else 0
 
     def get_stock_universe_impl(self, view_time: pd.Timestamp) -> List[str]:
@@ -151,17 +153,18 @@ class TopVolumeUniverse(DataBasedStockUniverse, CachedStockUniverse):
                 continue
             dollar_volumes.append((symbol, self._get_dollar_volume(symbol, prev_day_ind)))
         dollar_volumes.sort(key=lambda s: s[1], reverse=True)
-        return [s[0] for s in dollar_volumes[:self._num_stocks]]
+        return [s[0] for s in dollar_volumes[: self._num_stocks]]
 
 
 class IntradayVolatilityStockUniverse(DataBasedStockUniverse, CachedStockUniverse):
-
-    def __init__(self,
-                 lookback_start_date: pd.Timestamp,
-                 lookback_end_date: pd.Timestamp,
-                 data_client: DataClient,
-                 num_stocks: int = 50,
-                 num_top_volume: int = 500):
+    def __init__(
+        self,
+        lookback_start_date: pd.Timestamp,
+        lookback_end_date: pd.Timestamp,
+        data_client: DataClient,
+        num_stocks: int = 50,
+        num_top_volume: int = 500,
+    ):
         super().__init__(lookback_start_date, lookback_end_date, data_client)
         self._top_volume = TopVolumeUniverse(lookback_start_date, lookback_end_date, data_client, num_top_volume)
         self._company_symbols = set(COMPANY_SYMBOLS)
@@ -193,22 +196,23 @@ class IntradayVolatilityStockUniverse(DataBasedStockUniverse, CachedStockUnivers
                 continue
             prev_close = hist['Close'].iloc[prev_day_ind]
             start_ind = max(prev_day_ind - DAYS_IN_A_QUARTER, 0)
-            if prev_close < 0.4 * np.max(hist['Close'][start_ind:prev_day_ind + 1]):
+            if prev_close < 0.4 * np.max(hist['Close'][start_ind : prev_day_ind + 1]):
                 continue
             intraday_volatility = self._get_intraday_range(symbol, prev_day_ind)
             intraday_volatility_list.append((symbol, intraday_volatility))
 
         intraday_volatility_list.sort(key=lambda s: s[1], reverse=True)
-        return [s[0] for s in intraday_volatility_list[:self._num_stocks]]
+        return [s[0] for s in intraday_volatility_list[: self._num_stocks]]
 
 
 class L2hVolatilityStockUniverse(DataBasedStockUniverse, CachedStockUniverse):
-
-    def __init__(self,
-                 lookback_start_date: pd.Timestamp,
-                 lookback_end_date: pd.Timestamp,
-                 data_client: DataClient,
-                 num_top_volume: int = 2000):
+    def __init__(
+        self,
+        lookback_start_date: pd.Timestamp,
+        lookback_end_date: pd.Timestamp,
+        data_client: DataClient,
+        num_top_volume: int = 2000,
+    ):
         super().__init__(lookback_start_date, lookback_end_date, data_client)
         self._top_volume = TopVolumeUniverse(lookback_start_date, lookback_end_date, data_client, num_top_volume)
         self._company_symbols = set(COMPANY_SYMBOLS)
@@ -238,7 +242,7 @@ class L2hVolatilityStockUniverse(DataBasedStockUniverse, CachedStockUniverse):
                 continue
             prev_close = hist['Close'].iloc[prev_day_ind]
             start_ind = max(prev_day_ind - DAYS_IN_A_QUARTER, 0)
-            if prev_close < 0.4 * np.max(hist['Close'][start_ind:prev_day_ind + 1]):
+            if prev_close < 0.4 * np.max(hist['Close'][start_ind : prev_day_ind + 1]):
                 continue
             l2h_avg = self._get_l2h_avg(symbol, prev_day_ind)
             if l2h_avg < -0.05:

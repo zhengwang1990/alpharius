@@ -1,27 +1,29 @@
 import abc
 import functools
 import inspect
-import re
 import os
-from typing import Optional, List, Type, Union
+import re
+from typing import List, Optional, Type, Union
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from alpharius.data import DataClient
-from ..common import logging_config, Context, ProcessorAction, Position, TradingFrequency, PositionStatus
+
+from ..common import Context, Position, PositionStatus, ProcessorAction, TradingFrequency, logging_config
 
 
 class Processor(abc.ABC):
-
     def __init__(self, output_dir: str, logging_timezone: Optional[ZoneInfo] = None) -> None:
         split = re.findall('[A-Z][^A-Z]*', type(self).__name__)
         logger_name = '_'.join([s.lower() for s in split])
         self._output_dir = output_dir
-        self._logger = logging_config(os.path.join(self._output_dir, logger_name + '.txt'),
-                                      detail=True,
-                                      name=logger_name,
-                                      timezone=logging_timezone)
+        self._logger = logging_config(
+            os.path.join(self._output_dir, logger_name + '.txt'),
+            detail=True,
+            name=logger_name,
+            timezone=logging_timezone,
+        )
         self._positions = dict()
 
     @property
@@ -29,7 +31,7 @@ class Processor(abc.ABC):
         processor_name = type(self).__name__
         suffix = 'Processor'
         assert processor_name.endswith(suffix)
-        return processor_name[:-len(suffix)]
+        return processor_name[: -len(suffix)]
 
     @abc.abstractmethod
     def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
@@ -67,13 +69,14 @@ class Processor(abc.ABC):
 
 
 def instantiate_processor(
-        processor_class: Union[Type[Processor], Processor],
-        lookback_start_date: pd.Timestamp,
-        lookback_end_date: pd.Timestamp,
-        data_client: DataClient,
-        output_dir: str,
-        logging_timezone: Optional[ZoneInfo] = None,
-        **kwargs) -> Processor:
+    processor_class: Union[Type[Processor], Processor],
+    lookback_start_date: pd.Timestamp,
+    lookback_end_date: pd.Timestamp,
+    data_client: DataClient,
+    output_dir: str,
+    logging_timezone: Optional[ZoneInfo] = None,
+    **kwargs,
+) -> Processor:
 
     if isinstance(processor_class, Processor):
         return processor_class

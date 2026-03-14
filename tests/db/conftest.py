@@ -1,8 +1,10 @@
 import os
 
-import alpharius.db as db
-import sqlalchemy
 import pytest
+import sqlalchemy
+
+import alpharius.db as db
+
 from .. import fakes
 
 

@@ -5,11 +5,10 @@ import numpy as np
 import pandas as pd
 
 from alpharius.data import DataClient
-from .processor import Processor
-from ..common import (
-    ProcessorAction, ActionType, Context, TradingFrequency,
-    Position, PositionStatus, DAYS_IN_A_MONTH)
+
+from ..common import DAYS_IN_A_MONTH, ActionType, Context, Position, PositionStatus, ProcessorAction, TradingFrequency
 from ..stock_universe import IntradayVolatilityStockUniverse
+from .processor import Processor
 
 ENTRY_TIME = datetime.time(10, 0)
 EXIT_TIME = datetime.time(14, 0)
@@ -21,26 +20,27 @@ OTHER_N = 11
 class BearMomentumProcessor(Processor):
     """Momentum strategy that works in a bear market."""
 
-    def __init__(self,
-                 lookback_start_date: pd.Timestamp,
-                 lookback_end_date: pd.Timestamp,
-                 data_client: DataClient,
-                 output_dir: str) -> None:
+    def __init__(
+        self,
+        lookback_start_date: pd.Timestamp,
+        lookback_end_date: pd.Timestamp,
+        data_client: DataClient,
+        output_dir: str,
+    ) -> None:
         super().__init__(output_dir)
         self._positions = dict()
-        self._stock_universe = IntradayVolatilityStockUniverse(lookback_start_date,
-                                                               lookback_end_date,
-                                                               data_client,
-                                                               num_stocks=NUM_STOCKS)
+        self._stock_universe = IntradayVolatilityStockUniverse(
+            lookback_start_date, lookback_end_date, data_client, num_stocks=NUM_STOCKS
+        )
         self._memo = dict()
 
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
     def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
-        return list(set(self._stock_universe.get_stock_universe(view_time) +
-                        list(CONFIG.keys()) +
-                        list(self._positions.keys())))
+        return list(
+            set(self._stock_universe.get_stock_universe(view_time) + list(CONFIG.keys()) + list(self._positions.keys()))
+        )
 
     def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
         self._memo = dict()
@@ -54,7 +54,7 @@ class BearMomentumProcessor(Processor):
     def _get_interday_min_max(self, context: Context) -> Tuple[float, float]:
         key = context.symbol + context.current_time.strftime('%F')
         if key not in self._memo:
-            interday_closes = context.interday_lookback['Close'].iloc[-DAYS_IN_A_MONTH * 2:]
+            interday_closes = context.interday_lookback['Close'].iloc[-DAYS_IN_A_MONTH * 2 :]
             min_value = np.min(interday_closes)
             max_value = np.max(interday_closes)
             self._memo[key] = (min_value, max_value)
@@ -88,23 +88,28 @@ class BearMomentumProcessor(Processor):
                 return
         up = n - no_up
         down = n - no_down
-        self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                           f'Up count [{up} / {n}]. Down count [{down} / {n}]. '
-                           f'Current price {context.current_price}.')
+        self._logger.debug(
+            f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+            f'Up count [{up} / {n}]. Down count [{down} / {n}]. '
+            f'Current price {context.current_price}.'
+        )
         if down == n and context.current_price < context.prev_day_close:
-            self._positions[context.symbol] = {'entry_time': context.current_time,
-                                               'side': 'short'}
+            self._positions[context.symbol] = {'entry_time': context.current_time, 'side': 'short'}
             return ProcessorAction(context.symbol, ActionType.SELL_TO_OPEN, 1)
         if up == n and context.current_price > context.prev_day_close:
-            self._positions[context.symbol] = {'entry_time': context.current_time,
-                                               'status': PositionStatus.PENDING,
-                                               'side': 'long'}
+            self._positions[context.symbol] = {
+                'entry_time': context.current_time,
+                'status': PositionStatus.PENDING,
+                'side': 'long',
+            }
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
     def _close_position(self, context: Context) -> Optional[ProcessorAction]:
         def _exit_action():
-            self._logger.debug(f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                               f'Closing position. Current price {context.current_price}.')
+            self._logger.debug(
+                f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                f'Closing position. Current price {context.current_price}.'
+            )
             position['status'] = PositionStatus.CLOSED
             return action
 
@@ -115,17 +120,20 @@ class BearMomentumProcessor(Processor):
         if context.current_time >= position['entry_time'] + datetime.timedelta(minutes=wait_minutes):
             return _exit_action()
         intraday_closes = context.intraday_lookback['Close']
-        if (context.symbol not in CONFIG and
-                position['side'] == 'long' and
-                len(intraday_closes) >= 2 and
-                intraday_closes[-2] < context.prev_day_close and
-                context.current_price < context.prev_day_close):
+        if (
+            context.symbol not in CONFIG
+            and position['side'] == 'long'
+            and len(intraday_closes) >= 2
+            and intraday_closes[-2] < context.prev_day_close
+            and context.current_price < context.prev_day_close
+        ):
             return _exit_action()
         entry_index = len(intraday_closes) - 1 - (context.current_time - position['entry_time']).seconds // 300
-        if (context.symbol not in CONFIG and
-                position['side'] == 'short' and
-                len(intraday_closes) > max(entry_index, 3) and
-                intraday_closes[-1] > intraday_closes[-2] > intraday_closes[-3] and
-                context.current_price > context.prev_day_close > intraday_closes[entry_index]):
+        if (
+            context.symbol not in CONFIG
+            and position['side'] == 'short'
+            and len(intraday_closes) > max(entry_index, 3)
+            and intraday_closes[-1] > intraday_closes[-2] > intraday_closes[-3]
+            and context.current_price > context.prev_day_close > intraday_closes[entry_index]
+        ):
             return _exit_action()
-

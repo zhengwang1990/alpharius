@@ -3,8 +3,8 @@ import email.mime.multipart as multipart
 import os
 import smtplib
 
-import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
+import matplotlib.pyplot as plt
 import pytest
 
 
@@ -20,6 +20,7 @@ def mock_matplotlib(mocker):
 def mock_email(mocker):
     mocker.patch.object(image, 'MIMEImage', autospec=True)
     mocker.patch.object(multipart.MIMEMultipart, 'as_string', return_value='')
+
 
 @pytest.fixture(autouse=True)
 def mock_smtp(mocker):

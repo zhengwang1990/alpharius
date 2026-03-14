@@ -14,7 +14,8 @@ import alpharius.data as data
 from alpharius.db import Db
 from alpharius.notification.email_sender import EmailSender
 from alpharius.trade import PROCESSORS, Backtest, Live
-from alpharius.utils import get_current_time, get_latest_day, TIME_ZONE
+from alpharius.utils import TIME_ZONE, get_current_time, get_latest_day
+
 from .client import Client
 
 app = flask.Flask(__name__)
@@ -50,9 +51,7 @@ def email_on_exception(func):
 
 @email_on_exception
 def _trade_run():
-    Live(processors=PROCESSORS,
-         data_client=data.get_default_data_client(),
-         logging_timezone=TIME_ZONE).run()
+    Live(processors=PROCESSORS, data_client=data.get_default_data_client(), logging_timezone=TIME_ZONE).run()
 
 
 def _trade_impl():
@@ -85,16 +84,14 @@ def get_backtest_finish_time() -> pd.Timestamp | None:
     return backtest_finish_time
 
 
-@scheduler.task('cron', id='trade', day_of_week='mon-fri',
-                hour='9-15', minute='*/15', timezone='America/New_York')
+@scheduler.task('cron', id='trade', day_of_week='mon-fri', hour='9-15', minute='*/15', timezone='America/New_York')
 def trade():
     if job_status != 'running':
         t = threading.Thread(target=_trade_impl)
         t.start()
 
 
-@scheduler.task('cron', id='backfill', day_of_week='mon-fri',
-                hour='16,17,22', minute=10, timezone='America/New_York')
+@scheduler.task('cron', id='backfill', day_of_week='mon-fri', hour='16,17,22', minute=10, timezone='America/New_York')
 @email_on_exception
 def backfill():
     app.logger.info('Start backfilling')
@@ -102,8 +99,7 @@ def backfill():
     app.logger.info('Finish backfilling')
 
 
-@scheduler.task('cron', id='backtest', day_of_week='mon-fri',
-                hour=16, minute=15, timezone='America/New_York')
+@scheduler.task('cron', id='backtest', day_of_week='mon-fri', hour=16, minute=15, timezone='America/New_York')
 @email_on_exception
 def backtest():
     global backtest_finish_time
@@ -114,10 +110,9 @@ def backtest():
         return
     start_date = calendar[-2].date.strftime('%F')
     end_date = (latest_day + datetime.timedelta(days=1)).strftime('%F')
-    transactions = Backtest(start_date=start_date,
-                            end_date=end_date,
-                            processors=PROCESSORS,
-                            data_client=data.get_default_data_client()).run()
+    transactions = Backtest(
+        start_date=start_date, end_date=end_date, processors=PROCESSORS, data_client=data.get_default_data_client()
+    ).run()
     db_client = Db()
     for transaction in transactions:
         if transaction.exit_time.date() == latest_day:
@@ -126,8 +121,7 @@ def backtest():
     backtest_finish_time = get_current_time()
 
 
-@scheduler.task('cron', id='log_scan', day_of_week='mon-fri',
-                hour=16, minute=5, timezone='America/New_York')
+@scheduler.task('cron', id='log_scan', day_of_week='mon-fri', hour=16, minute=5, timezone='America/New_York')
 @email_on_exception
 def log_scan():
     app.logger.info('Start log scan')

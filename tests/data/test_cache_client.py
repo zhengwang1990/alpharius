@@ -4,6 +4,7 @@ import pandas as pd
 
 import alpharius.data as data
 import alpharius.data.cache_client as cache_client
+
 from ..fakes import FakeDataClient
 
 
@@ -14,22 +15,18 @@ def test_get_db_file():
 def test_time_range_merge():
     time_range = cache_client.TimeRange([])
     time_range.merge(pd.Timestamp('2024-02-01'), pd.Timestamp('2024-03-01'))
-    assert time_range.intervals == [(datetime.date(2024, 2, 1),
-                                     datetime.date(2024, 3, 1))]
+    assert time_range.intervals == [(datetime.date(2024, 2, 1), datetime.date(2024, 3, 1))]
     time_range.merge(pd.Timestamp('2024-01-15'), pd.Timestamp('2024-02-10'))
-    assert time_range.intervals == [(datetime.date(2024, 1, 15),
-                                     datetime.date(2024, 3, 1))]
+    assert time_range.intervals == [(datetime.date(2024, 1, 15), datetime.date(2024, 3, 1))]
     time_range.merge(pd.Timestamp('2024-02-25'), pd.Timestamp('2024-03-10'))
-    assert time_range.intervals == [(datetime.date(2024, 1, 15),
-                                     datetime.date(2024, 3, 10))]
+    assert time_range.intervals == [(datetime.date(2024, 1, 15), datetime.date(2024, 3, 10))]
     time_range.merge(pd.Timestamp('2024-04-01'), pd.Timestamp('2024-04-01'))
     time_range.merge(pd.Timestamp('2024-01-01'), pd.Timestamp('2024-01-05'))
-    assert time_range.intervals == [(datetime.date(2024, 1, 1),
-                                     datetime.date(2024, 1, 5)),
-                                    (datetime.date(2024, 1, 15),
-                                     datetime.date(2024, 3, 10)),
-                                    (datetime.date(2024, 4, 1),
-                                     datetime.date(2024, 4, 1))]
+    assert time_range.intervals == [
+        (datetime.date(2024, 1, 1), datetime.date(2024, 1, 5)),
+        (datetime.date(2024, 1, 15), datetime.date(2024, 3, 10)),
+        (datetime.date(2024, 4, 1), datetime.date(2024, 4, 1)),
+    ]
 
 
 def test_time_range_serialize():

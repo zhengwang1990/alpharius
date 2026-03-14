@@ -2,14 +2,15 @@ import email.mime.image as image
 import email.mime.multipart as multipart
 import os
 import smtplib
-import time
 import threading
+import time
 from concurrent import futures
 
 import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt
 import pandas as pd
 import pytest
+
 from alpharius.web import scheduler
 
 
@@ -64,8 +65,7 @@ def test_backfill(mock_engine):
     assert mock_engine.conn.execute.call_count > 0
 
 
-@pytest.mark.parametrize('job_name',
-                         ['trade', 'backfill', 'backtest'])
+@pytest.mark.parametrize('job_name', ['trade', 'backfill', 'backtest'])
 def test_scheduler(job_name):
     job = scheduler.scheduler.get_job(job_name)
     assert job.next_run_time.timestamp() < time.time() + 86400 * 3
@@ -81,8 +81,7 @@ def test_backtest(mocker, mock_trading_client):
     assert mock_trading_client.get_calendar_call_count > 0
 
 
-@pytest.mark.parametrize('method_name',
-                         ['backtest', '_trade_run', 'backfill', 'log_scan'])
+@pytest.mark.parametrize('method_name', ['backtest', '_trade_run', 'backfill', 'log_scan'])
 def test_email_send(mocker, method_name, mock_smtp, mock_alpaca, mock_trading_client, mock_engine):
     mocker.patch.object(image, 'MIMEImage', autospec=True)
     mocker.patch.object(multipart.MIMEMultipart, 'as_string', return_value='')
@@ -97,7 +96,6 @@ def test_email_send(mocker, method_name, mock_smtp, mock_alpaca, mock_trading_cl
 
 
 def test_log_scan(mocker, mock_smtp, mock_engine):
-    mocker.patch.object(mock_engine.conn, 'execute',
-                        return_value=[('Trading', '[ERROR] [2025-10-10] Fake error')])
+    mocker.patch.object(mock_engine.conn, 'execute', return_value=[('Trading', '[ERROR] [2025-10-10] Fake error')])
     scheduler.log_scan()
     mock_smtp.assert_called_once()

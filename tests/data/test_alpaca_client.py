@@ -2,8 +2,8 @@ import os
 
 import pandas as pd
 import pytest
-from alpaca.data.models import BarSet, Trade
 from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.models import BarSet, Trade
 
 import alpharius.data as data
 
@@ -20,8 +20,7 @@ def mock_get_stock_bars(mocker):
         'n': 123,
         'vw': 123.9,
     }
-    mocker.patch.object(StockHistoricalDataClient, 'get_stock_bars',
-                        return_value=BarSet({'AAPL': [raw_data]}))
+    mocker.patch.object(StockHistoricalDataClient, 'get_stock_bars', return_value=BarSet({'AAPL': [raw_data]}))
 
 
 @pytest.fixture(autouse=True)
@@ -35,20 +34,17 @@ def mock_get_stock_latest_trade(mocker):
         'c': None,
         'z': None,
     }
-    mocker.patch.object(StockHistoricalDataClient, 'get_stock_latest_trade',
-                        return_value={'AAPL': Trade('AAPL', raw_data)})
+    mocker.patch.object(
+        StockHistoricalDataClient, 'get_stock_latest_trade', return_value={'AAPL': Trade('AAPL', raw_data)}
+    )
 
 
-@pytest.mark.parametrize('time_interval',
-                         [data.TimeInterval.FIVE_MIN,
-                          data.TimeInterval.HOUR,
-                          data.TimeInterval.DAY])
+@pytest.mark.parametrize('time_interval', [data.TimeInterval.FIVE_MIN, data.TimeInterval.HOUR, data.TimeInterval.DAY])
 def test_get_data(time_interval):
     client = data.AlpacaClient()
-    d = client.get_data('AAPL',
-                        start_time=pd.Timestamp('2024-03-26'),
-                        end_time=pd.Timestamp('2024-03-27'),
-                        time_interval=time_interval)
+    d = client.get_data(
+        'AAPL', start_time=pd.Timestamp('2024-03-26'), end_time=pd.Timestamp('2024-03-27'), time_interval=time_interval
+    )
     assert len(d) > 0
 
 

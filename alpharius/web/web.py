@@ -14,12 +14,20 @@ import pandas as pd
 
 from alpharius.db import Aggregation, Db
 from alpharius.utils import (
-    construct_charts_link, compute_drawdown, compute_risks, get_today,
-    get_signed_percentage, get_colored_value, get_current_time, TIME_ZONE,
-    compute_bernoulli_ci95, Transaction
+    TIME_ZONE,
+    Transaction,
+    compute_bernoulli_ci95,
+    compute_drawdown,
+    compute_risks,
+    construct_charts_link,
+    get_colored_value,
+    get_current_time,
+    get_signed_percentage,
+    get_today,
 )
+
 from .client import Client
-from .scheduler import get_job_status, get_backtest_finish_time
+from .scheduler import get_backtest_finish_time, get_job_status
 
 bp = flask.Blueprint('web', __name__)
 
@@ -54,10 +62,12 @@ def _get_dashboard_data():
         tasks['orders'] = pool.submit(client.get_recent_orders)
         tasks['positions'] = pool.submit(client.get_current_positions)
         tasks['watch'] = pool.submit(client.get_market_watch)
-        response = {'histories': tasks['histories'].result(),
-                    'orders': tasks['orders'].result(),
-                    'positions': tasks['positions'].result(),
-                    'watch': tasks['watch'].result()}
+        response = {
+            'histories': tasks['histories'].result(),
+            'orders': tasks['orders'].result(),
+            'positions': tasks['positions'].result(),
+            'watch': tasks['watch'].result(),
+        }
     return response
 
 
@@ -65,11 +75,13 @@ def _get_dashboard_data():
 @access_control
 def dashboard():
     data = _get_dashboard_data()
-    return flask.render_template('dashboard.html',
-                                 histories=json.dumps(data['histories']),
-                                 orders=data['orders'],
-                                 positions=data['positions'],
-                                 watch=data['watch'])
+    return flask.render_template(
+        'dashboard.html',
+        histories=json.dumps(data['histories']),
+        orders=data['orders'],
+        positions=data['positions'],
+        watch=data['watch'],
+    )
 
 
 @bp.route('/dashboard_data')
@@ -80,8 +92,7 @@ def dashboard_data():
 
 def _list_processors(db_client: Db) -> List[str]:
     aggs = db_client.list_aggregations()
-    processors = sorted(list(set([agg.processor for agg in aggs
-                                  if agg.processor != 'UNKNOWN'])))
+    processors = sorted(list(set([agg.processor for agg in aggs if agg.processor != 'UNKNOWN'])))
     return processors
 
 
@@ -105,32 +116,38 @@ def transactions():
     page = max(min(page, total_page), 1)
     offset = (page - 1) * items_per_page
     trans = []
-    time_fmt = f'<span class="lg-hidden">%Y-%m-%d </span>%H:%M'
+    time_fmt = '<span class="lg-hidden">%Y-%m-%d </span>%H:%M'
     for t in client.list_transactions(limit=items_per_page, offset=offset, processor=active_processor):
-        trans.append({
-            'symbol': t.symbol,
-            'side': 'long' if t.is_long else 'short',
-            'processor': t.processor if t.processor is not None else '',
-            'entry_price': f'{t.entry_price:.4g}',
-            'exit_price': f'{t.exit_price:.4g}',
-            'entry_time': pd.to_datetime(t.entry_time).tz_convert(TIME_ZONE).strftime(time_fmt),
-            'exit_time': pd.to_datetime(t.exit_time).tz_convert(TIME_ZONE).strftime(time_fmt),
-            'gl': get_colored_value(f'{t.gl:+,.2f} ({t.gl_pct * 100:+.2f}%)',
-                                    'green' if t.gl >= 0 else 'red'),
-            'gl_pct': get_signed_percentage(t.gl_pct),
-            'slippage': get_colored_value(f'{t.slippage:+,.2f} ({t.slippage_pct * 100:+.2f}%)',
-                                          'green' if t.slippage >= 0 else 'red') if t.slippage is not None else '',
-            'slippage_pct': get_signed_percentage(t.slippage_pct) if t.slippage_pct is not None else '',
-            'link': construct_charts_link(
-                t.symbol,
-                pd.to_datetime(t.exit_time).tz_convert(TIME_ZONE).strftime('%F')),
-        })
-    return flask.render_template('transactions.html',
-                                 transactions=trans,
-                                 current_page=page,
-                                 total_page=total_page,
-                                 active_processor=active_processor,
-                                 processors=processors)
+        trans.append(
+            {
+                'symbol': t.symbol,
+                'side': 'long' if t.is_long else 'short',
+                'processor': t.processor if t.processor is not None else '',
+                'entry_price': f'{t.entry_price:.4g}',
+                'exit_price': f'{t.exit_price:.4g}',
+                'entry_time': pd.to_datetime(t.entry_time).tz_convert(TIME_ZONE).strftime(time_fmt),
+                'exit_time': pd.to_datetime(t.exit_time).tz_convert(TIME_ZONE).strftime(time_fmt),
+                'gl': get_colored_value(f'{t.gl:+,.2f} ({t.gl_pct * 100:+.2f}%)', 'green' if t.gl >= 0 else 'red'),
+                'gl_pct': get_signed_percentage(t.gl_pct),
+                'slippage': get_colored_value(
+                    f'{t.slippage:+,.2f} ({t.slippage_pct * 100:+.2f}%)', 'green' if t.slippage >= 0 else 'red'
+                )
+                if t.slippage is not None
+                else '',
+                'slippage_pct': get_signed_percentage(t.slippage_pct) if t.slippage_pct is not None else '',
+                'link': construct_charts_link(
+                    t.symbol, pd.to_datetime(t.exit_time).tz_convert(TIME_ZONE).strftime('%F')
+                ),
+            }
+        )
+    return flask.render_template(
+        'transactions.html',
+        transactions=trans,
+        current_page=page,
+        total_page=total_page,
+        active_processor=active_processor,
+        processors=processors,
+    )
 
 
 def _shift_to_last(arr, target_value):
@@ -149,10 +166,22 @@ def _get_stats(aggs: List[Aggregation]):
     for agg in aggs:
         processor = agg.processor
         if processor not in stats:
-            stats[processor] = {'gl': 0, 'gl_pct_acc': 0, 'cnt': 0, 'win_cnt': 0,
-                                'slip': 0, 'slip_pct_acc': 0, 'slip_cnt': 0, 'cash_flow': 0,
-                                'gl_3m': 0, 'win_cnt_3m': 0, 'cnt_3m': 0, 'slip_3m': 0,
-                                'slip_pct_acc_3m': 0, 'slip_cnt_3m': 0}
+            stats[processor] = {
+                'gl': 0,
+                'gl_pct_acc': 0,
+                'cnt': 0,
+                'win_cnt': 0,
+                'slip': 0,
+                'slip_pct_acc': 0,
+                'slip_cnt': 0,
+                'cash_flow': 0,
+                'gl_3m': 0,
+                'win_cnt_3m': 0,
+                'cnt_3m': 0,
+                'slip_3m': 0,
+                'slip_pct_acc_3m': 0,
+                'slip_cnt_3m': 0,
+            }
         stats[processor]['gl'] += agg.gl
         stats[processor]['cnt'] += agg.count
         stats[processor]['win_cnt'] += agg.win_count
@@ -186,10 +215,16 @@ def _get_stats(aggs: List[Aggregation]):
 
     for processor, stat in stats.items():
         stat['processor'] = processor
-        stat['avg_slip_pct'] = (get_signed_percentage(stat['slip_pct_acc'] / stat['slip_cnt'])
-                                if stat.get('slip_cnt', 0) > 0 and processor != 'UNKNOWN' else 'N/A')
-        stat['avg_slip_pct_3m'] = (get_signed_percentage(stat['slip_pct_acc_3m'] / stat['slip_cnt_3m'])
-                                   if stat.get('slip_cnt_3m', 0) > 0 and processor != 'UNKNOWN' else 'N/A')
+        stat['avg_slip_pct'] = (
+            get_signed_percentage(stat['slip_pct_acc'] / stat['slip_cnt'])
+            if stat.get('slip_cnt', 0) > 0 and processor != 'UNKNOWN'
+            else 'N/A'
+        )
+        stat['avg_slip_pct_3m'] = (
+            get_signed_percentage(stat['slip_pct_acc_3m'] / stat['slip_cnt_3m'])
+            if stat.get('slip_cnt_3m', 0) > 0 and processor != 'UNKNOWN'
+            else 'N/A'
+        )
         win_rate = stat['win_cnt'] / stat['cnt'] if stat.get('cnt', 0) > 0 else None
         win_rate_ci = compute_bernoulli_ci95(win_rate, stat['cnt']) if win_rate else None
         stat['win_rate'] = f'{win_rate * 100:.2f}%' if win_rate is not None else 'N/A'
@@ -214,8 +249,7 @@ def _get_stats(aggs: List[Aggregation]):
 
 
 def _get_gl_bars(aggs: List[Aggregation]):
-    dated_values = {'Daily': collections.defaultdict(int),
-                    'Monthly': collections.defaultdict(int)}
+    dated_values = {'Daily': collections.defaultdict(int), 'Monthly': collections.defaultdict(int)}
     processors = set()
     processors_aggs = collections.defaultdict(list)
     for agg in aggs:
@@ -228,7 +262,7 @@ def _get_gl_bars(aggs: List[Aggregation]):
     values = dict()
     all_processors = 'ALL PROCESSORS'
     for timeframe in ['Daily', 'Monthly']:
-        labels[timeframe] = sorted(dated_values[timeframe].keys())[-num_cuts[timeframe]:]
+        labels[timeframe] = sorted(dated_values[timeframe].keys())[-num_cuts[timeframe] :]
         all_gl = [dated_values[timeframe][label] for label in labels[timeframe]]
         values[timeframe] = {all_processors: all_gl}
         for processor in processors:
@@ -266,8 +300,7 @@ def _get_annual_return(daily_price):
         spots[j].append(values[j][-1])
     res['years'] = years
     for j in range(len(spots)):
-        res['returns'][j] = [(spots[j][k + 1] / spots[j][k] - 1) * 100
-                             for k in range(len(spots[j]) - 1)]
+        res['returns'][j] = [(spots[j][k + 1] / spots[j][k] - 1) * 100 for k in range(len(spots[j]) - 1)]
     return res
 
 
@@ -276,11 +309,13 @@ def _get_risks(daily_prices):
         a, b, s = compute_risks(v, mv)
         d, _, _ = compute_drawdown(v)
         r = v[-1] / v[0] - 1
-        return {'alpha': get_signed_percentage(a) if not math.isnan(a) else 'N/A',
-                'beta': f'{b:.2f}' if not math.isnan(b) else 'N/A',
-                'sharpe': f'{s:.2f}' if not math.isnan(s) else 'N/A',
-                'drawdown': get_signed_percentage(d),
-                'return': get_signed_percentage(r)}
+        return {
+            'alpha': get_signed_percentage(a) if not math.isnan(a) else 'N/A',
+            'beta': f'{b:.2f}' if not math.isnan(b) else 'N/A',
+            'sharpe': f'{s:.2f}' if not math.isnan(s) else 'N/A',
+            'drawdown': get_signed_percentage(d),
+            'return': get_signed_percentage(r),
+        }
 
     dates = daily_prices['dates']
     values = daily_prices['values'][daily_prices['symbols'].index('My Portfolio')]
@@ -290,8 +325,8 @@ def _get_risks(daily_prices):
     for i in range(len(dates)):
         if i != len(dates) - 1 and dates[i][:4] == dates[i + 1][:4]:
             continue
-        current_values = values[current_start:i + 1]
-        current_market_values = market_values[current_start:i + 1]
+        current_values = values[current_start : i + 1]
+        current_market_values = market_values[current_start : i + 1]
         factors = get_factors(current_values, current_market_values)
         factors['year'] = dates[i][:4]
         res.append(factors)
@@ -317,21 +352,27 @@ def analytics():
     daily_price = get_daily_price_task.result()
     annual_return = _get_annual_return(daily_price)
     risks = _get_risks(daily_price)
-    return flask.render_template('analytics.html',
-                                 stats=stats,
-                                 transaction_cnt=transaction_cnt,
-                                 cash_flows=cash_flows,
-                                 gl_bars=gl_bars,
-                                 annual_return=annual_return,
-                                 risks=risks,
-                                 processors=processors)
+    return flask.render_template(
+        'analytics.html',
+        stats=stats,
+        transaction_cnt=transaction_cnt,
+        cash_flows=cash_flows,
+        gl_bars=gl_bars,
+        annual_return=annual_return,
+        risks=risks,
+        processors=processors,
+    )
 
 
 def _parse_log_content(content: str, date: str):
     def is_entry_start(lin: str):
         ll = lin.lower()
-        return (ll.startswith('[info] [') or ll.startswith('[warning] [')
-                or ll.startswith('[debug] [') or ll.startswith('[error] ['))
+        return (
+            ll.startswith('[info] [')
+            or ll.startswith('[warning] [')
+            or ll.startswith('[debug] [')
+            or ll.startswith('[error] [')
+        )
 
     log_lines = content.split('\n')
     log_entries = []
@@ -345,16 +386,18 @@ def _parse_log_content(content: str, date: str):
             for _ in range(3):
                 span_start = line.find('[', span_end)
                 span_end = line.find(']', span_start)
-                spans.append(line[span_start + 1:span_end])
-            message = line[span_end + 1:]
+                spans.append(line[span_start + 1 : span_end])
+            message = line[span_end + 1 :]
             message = re.sub(r'\[([A-Z]+)\]', f'[<a href={link}>\\1</a>]', message)
             log_type = spans[0].lower()
-            log_entry = {'type': log_type,
-                         'type_initial': log_type[0],
-                         'time': pd.to_datetime(spans[1]).strftime('%H:%M:%S'),
-                         'time_short': pd.to_datetime(spans[1]).strftime('%H:%M'),
-                         'code': spans[2],
-                         'message': message}
+            log_entry = {
+                'type': log_type,
+                'type_initial': log_type[0],
+                'time': pd.to_datetime(spans[1]).strftime('%H:%M:%S'),
+                'time_short': pd.to_datetime(spans[1]).strftime('%H:%M'),
+                'code': spans[2],
+                'message': message,
+            }
             i += 1
             while i < len(log_lines) and not is_entry_start(log_lines[i]):
                 log_entry['message'] += '\n' + log_lines[i]
@@ -387,11 +430,7 @@ def logs():
                 loggers[j + 1] = loggers[j]
             loggers[0] = 'Trading'
 
-    return flask.render_template('logs.html',
-                                 loggers=loggers,
-                                 log_entries=log_entries,
-                                 date=date,
-                                 dates=dates)
+    return flask.render_template('logs.html', loggers=loggers, log_entries=log_entries, date=date, dates=dates)
 
 
 @bp.route('/charts')
@@ -412,12 +451,14 @@ def charts():
         end_date = pd_end.strftime('%F')
     symbol = flask.request.args.get('symbol')
     all_symbols = client.get_all_symbols()
-    return flask.render_template('charts.html',
-                                 all_symbols=all_symbols,
-                                 init_date=date,
-                                 init_start_date=start_date,
-                                 init_end_date=end_date,
-                                 init_symbol=symbol)
+    return flask.render_template(
+        'charts.html',
+        all_symbols=all_symbols,
+        init_date=date,
+        init_start_date=start_date,
+        init_end_date=end_date,
+        init_symbol=symbol,
+    )
 
 
 @bp.route('/charts_data')
@@ -431,8 +472,7 @@ def charts_data():
         start_date = flask.request.args.get('start_date')
         end_date = flask.request.args.get('end_date')
     symbol = flask.request.args.get('symbol')
-    res = client.get_charts(start_date=start_date, end_date=end_date,
-                            symbol=symbol, timeframe=timeframe)
+    res = client.get_charts(start_date=start_date, end_date=end_date, symbol=symbol, timeframe=timeframe)
     return json.dumps(res)
 
 
@@ -453,9 +493,11 @@ def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Tran
         return pd.to_datetime(dt).tz_convert(TIME_ZONE).strftime('%H:%M')
 
     def _get_row(t, html_class=None):
-        template = ('<tr><td {cls}><a href={link}>{symbol}</a></td><td {cls_xs}>{processor}</td>'
-                    '<td {cls_lg}>{side}</td><td {cls}>{entry_time}</td><td {cls}>{exit_time}</td>'
-                    '<td {cls}><span class="lg-hidden">{gl}</span><span class="lg-show">{arrow}</span></td></tr>')
+        template = (
+            '<tr><td {cls}><a href={link}>{symbol}</a></td><td {cls_xs}>{processor}</td>'
+            '<td {cls_lg}>{side}</td><td {cls}>{entry_time}</td><td {cls}>{exit_time}</td>'
+            '<td {cls}><span class="lg-hidden">{gl}</span><span class="lg-show">{arrow}</span></td></tr>'
+        )
         cls = ''
         cls_lg = 'class="lg-hidden"'
         cls_xs = 'class="xs-hidden"'
@@ -463,22 +505,27 @@ def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Tran
             cls = f'class="{html_class}"'
             cls_lg = f'class="lg-hidden {html_class}"'
             cls_xs = f'class="xs-hidden {html_class}"'
-        side = ('<span class="badge-shape ' +
-                ('badge-blue' if t.is_long else 'badge-purple') + '">' +
-                ('long' if t.is_long else 'short') + '</span>')
-        link = construct_charts_link(t.symbol,
-                                     pd.to_datetime(t.exit_time).tz_convert(TIME_ZONE).strftime('%F'))
-        return template.format(cls=cls,
-                               cls_xs=cls_xs,
-                               cls_lg=cls_lg,
-                               symbol=t.symbol,
-                               link=link,
-                               processor=t.processor or 'UNKNOWN',
-                               side=side,
-                               entry_time=_convert_time(t.entry_time),
-                               exit_time=_convert_time(t.exit_time),
-                               gl=get_signed_percentage(t.gl_pct),
-                               arrow=get_colored_value('', 'green' if t.gl_pct > 0 else 'red', with_arrow=True))
+        side = (
+            '<span class="badge-shape '
+            + ('badge-blue' if t.is_long else 'badge-purple')
+            + '">'
+            + ('long' if t.is_long else 'short')
+            + '</span>'
+        )
+        link = construct_charts_link(t.symbol, pd.to_datetime(t.exit_time).tz_convert(TIME_ZONE).strftime('%F'))
+        return template.format(
+            cls=cls,
+            cls_xs=cls_xs,
+            cls_lg=cls_lg,
+            symbol=t.symbol,
+            link=link,
+            processor=t.processor or 'UNKNOWN',
+            side=side,
+            entry_time=_convert_time(t.entry_time),
+            exit_time=_convert_time(t.exit_time),
+            gl=get_signed_percentage(t.gl_pct),
+            arrow=get_colored_value('', 'green' if t.gl_pct > 0 else 'red', with_arrow=True),
+        )
 
     def _normalize_time(t: pd.Timestamp | None) -> pd.Timestamp | None:
         # Normalize transactions whose orders are not filled in time
@@ -489,13 +536,12 @@ def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Tran
     for trans in [a_transactions, b_transactions]:
         trans.sort(key=lambda t: (t.exit_time, t.symbol))
     t0 = a_transactions[0] if a_transactions else b_transactions[0]
-    table = {'date': t0.exit_time.strftime('%F'),
-             'backtest': '',
-             'trade': ''}
+    table = {'date': t0.exit_time.strftime('%F'), 'backtest': '', 'trade': ''}
     miss, extra, time_diff, comm = 0, 0, 0, 0
     i, j = 0, 0
-    empty_row = ('<tr><td>&nbsp</td><td class="xs-hidden"></td><td class="lg-hidden"></td>'
-                 '<td></td><td></td><td></td></tr>')
+    empty_row = (
+        '<tr><td>&nbsp</td><td class="xs-hidden"></td><td class="lg-hidden"></td><td></td><td></td><td></td></tr>'
+    )
     a_set = {(t.symbol, t.processor, t.entry_time, _normalize_time(t.exit_time)) for t in a_transactions}
     b_set = {(t.symbol, t.processor, t.entry_time, _normalize_time(t.exit_time)) for t in b_transactions}
     while i < len(a_transactions) or j < len(b_transactions):
@@ -513,9 +559,12 @@ def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Tran
             continue
         a = a_transactions[i]
         b = b_transactions[j]
-        if (a.symbol == b.symbol and a.processor == b.processor
-                and a.entry_time == b.entry_time
-                and _normalize_time(a.exit_time) == _normalize_time(b.exit_time)):
+        if (
+            a.symbol == b.symbol
+            and a.processor == b.processor
+            and a.entry_time == b.entry_time
+            and _normalize_time(a.exit_time) == _normalize_time(b.exit_time)
+        ):
             comm += 1
             table['backtest'] += _get_row(a_transactions[i])
             table['trade'] += _get_row(b_transactions[j])
@@ -575,13 +624,16 @@ def backtest():
         active_processor = None
     processors = ['ALL PROCESSORS'] + processors
 
-    backtest_transactions = [t for t in client.get_backtest(start_time, end_time, active_processor)
-                             if abs(t.qty) > 1E-7]
-    actual_transactions = client.list_transactions(limit=len(backtest_transactions) * 2 + 1000,
-                                                   offset=0,
-                                                   start_time=start_time,
-                                                   end_time=end_time,
-                                                   processor=active_processor)
+    backtest_transactions = [
+        t for t in client.get_backtest(start_time, end_time, active_processor) if abs(t.qty) > 1e-7
+    ]
+    actual_transactions = client.list_transactions(
+        limit=len(backtest_transactions) * 2 + 1000,
+        offset=0,
+        start_time=start_time,
+        end_time=end_time,
+        processor=active_processor,
+    )
     t = end_time.date()
     i, j = 0, 0
     miss, extra, time_diff, comm = 0, 0, 0, 0
@@ -598,16 +650,18 @@ def backtest():
             comm += t_comm
         t -= datetime.timedelta(days=1)
     rate = (miss + extra + time_diff) / max(miss + extra + time_diff + comm, 1)
-    return flask.render_template('backtest.html',
-                                 tables=tables,
-                                 miss=miss,
-                                 extra=extra,
-                                 time_diff=time_diff,
-                                 comm=comm,
-                                 rate=f'{rate * 100:.2f}%',
-                                 active_processor=active_processor,
-                                 processors=processors,
-                                 ndays=ndays)
+    return flask.render_template(
+        'backtest.html',
+        tables=tables,
+        miss=miss,
+        extra=extra,
+        time_diff=time_diff,
+        comm=comm,
+        rate=f'{rate * 100:.2f}%',
+        active_processor=active_processor,
+        processors=processors,
+        ndays=ndays,
+    )
 
 
 @bp.route('/job_status')
