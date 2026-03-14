@@ -146,7 +146,7 @@ class TopVolumeUniverse(DataBasedStockUniverse, CachedStockUniverse):
             if prev_day not in hist.index:
                 continue
             prev_day_ind = timestamp_to_index(hist.index, prev_day)
-            if prev_day_ind < DAYS_IN_A_MONTH:
+            if prev_day_ind is None or prev_day_ind < DAYS_IN_A_MONTH:
                 continue
             prev_close = hist['Close'].iloc[prev_day_ind]
             if prev_close < 5:
@@ -192,7 +192,7 @@ class IntradayVolatilityStockUniverse(DataBasedStockUniverse, CachedStockUnivers
             if prev_day not in hist.index:
                 continue
             prev_day_ind = timestamp_to_index(hist.index, prev_day)
-            if prev_day_ind < DAYS_IN_A_MONTH:
+            if prev_day_ind is None or prev_day_ind < DAYS_IN_A_MONTH:
                 continue
             prev_close = hist['Close'].iloc[prev_day_ind]
             start_ind = max(prev_day_ind - DAYS_IN_A_QUARTER, 0)
@@ -238,7 +238,7 @@ class L2hVolatilityStockUniverse(DataBasedStockUniverse, CachedStockUniverse):
             if prev_day not in hist.index:
                 continue
             prev_day_ind = timestamp_to_index(hist.index, prev_day)
-            if prev_day_ind < DAYS_IN_A_MONTH:
+            if prev_day_ind is None or prev_day_ind < DAYS_IN_A_MONTH:
                 continue
             prev_close = hist['Close'].iloc[prev_day_ind]
             start_ind = max(prev_day_ind - DAYS_IN_A_QUARTER, 0)

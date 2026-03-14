@@ -342,7 +342,7 @@ class Backtest:
         self._log_day(day, executed_actions)
         return executed_actions
 
-    def _process_actions(self, current_time: pd.Timestamp, actions: List[Action]) -> List[List[Any]]:
+    def _process_actions(self, current_time: pd.Timestamp, actions: List[Action]) -> List[Transaction]:
         unique_actions = get_unique_actions(actions)
 
         close_actions = [

@@ -159,7 +159,7 @@ class Context:
         return None
 
     @property
-    def today_open(self) -> float:
+    def today_open(self) -> float | None:
         p = self.market_open_index
         return self.intraday_lookback['Open'].iloc[p] if p is not None else None
 

@@ -1,5 +1,6 @@
 import argparse
 import datetime
+from typing import Type
 
 import matplotlib
 from dateutil.relativedelta import relativedelta
@@ -11,7 +12,7 @@ from alpharius.utils import get_latest_day
 # Interactive plot is not disabled when trading or backtesting is invoked.
 matplotlib.use('agg')
 
-PROCESSORS = [
+PROCESSORS: list[Type[processors.Processor] | processors.Processor] = [
     processors.AbcdProcessor,
     processors.CrossCloseProcessor,
     processors.DownFourProcessor,
