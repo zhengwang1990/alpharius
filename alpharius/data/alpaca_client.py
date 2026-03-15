@@ -7,21 +7,19 @@ import retrying
 from alpaca.data import (
     Adjustment,
     StockBarsRequest,
-    StockLatestTradeRequest,
     StockHistoricalDataClient,
+    StockLatestTradeRequest,
     TimeFrame,
     TimeFrameUnit,
 )
 
-from alpharius.utils import TIME_ZONE, ALPACA_API_KEY_ENV, ALPACA_SECRET_KEY_ENV
+from alpharius.utils import ALPACA_API_KEY_ENV, ALPACA_SECRET_KEY_ENV, TIME_ZONE
+
 from .base import DATA_COLUMNS, DataClient, TimeInterval
 
 
 class AlpacaClient(DataClient):
-
-    def __init__(self,
-                 api_key: Optional[str] = None,
-                 secret_key: Optional[str] = None) -> None:
+    def __init__(self, api_key: Optional[str] = None, secret_key: Optional[str] = None) -> None:
         """Instantiates an Alpaca Data Client.
 
         Parameters:
@@ -33,11 +31,9 @@ class AlpacaClient(DataClient):
         self._client = StockHistoricalDataClient(api_key=api_key, secret_key=secret_key)
 
     @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=500)
-    def get_data(self,
-                 symbol: str,
-                 start_time: pd.Timestamp,
-                 end_time: pd.Timestamp,
-                 time_interval: TimeInterval) -> pd.DataFrame:
+    def get_data(
+        self, symbol: str, start_time: pd.Timestamp, end_time: pd.Timestamp, time_interval: TimeInterval
+    ) -> pd.DataFrame:
         """Loads data with specified start and end time.
 
         start_time and end_time are inclusive.
@@ -67,8 +63,10 @@ class AlpacaClient(DataClient):
         except AttributeError:
             bars = []
         index = pd.DatetimeIndex([pd.Timestamp(b.timestamp).tz_convert(TIME_ZONE) for b in bars])
-        data = [[np.float32(b.open), np.float32(b.high), np.float32(b.low), np.float32(b.close), np.uint32(b.volume)]
-                for b in bars]
+        data = [
+            [np.float32(b.open), np.float32(b.high), np.float32(b.low), np.float32(b.close), np.uint32(b.volume)]
+            for b in bars
+        ]
         return pd.DataFrame(data, index=index, columns=DATA_COLUMNS)
 
     @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=500)

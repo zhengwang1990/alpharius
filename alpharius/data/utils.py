@@ -3,7 +3,7 @@ import functools
 import os
 import sys
 from concurrent import futures
-from typing import Dict, Callable, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 
 import alpaca.trading as trading
 import cachetools
@@ -11,23 +11,24 @@ import pandas as pd
 import retrying
 from tqdm import tqdm
 
-from alpharius.utils import Transaction, TIME_ZONE, hash_str, get_trading_client
-from .base import DataClient, CACHE_DIR, TimeInterval
+from alpharius.utils import TIME_ZONE, Transaction, get_trading_client, hash_str
+
+from .base import CACHE_DIR, DataClient, TimeInterval
 from .fmp_client import FmpClient
 
 _MAX_WORKERS = 10
 _interday_dataset_cache = cachetools.LRUCache(maxsize=2)
 
 
-@retrying.retry(stop_max_attempt_number=2,
-                wait_exponential_multiplier=500,
-                retry_on_exception=lambda e: isinstance(e, (IOError, EOFError)))
-def _load_cached_symbol(symbol: str,
-                        cache_dir: str,
-                        load_func: Callable[[str], pd.DataFrame]) -> pd.DataFrame:
+@retrying.retry(
+    stop_max_attempt_number=2,
+    wait_exponential_multiplier=500,
+    retry_on_exception=lambda e: isinstance(e, (IOError, EOFError)),
+)
+def _load_cached_symbol(symbol: str, cache_dir: str, load_func: Callable[[str], pd.DataFrame]) -> pd.DataFrame:
     cache_file = os.path.join(cache_dir, f'history_{symbol}.pickle')
     if os.path.isfile(cache_file):
-        hist = pd.read_pickle(cache_file)
+        hist: pd.DataFrame = pd.read_pickle(cache_file)
     else:
         hist = load_func(symbol)
         hist.to_pickle(cache_file)
@@ -38,24 +39,21 @@ def get_default_data_client():
     return FmpClient()
 
 
-def load_interday_dataset(symbols: Iterable[str],
-                          start_time: pd.Timestamp,
-                          end_time: pd.Timestamp,
-                          data_client: DataClient) -> Dict[str, pd.DataFrame]:
+def load_interday_dataset(
+    symbols: Iterable[str], start_time: pd.Timestamp, end_time: pd.Timestamp, data_client: DataClient
+) -> Dict[str, pd.DataFrame]:
     if end_time.isoweekday() == 7:  # Improve cache hit
         end_time = end_time - datetime.timedelta(days=1)
     cache_key = hash_str(','.join(sorted(symbols)) + start_time.strftime('%F') + end_time.strftime('%F'))
     if cache_key in _interday_dataset_cache:
         return _interday_dataset_cache[cache_key]
-    cache_dir = os.path.join(CACHE_DIR, str(TimeInterval.DAY),
-                             start_time.strftime('%F'), end_time.strftime('%F'))
+    cache_dir = os.path.join(CACHE_DIR, str(TimeInterval.DAY), start_time.strftime('%F'), end_time.strftime('%F'))
     os.makedirs(cache_dir, exist_ok=True)
     res = {}
     tasks = {}
-    load_func = functools.partial(data_client.get_data,
-                                  start_time=start_time,
-                                  end_time=end_time,
-                                  time_interval=TimeInterval.DAY)
+    load_func = functools.partial(
+        data_client.get_data, start_time=start_time, end_time=end_time, time_interval=TimeInterval.DAY
+    )
     with futures.ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
         for symbol in symbols:
             t = pool.submit(_load_cached_symbol, symbol, cache_dir, load_func)
@@ -67,16 +65,14 @@ def load_interday_dataset(symbols: Iterable[str],
     return res
 
 
-def load_intraday_dataset(symbols: Iterable[str],
-                          day: pd.Timestamp,
-                          data_client: DataClient) -> Dict[str, pd.DataFrame]:
+def load_intraday_dataset(
+    symbols: Iterable[str], day: pd.Timestamp, data_client: DataClient
+) -> Dict[str, pd.DataFrame]:
     cache_dir = os.path.join(CACHE_DIR, str(TimeInterval.FIVE_MIN), day.strftime('%F'))
     os.makedirs(cache_dir, exist_ok=True)
     res = {}
     tasks = {}
-    load_func = functools.partial(data_client.get_daily,
-                                  day=day,
-                                  time_interval=TimeInterval.FIVE_MIN)
+    load_func = functools.partial(data_client.get_daily, day=day, time_interval=TimeInterval.FIVE_MIN)
     with futures.ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
         for symbol in symbols:
             t = pool.submit(_load_cached_symbol, symbol, cache_dir, load_func)
@@ -86,9 +82,8 @@ def load_intraday_dataset(symbols: Iterable[str],
     return res
 
 
-@retrying.retry(stop_max_attempt_number=3,
-                wait_exponential_multiplier=5000)
-def get_transactions(start_date: Optional[str], data_client: DataClient) -> List[Transaction]:
+@retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=5000)
+def get_transactions(start_date: str, data_client: DataClient) -> List[Transaction]:
     """Gets transactions from start date until today.
 
     params:
@@ -189,6 +184,19 @@ def get_transactions(start_date: Optional[str], data_client: DataClient) -> List
                     else:
                         qty -= float(prev_order.filled_qty)
         transactions.append(
-            Transaction(order.symbol, is_long, None, entry_price, exit_price, entry_time,
-                        exit_time, qty, gl, gl_pct, slippage, slippage_pct))
+            Transaction(
+                order.symbol,
+                is_long,
+                None,
+                entry_price,
+                exit_price,
+                entry_time,
+                exit_time,
+                qty,
+                gl,
+                gl_pct,
+                slippage,
+                slippage_pct,
+            )
+        )
     return transactions

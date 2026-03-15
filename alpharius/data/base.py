@@ -27,21 +27,20 @@ class DataError(Exception):
 
 
 class DataClient(abc.ABC):
-
     def get_daily(self, symbol: str, day: pd.Timestamp, time_interval: TimeInterval) -> pd.DataFrame:
         """Loads data of a given day."""
-        start_time = pd.Timestamp(year=day.year, month=day.month,
-                                  day=day.day, hour=0, minute=0).tz_localize(tz=TIME_ZONE)
-        end_time = pd.Timestamp(year=day.year, month=day.month,
-                                day=day.day, hour=23, minute=59).tz_localize(tz=TIME_ZONE)
+        start_time = pd.Timestamp(year=day.year, month=day.month, day=day.day, hour=0, minute=0).tz_localize(
+            tz=TIME_ZONE
+        )
+        end_time = pd.Timestamp(year=day.year, month=day.month, day=day.day, hour=23, minute=59).tz_localize(
+            tz=TIME_ZONE
+        )
         return self.get_data(symbol, start_time, end_time, time_interval)
 
     @abc.abstractmethod
-    def get_data(self,
-                 symbol: str,
-                 start_time: pd.Timestamp,
-                 end_time: pd.Timestamp,
-                 time_interval: TimeInterval) -> pd.DataFrame:
+    def get_data(
+        self, symbol: str, start_time: pd.Timestamp, end_time: pd.Timestamp, time_interval: TimeInterval
+    ) -> pd.DataFrame:
         """Loads data with specified start and end time.
 
         start_time and end_time are inclusive.
@@ -52,3 +51,6 @@ class DataClient(abc.ABC):
     def get_last_trades(self, symbols: List[str]) -> Dict[str, float]:
         """Gets the last trade prices of a list of symbols."""
         raise NotImplementedError()
+
+    def __to_hash__(self) -> str:
+        return self.__class__.__name__

@@ -12,6 +12,7 @@ import requests
 import retrying
 
 from alpharius.utils import TIME_ZONE
+
 from .base import DATA_COLUMNS, DataClient, TimeInterval
 
 _FMP_API_KEY_ENV = 'FMP_API_KEY'
@@ -19,7 +20,6 @@ _BASE_URL = 'https://financialmodelingprep.com/'
 
 
 class FmpClient(DataClient):
-
     def __init__(self, api_key: Optional[str] = None) -> None:
         """Instantiates an FMP Data Client.
 
@@ -49,14 +49,14 @@ class FmpClient(DataClient):
         with self._lock:
             self._call_history.append(time.time())
 
-    @retrying.retry(stop_max_attempt_number=3,
-                    wait_exponential_multiplier=500,
-                    retry_on_exception=lambda e: isinstance(e, requests.HTTPError))
-    def get_data(self,
-                 symbol: str,
-                 start_time: pd.Timestamp,
-                 end_time: pd.Timestamp,
-                 time_interval: TimeInterval) -> pd.DataFrame:
+    @retrying.retry(
+        stop_max_attempt_number=3,
+        wait_exponential_multiplier=500,
+        retry_on_exception=lambda e: isinstance(e, requests.HTTPError),
+    )
+    def get_data(
+        self, symbol: str, start_time: pd.Timestamp, end_time: pd.Timestamp, time_interval: TimeInterval
+    ) -> pd.DataFrame:
         """Loads data with specified start and end time.
 
         start_time and end_time are inclusive.
@@ -95,13 +95,23 @@ class FmpClient(DataClient):
                 bars.append(bar)
         bars.sort(key=lambda b: b['date'])
         index = pd.DatetimeIndex([pd.Timestamp(b['date']).tz_localize(TIME_ZONE) for b in bars])
-        data = [[np.float32(b['open']), np.float32(b['high']), np.float32(b['low']), np.float32(b['close']),
-                 np.uint64(b['volume'] or 0)] for b in bars]
+        data = [
+            [
+                np.float32(b['open']),
+                np.float32(b['high']),
+                np.float32(b['low']),
+                np.float32(b['close']),
+                np.uint64(b['volume'] or 0),
+            ]
+            for b in bars
+        ]
         return pd.DataFrame(data, index=index, columns=DATA_COLUMNS)
 
-    @retrying.retry(stop_max_attempt_number=3,
-                    wait_exponential_multiplier=500,
-                    retry_on_exception=lambda e: isinstance(e, requests.HTTPError))
+    @retrying.retry(
+        stop_max_attempt_number=3,
+        wait_exponential_multiplier=500,
+        retry_on_exception=lambda e: isinstance(e, requests.HTTPError),
+    )
     def get_last_trades(self, symbols: List[str]) -> Dict[str, float]:
         """Gets the last trade prices of a list of symbols."""
         url = _BASE_URL + 'stable/batch-quote-short'

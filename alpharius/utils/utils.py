@@ -115,8 +115,8 @@ def compute_risks(
     if len(values) == len(market_values) and len(values) > 2:
         market_profits = [market_values[k + 1] / market_values[k] - 1 for k in range(len(market_values) - 1)]
         mr = np.average(market_profits)
-        mvar = np.var(market_profits)
-        b = np.cov(market_profits, profits, bias=True)[0, 1] / mvar
+        m_var = np.var(market_profits)
+        b = np.cov(market_profits, profits, bias=True)[0, 1] / m_var
         a = (r - b * mr) * np.sqrt(252)
     return a, b, s
 
@@ -180,6 +180,35 @@ def get_all_symbols() -> List[str]:
     ]
     symbols = [symbol for symbol in symbols if symbol.isalpha()]
     return symbols
+
+
+def hash_object(obj: object) -> str:
+    """Hashes an object into a short representation."""
+    return hash_str(_object_to_readable_str(obj))
+
+
+def _object_to_readable_str(obj: object) -> str:
+    """Turns an object into a readable string representation."""
+    if hasattr(obj, '__to_hash__'):
+        return obj.__to_hash__()  # ty:ignore[call-non-callable]
+    if isinstance(obj, pd.Timestamp):
+        return obj.isoformat()
+    elif isinstance(obj, list):
+        return '[' + ','.join(_object_to_readable_str(v) for v in obj) + ']'
+    elif isinstance(obj, tuple):
+        return '(' + ','.join(_object_to_readable_str(v) for v in obj) + ')'
+    elif isinstance(obj, set):
+        return '{' + ','.join(_object_to_readable_str(v) for v in sorted(obj)) + '}'
+    elif isinstance(obj, dict):
+        return (
+            '{'
+            + ','.join(f'{_object_to_readable_str(k)}:{_object_to_readable_str(v)}' for k, v in sorted(obj.items()))
+            + '}'
+        )
+    elif isinstance(obj, (int, float, str)):
+        return str(obj)
+    else:
+        raise ValueError(f'Unsupported type for hashing: {type(obj)}')
 
 
 def hash_str(value: str) -> str:

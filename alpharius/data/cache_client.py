@@ -1,6 +1,6 @@
+import datetime
 import os
 import sqlite3
-import datetime
 from typing import Dict, List, Tuple
 
 import pandas as pd
@@ -19,25 +19,22 @@ class CacheClient(DataClient):
         self._db = init_db()
         self.cache_hit = 0
 
-    def get_data(self,
-                 symbol: str,
-                 start_time: pd.Timestamp,
-                 end_time: pd.Timestamp,
-                 time_interval: TimeInterval) -> pd.DataFrame:
+    def get_data(
+        self, symbol: str, start_time: pd.Timestamp, end_time: pd.Timestamp, time_interval: TimeInterval
+    ) -> pd.DataFrame:
         """Loads data with specified start and end time.
 
         start_time and end_time are inclusive.
         """
         db = self._db[time_interval]
-        time_range = db.execute(
-            'SELECT time_range from time_range WHERE symbol = ?',
-            (symbol,)).fetchone()
+        time_range = db.execute('SELECT time_range from time_range WHERE symbol = ?', (symbol,)).fetchone()
         time_range = TimeRange.from_string(time_range[0] if time_range else '')
         if time_range.include(start_time, end_time):
             columns = ','.join([c.lower() for c in DATA_COLUMNS])
             bars = db.execute(
                 f'SELECT time, {columns} FROM chart WHERE date >= ? AND date <= ?',
-                [str(start_time.date()), str(end_time.date())]).fetchall()
+                [str(start_time.date()), str(end_time.date())],
+            ).fetchall()
             index = pd.DatetimeIndex([pd.Timestamp(bar[0]) for bar in bars])
             data = [bar[1:] for bar in bars]
             self.cache_hit += 1
@@ -46,18 +43,24 @@ class CacheClient(DataClient):
             df = self._data_client.get_data(symbol, start_time, end_time, time_interval)
             values = []
             for ind, row in df.iterrows():
-                ind: pd.Timestamp
                 values.append([symbol, str(ind.date()), str(ind)] + [row[col] for col in DATA_COLUMNS])
             columns = ','.join(DATA_COLUMNS)
             marks = ','.join(['?' for _ in DATA_COLUMNS])
             db.executemany(
-                (f'INSERT INTO chart (symbol, date, time, {columns})'
-                 f'VALUES (?, ?, ?, {marks}) ON CONFLICT (symbol, time) DO NOTHING'),
-                values)
+                (
+                    f'INSERT INTO chart (symbol, date, time, {columns})'
+                    f'VALUES (?, ?, ?, {marks}) ON CONFLICT (symbol, time) DO NOTHING'
+                ),
+                values,
+            )
             time_range.merge(start_time, end_time)
-            db.execute(('INSERT INTO time_range (symbol, time_range) VALUES (?, ?)'
-                        'ON CONFLICT (symbol) DO UPDATE SET time_range = ?'),
-                       [symbol, time_range.to_string(), time_range.to_string()])
+            db.execute(
+                (
+                    'INSERT INTO time_range (symbol, time_range) VALUES (?, ?)'
+                    'ON CONFLICT (symbol) DO UPDATE SET time_range = ?'
+                ),
+                [symbol, time_range.to_string(), time_range.to_string()],
+            )
             db.commit()
             return df
 

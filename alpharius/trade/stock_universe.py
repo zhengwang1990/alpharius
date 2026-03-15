@@ -11,7 +11,14 @@ import numpy as np
 import pandas as pd
 
 from alpharius.data import DataClient, load_interday_dataset
-from alpharius.utils import ALPACA_API_KEY_ENV, ALPACA_SECRET_KEY_ENV, TIME_ZONE, get_all_symbols, hash_str
+from alpharius.utils import (
+    ALPACA_API_KEY_ENV,
+    ALPACA_SECRET_KEY_ENV,
+    TIME_ZONE,
+    get_all_symbols,
+    hash_object,
+    hash_str,
+)
 
 from .common import (
     CACHE_DIR,
@@ -22,6 +29,29 @@ from .common import (
 from .constants import COMPANY_SYMBOLS
 
 _STOCK_UNIVERSE_CACHE_ROOT = os.path.join(CACHE_DIR, 'stock_universe')
+
+
+class SaveInitMeta(type):
+    def __new__(mcs, name, bases, attrs):
+        # Find the original __init__
+        original_init = attrs.get('__init__')
+
+        if original_init:
+
+            @functools.wraps(original_init)
+            def new_init(self, *args, **kwargs):
+                # Save the args and kwargs to the instance
+                sig = inspect.signature(original_init)
+                bound_args = sig.bind(self, *args, **kwargs)
+                self._init_args = dict(bound_args.arguments)
+                self._init_args.pop('self')
+                # Call the original __init__
+                original_init(self, *args, **kwargs)
+
+            # Replace the original __init__ with our wrapped version
+            attrs['__init__'] = new_init
+
+        return super().__new__(mcs, name, bases, attrs)
 
 
 class BaseStockUniverse:
@@ -55,7 +85,7 @@ class BaseStockUniverse:
         return get_all_symbols()
 
 
-class CachedStockUniverse(BaseStockUniverse):
+class CachedStockUniverse(BaseStockUniverse, metaclass=SaveInitMeta):
     """Cache mixin for stock universe."""
 
     def get_source(self) -> str:
@@ -72,19 +102,10 @@ class CachedStockUniverse(BaseStockUniverse):
     def get_cache_dir(self) -> str:
         if self._cache_dir:
             return self._cache_dir
-        content = self.get_source()
         class_name = self.__class__.__name__
-        for attr in sorted(self.__dict__.keys()):
-            value = self.__dict__[attr]
-            if isinstance(value, CachedStockUniverse):
-                value = value.get_cache_dir()
-            if isinstance(value, (set, list)):
-                value = sorted(value)
-            if isinstance(value, dict):
-                value = sorted(value.keys())
-            value = repr(value)
-            content += f'\n{attr}={value}'
-        cache_name = class_name + '_' + hash_str(content)
+        content = self.get_source()
+        init_args_hash = hash_object(self._init_args)
+        cache_name = class_name + '_' + hash_str(content + init_args_hash)
         self._cache_dir = os.path.join(_STOCK_UNIVERSE_CACHE_ROOT, cache_name)
         os.makedirs(self._cache_dir, exist_ok=True)
         return self._cache_dir
