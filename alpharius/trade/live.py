@@ -467,10 +467,10 @@ class Live:
             self._logger.warning('[%d] orders not filled: %s', len(orders), orders)
 
     def _update_db(self, close_actions: List[Action]) -> None:
+        self._upload_log()
         if not close_actions:
             return
         current_time = time.time()
-        self._upload_log()
         wait_time = 15
         actions = {action.symbol: action for action in close_actions}
         # Some transactions may come late, so we wait up to 4 min to fill all transactions
