@@ -175,7 +175,7 @@ function get_chart_data(dates, symbol, timeframe) {
         }
         for (var i = 0; i < intraday_chart_data["labels"].length; i++) {
             var label = intraday_chart_data["labels"][i];
-            if (label >= "09:30" && label < "16:00") {
+            if (label >= "09:35" && label < "16:00") {
                 trimmed_intraday_chart_data.labels.push(label);
                 trimmed_intraday_chart_data.prices.push(intraday_chart_data["prices"][i]);
                 trimmed_intraday_chart_data.volumes.push(intraday_chart_data["volumes"][i]);
@@ -271,7 +271,7 @@ function update_chart(timeframe) {
             backgroundColor: (ctx) => {
                 const { raw: {x, o, c} } = ctx;
                 let color, alpha;
-                if (timeframe === "intraday" && (x < "09:30" || x >= "16:00")) {
+                if (timeframe === "intraday" && (x < "09:35" || x >= "16:00")) {
                     alpha = 0.3;
                 } else {
                     alpha = 0.9;
@@ -294,7 +294,7 @@ function update_chart(timeframe) {
                 backgroundColor: (ctx) => {
                 const { raw: {x, g} } = ctx;
                 let color, alpha;
-                if (timeframe === "intraday" && (x < "09:30" || x >= "16:00")) {
+                if (timeframe === "intraday" && (x < "09:35" || x >= "16:00")) {
                     alpha = 0.3;
                 } else {
                     alpha = 0.9;
