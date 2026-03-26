@@ -157,7 +157,7 @@ class EmailSender:
         if cash_reserve > 0:
             account_html += f'<tr><th {row_style}>Reserve</th><td>{cash_reserve:.2f}</td></tr>'
         account_html += (
-            f'<tr><th {row_style}>Gain / Loss</th>'
+            f'<tr><th {row_style}>Profit & Loss</th>'
             f'<td {self._get_color_style(intraday_gain)}>{intraday_gain:+.2f}'
             f'({(account_equity / history.equity[-1] - 1) * 100:+.2f}%)</td></tr>\n'
             f'<tr><th {row_style}>Market Change</th>'

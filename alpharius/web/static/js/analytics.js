@@ -4,7 +4,7 @@ function get_dataset(timeframe, processor) {
     for (value of values) {
         colors.push(value >= 0 ? "rgb(5,170,40)": "rgb(237,73,55)");
     }
-    return {label: 'G/L', data: values, backgroundColor: colors};
+    return {label: 'PnL', data: values, backgroundColor: colors};
 }
 
 const gl_config = {
