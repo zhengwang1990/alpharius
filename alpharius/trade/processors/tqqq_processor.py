@@ -28,14 +28,25 @@ class TqqqProcessor(Processor):
         return TradingFrequency.FIVE_MIN
 
     def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
-        return ['TQQQ']
+        return ['TQQQ', 'SQQQ']
 
     def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
         self._early_signal = None
 
+    def process_all_data(self, contexts: List[Context]) -> List[ProcessorAction]:
+        actions = []
+        for context in contexts:
+            if context.symbol == 'TQQQ':
+                action = self.process_data(context)
+                if action:
+                    actions.append(action)
+        return actions
+
     def process_data(self, context: Context) -> Optional[ProcessorAction]:
         if self.is_active(context.symbol):
-            return self._close_position(context)
+            return self._close_position(context, self._positions[context.symbol])
+        elif self.is_active('SQQQ'):
+            return self._close_position(context, self._positions['SQQQ'])
         else:
             return self._open_position(context)
 
@@ -89,12 +100,12 @@ class TqqqProcessor(Processor):
                     f'Threshold: {l2h * 100:.2f}%. Single bar max {single_bar_max * 100:.2f}%'
                 )
             if change > l2h and single_bar_max < 0.5 * change:
-                self._positions[context.symbol] = {
+                self._positions['SQQQ'] = {
                     'side': 'short',
                     'strategy': 'mean_reversion',
                     'entry_time': context.current_time,
                 }
-                return ProcessorAction(context.symbol, ActionType.SELL_TO_OPEN, 1)
+                return ProcessorAction('SQQQ', ActionType.BUY_TO_OPEN, 1)
         # long
         h2l = context.h2l_avg
         long_t = 19
@@ -168,13 +179,16 @@ class TqqqProcessor(Processor):
 
     def _last_hour_momentum(self, context: Context) -> Optional[ProcessorAction]:
         def _open_position(side: str) -> ProcessorAction:
-            self._positions[context.symbol] = {
+            symbol = context.symbol if side == 'long' else 'SQQQ'
+            self._positions[symbol] = {
                 'side': side,
                 'strategy': 'last_hour_momentum',
                 'entry_time': context.current_time,
             }
-            action_type = ActionType.SELL_TO_OPEN if side == 'short' else ActionType.BUY_TO_OPEN
-            return ProcessorAction(context.symbol, action_type, 1)
+            if side == 'short':
+                return ProcessorAction('SQQQ', ActionType.BUY_TO_OPEN, 1)
+            else:
+                return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
         t = context.current_time.time()
         if t <= datetime.time(15, 0) or t >= datetime.time(15, 30):
@@ -482,19 +496,18 @@ class TqqqProcessor(Processor):
             }
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _close_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _close_position(self, context: Context, position: dict[str, Any]) -> Optional[ProcessorAction]:
         def exit_position():
             self._logger.debug(
                 f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                 f'Closing position. Current price {context.current_price}.'
             )
-            self._positions.pop(context.symbol)
+            self._positions.pop(symbol)
             return action
 
-        position = self._positions[context.symbol]
         side = position['side']
-        action_type = ActionType.SELL_TO_CLOSE if side == 'long' else ActionType.BUY_TO_CLOSE
-        action = ProcessorAction(context.symbol, action_type, 1)
+        symbol = 'SQQQ' if side == 'short' else context.symbol
+        action = ProcessorAction(symbol, ActionType.SELL_TO_CLOSE, 1)
         market_open_index = context.market_open_index
         intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
         entry_index = len(intraday_closes) - (context.current_time - position['entry_time']).seconds // 300 - 1
