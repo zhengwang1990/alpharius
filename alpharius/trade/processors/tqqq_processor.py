@@ -520,6 +520,14 @@ class TqqqProcessor(Processor):
                     return exit_position()
                 if side == 'long' and context.current_price < entry_price * 0.99:
                     return exit_position()
+            elif context.current_time.time() >= datetime.time(15, 35):
+                if (
+                    side == 'short'
+                    and intraday_closes[-1] > intraday_closes[-2]
+                    and intraday_closes[-1] - intraday_closes[-2] > 2 * abs(intraday_closes[-2] - intraday_closes[-3])
+                    and intraday_closes[-1] < 0.995 * intraday_closes[-8]
+                ):
+                    return exit_position()
             if context.current_time.time() == datetime.time(16, 0):
                 return exit_position()
         if strategy == 'mean_reversion':
