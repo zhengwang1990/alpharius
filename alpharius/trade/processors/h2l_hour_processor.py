@@ -10,15 +10,10 @@ from alpharius.data import DataClient
 from ..common import (
     DAYS_IN_A_QUARTER,
     DAYS_IN_A_WEEK,
-    ActionType,
-    Context,
-    Mode,
-    Position,
-    PositionStatus,
-    ProcessorAction,
-    TradingFrequency,
 )
+from ..enums import ActionType, Mode, PositionStatus, TradingFrequency
 from ..stock_universe import IntradayVolatilityStockUniverse
+from ..structs import Context, Position, ProcessorAction
 from .processor import Processor
 
 EXIT_TIME = datetime.time(16, 0)

@@ -7,7 +7,7 @@ import os
 import signal
 import threading
 import time
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Dict, List, Optional, Set, Tuple, Type, Union
 
 import alpaca.trading as trading
 import matplotlib.dates as mdates
@@ -45,18 +45,14 @@ from .common import (
     MARKET_OPEN,
     OUTPUT_DIR,
     SHORT_RESERVE_RATIO,
-    Action,
-    ActionType,
-    Context,
-    Mode,
-    Position,
-    TradingFrequency,
     get_header,
     get_unique_actions,
     logging_config,
     timestamp_to_index,
 )
+from .enums import ActionType, Mode, TradingFrequency
 from .processors.processor import Processor, instantiate_processor
+from .structs import Action, Context, Position
 
 _MAX_WORKERS = 20
 

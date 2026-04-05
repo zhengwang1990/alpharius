@@ -5,8 +5,9 @@ import pandas as pd
 
 from alpharius.data import DataClient
 
-from ..common import ActionType, Context, Position, PositionStatus, ProcessorAction, TradingFrequency
+from ..enums import ActionType, PositionStatus, TradingFrequency
 from ..stock_universe import IntradayVolatilityStockUniverse
+from ..structs import Context, Position, ProcessorAction
 from .processor import Processor
 
 NUM_UNIVERSE_SYMBOLS = 20
@@ -47,44 +48,66 @@ class ExpProcessor(Processor):
             return self._open_position(context)
 
     def _open_position(self, context: Context) -> Optional[ProcessorAction]:
-        t = context.current_time.time()
-        if t != datetime.time(9, 40):
+        if context.current_time.time() > datetime.time(10, 30):
             return
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
-        intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
-        intraday_opens = context.intraday_lookback['Open'].to_numpy()[market_open_index:]
-        if len(intraday_closes) < 2:
+        interday_opens = context.interday_lookback['Open'].to_numpy()
+        interday_closes = context.interday_lookback['Close'].to_numpy()
+        last_two_day_inc = all(interday_opens[i] < interday_closes[i - 1] < interday_closes[i] for i in range(-2, 0))
+        last_six_day_inc = sum(interday_opens[i] < interday_closes[i] for i in range(-6, 0))
+        last_six_day_inc_strict = sum(
+            interday_opens[i] < interday_closes[i - 1] < interday_closes[i] for i in range(-6, 0)
+        )
+        if not (last_two_day_inc or (last_six_day_inc >= 5 and last_six_day_inc_strict >= 3)):
             return
-        threshold = context.l2h_avg
-        if intraday_opens[0] < context.prev_day_close:
+        intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
+        intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
+        if context.current_price > intraday_opens[0]:
             return
-        first_bar = intraday_closes[0] - intraday_opens[0]
-        if first_bar < threshold:
+        if context.current_price < intraday_opens[-1]:
             return
-        if first_bar < intraday_opens[0] - context.prev_day_close:
-            return
-        if intraday_closes[1] < intraday_opens[1]:
-            return
-        interday_highs = context.interday_lookback['High']
-        if not context.current_price > max(interday_highs[-20:]):
-            return
-        if intraday_closes[1] - intraday_opens[1] > threshold:
-            return
-        self._positions[context.symbol] = {'entry_time': context.current_time, 'status': PositionStatus.PENDING}
-        return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
+        intraday_lows = context.intraday_lookback['Low'].tolist()[market_open_index:-1] or [1]
+        if (
+            context.current_price / min(intraday_closes) - 1 > 0.005
+            or context.current_price / min(intraday_lows) - 1 > 0.01
+        ):
+            self._logger.debug(
+                f'[{context.current_time.strftime("%F %H:%M")}] Low open high close strategy. '
+                f'Current price: {context.current_price}.'
+            )
+            self._positions[context.symbol] = {
+                'entry_time': context.current_time,
+                'strategy': 'low_open_high_close',
+                'side': 'long',
+            }
+            return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
     def _close_position(self, context: Context) -> Optional[ProcessorAction]:
+        def exit_position():
+            self._logger.debug(
+                f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                f'Closing position. Current price {context.current_price}.'
+            )
+            self._positions.pop(context.symbol)
+            return action
+
         position = self._positions[context.symbol]
-        is_close = (
-            context.current_time >= position['entry_time'] + datetime.timedelta(minutes=10)
-            or context.current_time.time() >= EXIT_TIME
-        )
-        self._logger.debug(
-            f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-            f'Closing position: {is_close}. Current price {context.current_price}.'
-        )
-        if is_close:
-            position['status'] = PositionStatus.CLOSED
-            return ProcessorAction(context.symbol, ActionType.SELL_TO_CLOSE, 1)
+        side = position['side']
+        action_type = ActionType.SELL_TO_CLOSE if side == 'long' else ActionType.BUY_TO_CLOSE
+        action = ProcessorAction(context.symbol, action_type, 1)
+        market_open_index = context.market_open_index
+        intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
+        entry_index = len(intraday_closes) - (context.current_time - position['entry_time']).seconds // 300 - 1
+        take_profit = False
+        if entry_index >= 0:
+            entry_price = intraday_closes[entry_index]
+            if context.current_price / entry_price - 1 > 0.01:
+                take_profit = True
+        if (
+            context.current_time >= position['entry_time'] + datetime.timedelta(minutes=30)
+            or context.current_time.time() >= datetime.time(16, 0)
+            or take_profit
+        ):
+            return exit_position()

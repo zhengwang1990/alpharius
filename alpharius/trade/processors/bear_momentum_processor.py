@@ -6,8 +6,10 @@ import pandas as pd
 
 from alpharius.data import DataClient
 
-from ..common import DAYS_IN_A_MONTH, ActionType, Context, Position, PositionStatus, ProcessorAction, TradingFrequency
+from ..common import DAYS_IN_A_MONTH
+from ..enums import ActionType, PositionStatus, TradingFrequency
 from ..stock_universe import IntradayVolatilityStockUniverse
+from ..structs import Context, Position, ProcessorAction
 from .processor import Processor
 
 ENTRY_TIME = datetime.time(10, 0)

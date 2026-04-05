@@ -12,14 +12,11 @@ from ..common import (
     DAYS_IN_A_QUARTER,
     DAYS_IN_A_WEEK,
     DAYS_IN_A_YEAR,
-    ActionType,
-    Context,
-    Position,
-    ProcessorAction,
-    TradingFrequency,
     get_header,
 )
+from ..enums import ActionType, TradingFrequency
 from ..stock_universe import TopVolumeUniverse
+from ..structs import Context, Position, ProcessorAction
 from .processor import Processor
 
 NUM_UNIVERSE_SYMBOLS = 200

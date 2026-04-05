@@ -10,7 +10,9 @@ import pandas as pd
 
 from alpharius.data import DataClient
 
-from ..common import Context, Position, PositionStatus, ProcessorAction, TradingFrequency, logging_config
+from ..common import logging_config
+from ..enums import PositionStatus, TradingFrequency
+from ..structs import Context, Position, ProcessorAction
 
 
 class Processor(abc.ABC):

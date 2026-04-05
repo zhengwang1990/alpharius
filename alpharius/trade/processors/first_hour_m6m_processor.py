@@ -9,13 +9,10 @@ from alpharius.data import DataClient
 from ..common import (
     DAYS_IN_A_MONTH,
     DAYS_IN_A_QUARTER,
-    ActionType,
-    Context,
-    PositionStatus,
-    ProcessorAction,
-    TradingFrequency,
 )
+from ..enums import ActionType, PositionStatus, TradingFrequency
 from ..stock_universe import IntradayVolatilityStockUniverse
+from ..structs import Context, ProcessorAction
 from .processor import Processor
 
 NUM_UNIVERSE_SYMBOLS = 20
