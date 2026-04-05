@@ -497,6 +497,10 @@ class TqqqProcessor(Processor):
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
     def _close_position(self, context: Context, position: dict[str, Any]) -> Optional[ProcessorAction]:
+        side = position['side']
+        symbol = 'SQQQ' if side == 'short' else context.symbol
+        action = ProcessorAction(symbol, ActionType.SELL_TO_CLOSE, 1)
+
         def exit_position():
             self._logger.debug(
                 f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
@@ -505,27 +509,43 @@ class TqqqProcessor(Processor):
             self._positions.pop(symbol)
             return action
 
-        side = position['side']
-        symbol = 'SQQQ' if side == 'short' else context.symbol
-        action = ProcessorAction(symbol, ActionType.SELL_TO_CLOSE, 1)
         market_open_index = context.market_open_index
         intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
         entry_index = len(intraday_closes) - (context.current_time - position['entry_time']).seconds // 300 - 1
+        entry_price = intraday_closes[entry_index] if entry_index >= 0 else None
         strategy = position['strategy']
         if strategy == 'last_hour_momentum':
             # Stop loss
             if context.current_time.time() == datetime.time(15, 45):
-                entry_price = intraday_closes[-4]
-                if side == 'short' and context.current_price > entry_price * 1.01:
+                compare_price = intraday_closes[-4]
+                if side == 'short' and context.current_price > compare_price * 1.01:
                     return exit_position()
-                if side == 'long' and context.current_price < entry_price * 0.99:
+                if side == 'long' and context.current_price < compare_price * 0.99:
                     return exit_position()
             elif context.current_time.time() >= datetime.time(15, 35):
                 if (
                     side == 'short'
                     and intraday_closes[-1] > intraday_closes[-2]
-                    and intraday_closes[-1] - intraday_closes[-2] > 2 * abs(intraday_closes[-2] - intraday_closes[-3])
+                    and (
+                        intraday_closes[-1] - intraday_closes[-2] > 2 * abs(intraday_closes[-2] - intraday_closes[-3])
+                        or intraday_closes[-1] > intraday_closes[-2] > intraday_closes[-3] > intraday_closes[-4]
+                    )
                     and intraday_closes[-1] < 0.995 * intraday_closes[-8]
+                ):
+                    return exit_position()
+            elif context.current_time.time() >= datetime.time(15, 30):
+                if (
+                    side == 'long'
+                    and intraday_closes[-1] < intraday_closes[-2] < intraday_closes[-3] < intraday_closes[-4]
+                    and entry_price is not None
+                    and context.current_price > entry_price
+                ):
+                    return exit_position()
+                if (
+                    side == 'short'
+                    and intraday_closes[-1] > intraday_closes[-2] > intraday_closes[-3] > intraday_closes[-4]
+                    and entry_price is not None
+                    and context.current_price > 1.015 * intraday_closes[-7]
                 ):
                     return exit_position()
             if context.current_time.time() == datetime.time(16, 0):
@@ -558,8 +578,7 @@ class TqqqProcessor(Processor):
                 minutes=60
             ) or context.current_time.time() >= datetime.time(15, 0):
                 return exit_position()
-            if entry_index >= 0:
-                entry_price = intraday_closes[entry_index]
+            if entry_price is not None:
                 if intraday_closes[-1] < intraday_closes[-2]:
                     if context.current_price > entry_price * 1.01:
                         return exit_position()
@@ -567,8 +586,7 @@ class TqqqProcessor(Processor):
                         return exit_position()
         if strategy == 'two_troughs':
             stop_loss = False
-            if entry_index >= 0:
-                entry_price = intraday_closes[entry_index]
+            if entry_price is not None:
                 stop_loss = context.current_price / entry_price - 1 < -0.015
             if (
                 context.current_time >= position['entry_time'] + datetime.timedelta(minutes=35)
@@ -578,8 +596,7 @@ class TqqqProcessor(Processor):
                 return exit_position()
         if strategy == 'low_open_high_close':
             take_profit = False
-            if entry_index >= 0:
-                entry_price = intraday_closes[entry_index]
+            if entry_price is not None:
                 if context.current_price / entry_price - 1 > 0.01:
                     take_profit = True
             if (
