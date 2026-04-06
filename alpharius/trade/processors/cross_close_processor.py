@@ -100,7 +100,7 @@ class CrossCloseProcessor(Processor):
         min_close = np.min(intraday_closes)
         if intraday_closes[-n_long] > 0.8 * max_close + 0.2 * min_close:
             return
-        intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
+        intraday_opens = context.intraday_lookback['Open'].iloc[market_open_index:].to_numpy()
         for i in range(len(intraday_closes) - n_long):
             if intraday_closes[i] > level and intraday_closes[i] > intraday_opens[i]:
                 break
@@ -127,8 +127,8 @@ class CrossCloseProcessor(Processor):
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
-        intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
-        intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
+        intraday_opens = context.intraday_lookback['Open'].iloc[market_open_index:].to_numpy()
+        intraday_closes = context.intraday_lookback['Close'].iloc[market_open_index:].to_numpy()
         interday_closes = context.interday_lookback['Close'].to_numpy()
         if len(intraday_closes) < 3:
             return

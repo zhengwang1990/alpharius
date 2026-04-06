@@ -1,9 +1,8 @@
 import argparse
-import collections
 import datetime
 import os
 import sys
-from typing import List, Optional, Tuple
+from typing import List, NamedTuple, Optional, Tuple
 
 import pandas as pd
 import retrying
@@ -11,7 +10,7 @@ import sqlalchemy
 from tqdm import tqdm
 
 import alpharius.data as data
-from alpharius.utils import Transaction, TIME_ZONE, get_today
+from alpharius.utils import TIME_ZONE, Transaction, get_today
 
 INSERT_TRANSACTION_QUERY = sqlalchemy.text("""
 INSERT INTO transaction (
@@ -133,14 +132,22 @@ WHERE
 ORDER BY exit_time DESC;
 """
 
-Aggregation = collections.namedtuple(
-    'Aggregation',
-    ['date', 'processor', 'gl', 'avg_gl_pct', 'slippage', 'avg_slippage_pct', 'count',
-     'win_count', 'lose_count', 'slippage_count', 'cash_flow'])
+
+class Aggregation(NamedTuple):
+    date: datetime.date
+    processor: str
+    gl: float
+    avg_gl_pct: float
+    slippage: Optional[float]
+    avg_slippage_pct: Optional[float]
+    count: int
+    win_count: int
+    lose_count: int
+    slippage_count: int
+    cash_flow: float
 
 
 class Db:
-
     def __init__(self) -> None:
         sql_string = os.environ.get('SQL_STRING')
         self._eng = sqlalchemy.create_engine(sql_string, isolation_level='AUTOCOMMIT')
@@ -168,7 +175,8 @@ class Db:
             gl=transaction.gl,
             gl_pct=transaction.gl_pct,
             slippage=transaction.slippage,
-            slippage_pct=transaction.slippage_pct)
+            slippage_pct=transaction.slippage_pct,
+        )
 
     def insert_backtest(self, transaction: Transaction) -> None:
         transaction_id = transaction.symbol + ' ' + transaction.exit_time.strftime('%F %H:%M')
@@ -183,7 +191,8 @@ class Db:
             entry_time=transaction.entry_time.isoformat(),
             exit_time=transaction.exit_time.isoformat(),
             qty=transaction.qty,
-            gl_pct=transaction.gl_pct)
+            gl_pct=transaction.gl_pct,
+        )
 
     @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=1000)
     def _execute(self, query, **kwargs):
@@ -193,19 +202,28 @@ class Db:
     def update_aggregation(self, date: str) -> None:
         start_time = f'{date} 00:00:00'
         end_time = f'{date} 23:59:59'
-        results = self._execute(SELECT_TRANSACTION_AGG_QUERY,
-                                start_time=pd.to_datetime(start_time).tz_localize(TIME_ZONE),
-                                end_time=pd.to_datetime(end_time).tz_localize(TIME_ZONE))
+        results = self._execute(
+            SELECT_TRANSACTION_AGG_QUERY,
+            start_time=pd.to_datetime(start_time).tz_localize(TIME_ZONE),
+            end_time=pd.to_datetime(end_time).tz_localize(TIME_ZONE),
+        )
         processor_aggs = dict()
         for result in results:
             processor, gl, gl_pct, slippage, slippage_pct, cash_flow = result
             if not processor:
                 processor = 'UNKNOWN'
             if processor not in processor_aggs:
-                processor_aggs[processor] = {'gl': 0, 'gl_pct_acc': 0,
-                                             'slippage': 0, 'slippage_pct_acc': 0,
-                                             'count': 0, 'win_count': 0, 'lose_count': 0,
-                                             'slippage_count': 0, 'cash_flow': 0}
+                processor_aggs[processor] = {
+                    'gl': 0,
+                    'gl_pct_acc': 0,
+                    'slippage': 0,
+                    'slippage_pct_acc': 0,
+                    'count': 0,
+                    'win_count': 0,
+                    'lose_count': 0,
+                    'slippage_count': 0,
+                    'cash_flow': 0,
+                }
             agg = processor_aggs[processor]
             agg['gl'] += gl
             agg['gl_pct_acc'] += gl_pct
@@ -226,13 +244,13 @@ class Db:
                 gl=agg['gl'],
                 avg_gl_pct=agg['gl_pct_acc'] / agg['count'],
                 slippage=agg['slippage'],
-                avg_slippage_pct=(agg['slippage_pct_acc'] / agg['slippage_count']
-                                  if agg['slippage_count'] > 0 else 0),
+                avg_slippage_pct=(agg['slippage_pct_acc'] / agg['slippage_count'] if agg['slippage_count'] > 0 else 0),
                 count=agg['count'],
                 win_count=agg['win_count'],
                 lose_count=agg['lose_count'],
                 slippage_count=agg['slippage_count'],
-                cash_flow=agg['cash_flow'])
+                cash_flow=agg['cash_flow'],
+            )
 
     def update_log(self, date: str, log_dir: str) -> None:
         if os.path.isdir(log_dir):
@@ -246,12 +264,9 @@ class Db:
                         continue
                     self._execute(UPSERT_LOG_QUERY, date=date, logger=logger, content=content)
 
-    def list_transactions(self,
-                          limit: int,
-                          offset: int,
-                          start_time=None,
-                          end_time=None,
-                          processor: Optional[str] = None) -> List[Transaction]:
+    def list_transactions(
+        self, limit: int, offset: int, start_time=None, end_time=None, processor: Optional[str] = None
+    ) -> List[Transaction]:
         conditions = []
         kwargs = {'limit': limit, 'offset': offset}
         if processor:
@@ -292,18 +307,14 @@ class Db:
         results = self._execute(SELECT_LOG_QUERY, date=date)
         return [(result[0], result[1]) for result in results]
 
-    def get_backtest(self,
-                     start_time,
-                     end_time,
-                     processor: Optional[str] = None) -> List[Transaction]:
+    def get_backtest(self, start_time, end_time, processor: Optional[str] = None) -> List[Transaction]:
         condition = ''
         kwargs = {'start_time': start_time, 'end_time': end_time}
         if processor:
             condition = 'AND processor = :processor'
             kwargs['processor'] = processor
         query = sqlalchemy.text(SELECT_BACKTEST_QUERY.format(condition=condition))
-        results = self._execute(query,
-                                **kwargs)
+        results = self._execute(query, **kwargs)
         return [Transaction(*result) for result in results]
 
     def backfill(self, data_client: data.DataClient, start_date: Optional[str] = None) -> None:
@@ -327,8 +338,7 @@ class Db:
 
 def main():
     parser = argparse.ArgumentParser(description='Alpharius database backfilling.')
-    parser.add_argument('--start_date', default=None,
-                        help='Start date of the backfilling.')
+    parser.add_argument('--start_date', default=None, help='Start date of the backfilling.')
     args = parser.parse_args()
     Db().backfill(data.get_default_data_client(), args.start_date)
 

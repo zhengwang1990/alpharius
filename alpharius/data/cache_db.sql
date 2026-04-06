@@ -15,5 +15,6 @@ CREATE TABLE IF NOT EXISTS chart (
     UNIQUE (symbol, time)
 );
 
-CREATE INDEX IF NOT EXISTS chart_time ON chart (symbol);
-CREATE INDEX IF NOT EXISTS chart_time ON chart (date);
+CREATE INDEX IF NOT EXISTS idx_chart_symbol ON chart (symbol);
+CREATE INDEX IF NOT EXISTS idx_chart_date ON chart (date);
+CREATE INDEX IF NOT EXISTS idx_chart_symbol_date ON chart (symbol, date);

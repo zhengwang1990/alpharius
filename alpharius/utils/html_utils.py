@@ -26,7 +26,7 @@ def highlight_diff_table(diff_table: str) -> str:
         if '#' in content:
             ind = content.find('#')
             content, comment = content[:ind], content[ind:]
-            while sum(c == "'" for c in content) % 2 == 1 or sum(c == '"' for c in content) % 2 == 1:
+            while content.count("'") % 2 == 1 or content.count('"') % 2 == 1:
                 content, comment = content + comment, ''
                 ind = content.find('#', ind + 1)
                 if ind < 0:

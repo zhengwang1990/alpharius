@@ -238,7 +238,7 @@ class Backtest:
             self._processor_time[processor_name] += time.time() - data_process_start
         return actions
 
-    @functools.lru_cache()
+    @functools.lru_cache(maxsize=1000)
     def _prepare_interday_lookback(self, day: pd.Timestamp, symbol: str) -> Optional[pd.DataFrame]:
         if symbol not in self._interday_dataset:
             return

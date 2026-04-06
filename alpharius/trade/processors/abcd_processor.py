@@ -74,8 +74,8 @@ class AbcdProcessor(Processor):
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
-        open_price = context.intraday_lookback['Open'].tolist()[market_open_index]
-        intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
+        open_price = context.intraday_lookback['Open'].iloc[market_open_index]
+        intraday_closes = context.intraday_lookback['Close'].iloc[market_open_index:].to_numpy()
         if len(intraday_closes) < 10:
             return
         if intraday_closes[-1] >= intraday_closes[-2]:
@@ -111,7 +111,7 @@ class AbcdProcessor(Processor):
         if market_open_index is None:
             return
         open_price = context.intraday_lookback['Open'].iloc[market_open_index]
-        intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
+        intraday_closes = context.intraday_lookback['Close'].iloc[market_open_index:].to_numpy()
         if len(intraday_closes) < 10:
             return
         intraday_low = np.min(intraday_closes)
