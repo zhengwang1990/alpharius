@@ -1,3 +1,9 @@
-import collections
+from typing import NamedTuple
 
-ProcessorAction = collections.namedtuple('ProcessorAction', ['symbol', 'type', 'percent'])
+from ..enums import ActionType
+
+
+class ProcessorAction(NamedTuple):
+    symbol: str
+    type: ActionType
+    percent: float

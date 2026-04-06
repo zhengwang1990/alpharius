@@ -1,3 +1,11 @@
-import collections
+from typing import NamedTuple
 
-Action = collections.namedtuple('Action', ['symbol', 'type', 'percent', 'price', 'processor'])
+from ..enums import ActionType
+
+
+class Action(NamedTuple):
+    symbol: str
+    type: ActionType
+    percent: float
+    price: float
+    processor: str

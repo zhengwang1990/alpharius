@@ -1,3 +1,11 @@
-import collections
+from typing import NamedTuple
 
-Position = collections.namedtuple('Position', ['symbol', 'qty', 'entry_price', 'entry_time', 'entry_portion'])
+import pandas as pd
+
+
+class Position(NamedTuple):
+    symbol: str
+    qty: int
+    entry_price: float
+    entry_time: pd.Timestamp | None
+    entry_portion: float
