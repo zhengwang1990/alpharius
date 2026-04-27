@@ -120,6 +120,20 @@ class OvernightTqqqProcessor(Processor):
                         f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]' + ' Upward momentum; Buy.'
                     )
                     return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
+                quarter_max = max(interday_closes[-DAYS_IN_A_MONTH * 3 :])
+                arg_quarter_min = int(np.argmin(interday_closes[-DAYS_IN_A_MONTH * 3 :])) - DAYS_IN_A_MONTH * 3
+                quarter_min = interday_closes[arg_quarter_min]
+                if (
+                    -arg_quarter_min < 15  # trough happens in recent 10 days
+                    and quarter_min < 0.7 * quarter_max  # large drop in recent quarter
+                    and context.current_price > 1.06 * quarter_min  # rebound from recent quarter low
+                    and context.today_open < context.current_price  # price is going up today
+                ):
+                    self._logger.debug(
+                        f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                        + ' Rebound from recent quarter low; Buy.'
+                    )
+                    return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
         if (
             2 * one_week_std > two_week_std > four_week_std > 0.05
             and context.current_price / interday_closes[-1] - 1 < -0.07
