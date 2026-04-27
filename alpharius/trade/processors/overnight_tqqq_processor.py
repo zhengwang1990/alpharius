@@ -123,11 +123,10 @@ class OvernightTqqqProcessor(Processor):
                 quarter_max = max(interday_closes[-DAYS_IN_A_MONTH * 3 :])
                 arg_quarter_min = int(np.argmin(interday_closes[-DAYS_IN_A_MONTH * 3 :])) - DAYS_IN_A_MONTH * 3
                 quarter_min = interday_closes[arg_quarter_min]
+                ratio = 1 if quarter_min < 0.7 * quarter_max else 1.01
                 if (
-                    -arg_quarter_min < 15  # trough happens in recent 10 days
-                    and quarter_min < 0.7 * quarter_max  # large drop in recent quarter
-                    and context.current_price > 1.06 * quarter_min  # rebound from recent quarter low
-                    and context.today_open < context.current_price  # price is going up today
+                    -arg_quarter_min < 15  # trough happens recently
+                    and context.today_open * ratio < context.current_price  # price is going up today
                 ):
                     self._logger.debug(
                         f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
