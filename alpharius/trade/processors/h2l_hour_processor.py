@@ -79,10 +79,15 @@ class H2lHourProcessor(Processor):
         intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
         if intraday_opens[-1] > context.prev_day_close > intraday_closes[-1]:
             return
+        # If the price has already dropped a lot in the quarter, skip
         if interday_closes[-1] > 10 * np.min(interday_closes[-DAYS_IN_A_QUARTER:]):
             return
         bar_sizes = [abs(intraday_closes[i] - intraday_opens[i]) for i in range(-min(30, len(intraday_opens)), 0)]
-        if bar_sizes[-1] > 3 * np.median(bar_sizes):
+        median_bar_size = np.median(bar_sizes)
+        # Last bar or first bar is too volatile, skip
+        if bar_sizes[-1] > 3 * median_bar_size:
+            return
+        if intraday_opens[0] - intraday_closes[0] > 8 * median_bar_size:
             return
         if abs(context.prev_day_close - intraday_opens[0]) > abs(intraday_opens[0] - context.current_price):
             return
