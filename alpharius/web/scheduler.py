@@ -128,7 +128,7 @@ def log_scan():
     today_str = datetime.datetime.now(ZoneInfo('America/New_York')).strftime('%F')
     results = Db().get_logs(today_str)
     error_lines = []
-    for logger, content in results:
+    for _, content in results:
         for line in content.split('\n'):
             if line.lower().startswith('[error] ['):
                 error_lines.append(line)
