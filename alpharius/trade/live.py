@@ -468,7 +468,7 @@ class Live:
         if not close_actions:
             return
         current_time = time.time()
-        wait_time = 9
+        wait_time = 8.6
         actions = {action.symbol: action for action in close_actions}
         # Some transactions may come late, so we wait up to 5 min to fill all transactions
         for _ in range(5):
