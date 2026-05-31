@@ -11,6 +11,7 @@ from .l2h_processor import L2hProcessor
 from .o2h_processor import O2hProcessor
 from .o2l_processor import O2lProcessor
 from .open_high_processor import OpenHighProcessor
+from .open_range_processor import OpenRangeProcessor
 from .overnight_processor import OvernightProcessor
 from .overnight_tqqq_processor import OvernightTqqqProcessor
 from .processor import Processor, instantiate_processor
