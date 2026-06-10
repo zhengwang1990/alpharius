@@ -108,13 +108,19 @@ class TqqqProcessor(Processor):
         long_t = 19
         if len(intraday_closes) >= long_t:
             change = intraday_closes[-1] / intraday_closes[-long_t] - 1
+            threshold = h2l
+            if (
+                context.current_price < context.prev_day_close < intraday_closes[-long_t]
+                and interday_closes[-1] > interday_closes[-DAYS_IN_A_MONTH]
+            ):
+                threshold *= 1.2
             if change < 0.8 * h2l:
                 self._logger.debug(
                     f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                     f'Mean reversion strategy. Current price: {context.current_price}. '
-                    f'Side: long. Change: {change * 100:.2f}%. Threshold: {h2l * 100:.2f}%.'
+                    f'Side: long. Change: {change:.2%}. Threshold: {threshold:.2%}.'
                 )
-            is_trade = change < h2l
+            is_trade = change < threshold
             if is_trade:
                 separator = len(intraday_closes) - 12
                 start = max(0, len(intraday_closes) - 36)
