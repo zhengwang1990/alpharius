@@ -121,21 +121,33 @@ def backtest():
     backtest_finish_time = get_current_time()
 
 
-@scheduler.task('cron', id='log_scan', day_of_week='mon-fri', hour=16, minute=5, timezone='America/New_York')
+@scheduler.task('cron', id='log_scan', day_of_week='mon-fri', hour=16, minute=8, timezone='America/New_York')
 @email_on_exception
 def log_scan():
     app.logger.info('Start log scan')
     today_str = datetime.datetime.now(ZoneInfo('America/New_York')).strftime('%F')
     results = Db().get_logs(today_str)
     error_lines = []
+    num_debug, num_info, num_warning = 0, 0, 0
     for _, content in results:
         for line in content.split('\n'):
-            if line.lower().startswith('[error] ['):
+            line_lower = line.lower()
+            if line_lower.startswith('[error] ['):
                 error_lines.append(line)
+            elif line_lower.startswith('[debug] ['):
+                num_debug += 1
+            elif line_lower.startswith('[info] ['):
+                num_info += 1
+            elif line_lower.startswith('[warning] ['):
+                num_warning += 1
     if error_lines:
         error_message = '\n\n'.join(error_lines)
         EmailSender().send_alert(error_message, title='Error detected in trading logs')
-    app.logger.info('Finish log scan')
+    app.logger.info(
+        'Finish log scan. Total lines: {}, debug: {}, info: {}, warning: {}, error: {}'.format(
+            num_debug + num_info + num_warning + len(error_lines), num_debug, num_info, num_warning, len(error_lines)
+        )
+    )
 
 
 @bp.route('/trigger', methods=['POST'])
