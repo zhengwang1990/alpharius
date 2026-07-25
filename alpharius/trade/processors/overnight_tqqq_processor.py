@@ -1,5 +1,4 @@
 import datetime
-from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -12,16 +11,16 @@ from .processor import Processor
 
 
 class OvernightTqqqProcessor(Processor):
-    def __init__(self, output_dir: str, logging_timezone: Optional[ZoneInfo] = None) -> None:
+    def __init__(self, output_dir: str, logging_timezone: ZoneInfo | None = None) -> None:
         super().__init__(output_dir, logging_timezone)
 
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.CLOSE_TO_OPEN
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return ['TQQQ', 'SQQQ']
 
-    def process_data(self, context: Context) -> Optional[ProcessorAction]:
+    def process_data(self, context: Context) -> ProcessorAction | None:
         if context.current_time.time() < datetime.time(10, 0):
             return ProcessorAction(context.symbol, ActionType.SELL_TO_CLOSE, 1)
         market_open_index = context.market_open_index
@@ -107,6 +106,11 @@ class OvernightTqqqProcessor(Processor):
                 self._logger.debug(
                     f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
                     + 'Bad pattern in correction period; Skip.'
+                )
+                return
+            if context.current_price / context.today_open - 1 < -0.045:
+                self._logger.debug(
+                    f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]' + 'Large intraday drop; Skip.'
                 )
                 return
             if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
