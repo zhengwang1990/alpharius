@@ -2,13 +2,13 @@ import datetime
 import functools
 import os
 import sys
+from collections.abc import Callable, Iterable
 from concurrent import futures
-from typing import Callable, Dict, Iterable, List, Optional
 
-import alpaca.trading as trading
 import cachetools
 import pandas as pd
 import retrying
+from alpaca import trading
 from tqdm import tqdm
 
 from alpharius.utils import TIME_ZONE, Transaction, get_trading_client, hash_str
@@ -41,7 +41,7 @@ def get_default_data_client():
 
 def load_interday_dataset(
     symbols: Iterable[str], start_time: pd.Timestamp, end_time: pd.Timestamp, data_client: DataClient
-) -> Dict[str, pd.DataFrame]:
+) -> dict[str, pd.DataFrame]:
     if end_time.isoweekday() == 7:  # Improve cache hit
         end_time = end_time - datetime.timedelta(days=1)
     cache_key = hash_str(','.join(sorted(symbols)) + start_time.strftime('%F') + end_time.strftime('%F'))
@@ -67,7 +67,7 @@ def load_interday_dataset(
 
 def load_intraday_dataset(
     symbols: Iterable[str], day: pd.Timestamp, data_client: DataClient
-) -> Dict[str, pd.DataFrame]:
+) -> dict[str, pd.DataFrame]:
     cache_dir = os.path.join(CACHE_DIR, str(TimeInterval.FIVE_MIN), day.strftime('%F'))
     os.makedirs(cache_dir, exist_ok=True)
     res = {}
@@ -83,7 +83,7 @@ def load_intraday_dataset(
 
 
 @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=5000)
-def get_transactions(start_date: str, data_client: DataClient) -> List[Transaction]:
+def get_transactions(start_date: str, data_client: DataClient) -> list[Transaction]:
     """Gets transactions from start date until today.
 
     params:
@@ -95,7 +95,7 @@ def get_transactions(start_date: str, data_client: DataClient) -> List[Transacti
             t = t + datetime.timedelta(minutes=1)
         return pd.to_datetime(t.strftime('%F %H:%M:00%z'))
 
-    def get_historical_price(symbol: str, t: pd.Timestamp) -> Optional[float]:
+    def get_historical_price(symbol: str, t: pd.Timestamp) -> float | None:
         df = data_client.get_data(symbol, t - datetime.timedelta(minutes=5), t, TimeInterval.FIVE_MIN)
         if not len(df) or pd.to_datetime(df.index[0]).timestamp() != t.timestamp() - 300:
             return None
@@ -130,7 +130,7 @@ def get_transactions(start_date: str, data_client: DataClient) -> List[Transacti
 
     positions = trading_client.get_all_positions()
     orders_used = [False] * len(orders)
-    position_symbols = set([position.symbol for position in positions])
+    position_symbols = {position.symbol for position in positions}
     cut_time = pd.to_datetime(start_date).tz_localize(TIME_ZONE)
     transactions = []
     for i in range(len(orders)):
