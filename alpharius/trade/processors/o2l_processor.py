@@ -1,5 +1,4 @@
 import datetime
-from typing import List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -9,6 +8,7 @@ from alpharius.data import DataClient
 
 from ..common import (
     DAYS_IN_A_MONTH,
+    DAYS_IN_A_WEEK,
 )
 from ..enums import ActionType, Mode, PositionStatus, TradingFrequency
 from ..stock_universe import IntradayVolatilityStockUniverse
@@ -28,7 +28,7 @@ class O2lProcessor(Processor):
         lookback_end_date: pd.Timestamp,
         data_client: DataClient,
         output_dir: str,
-        logging_timezone: Optional[ZoneInfo] = None,
+        logging_timezone: ZoneInfo | None = None,
     ) -> None:
         super().__init__(output_dir, logging_timezone)
         self._positions = dict()
@@ -40,7 +40,7 @@ class O2lProcessor(Processor):
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
-    def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
+    def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         to_remove = [
             symbol for symbol, position in self._positions.items() if position['status'] != PositionStatus.ACTIVE
         ]
@@ -48,16 +48,16 @@ class O2lProcessor(Processor):
             self._positions.pop(symbol)
         self._memo = dict()
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return list(set(self._stock_universe.get_stock_universe(view_time) + list(self._positions.keys())))
 
-    def process_data(self, context: Context) -> Optional[ProcessorAction]:
+    def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context)
         elif context.symbol not in self._positions:
             return self._open_position(context)
 
-    def _get_thresholds(self, context: Context) -> Tuple[float, float]:
+    def _get_thresholds(self, context: Context) -> tuple[float, float]:
         key = context.symbol + context.current_time.strftime('%F')
         if key in self._memo:
             return self._memo[key]
@@ -71,7 +71,7 @@ class O2lProcessor(Processor):
         res = (lower_threshold, upper_threshold)
         return res
 
-    def _open_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_position(self, context: Context) -> ProcessorAction | None:
         t = context.current_time.time()
         if t >= EXIT_TIME:
             return
@@ -83,6 +83,10 @@ class O2lProcessor(Processor):
             return
         intraday_opens = context.intraday_lookback['Open'].to_numpy()[market_open_index:]
         market_open_price = intraday_opens[0]
+        if abs(market_open_price / interday_closes.iloc[-1] - 1) > 0.3:
+            return
+        if interday_closes.iloc[-1] > interday_closes.iloc[-DAYS_IN_A_WEEK * 2] * 3:
+            return
         intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
         if intraday_closes[-1] > np.min(intraday_closes):
             return
@@ -107,7 +111,7 @@ class O2lProcessor(Processor):
             self._positions[context.symbol] = {'entry_time': context.current_time, 'status': PositionStatus.PENDING}
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _close_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _close_position(self, context: Context) -> ProcessorAction | None:
         position = self._positions[context.symbol]
         intraday_closes = context.intraday_lookback['Close'].tolist()
         elapsed_fifteen = context.current_time == position['entry_time'] + datetime.timedelta(minutes=15)
