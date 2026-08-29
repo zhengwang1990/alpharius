@@ -10,7 +10,7 @@ import flask
 import pandas as pd
 from flask_apscheduler import APScheduler
 
-import alpharius.data as data
+from alpharius import data
 from alpharius.db import Db
 from alpharius.notification.email_sender import EmailSender
 from alpharius.trade import PROCESSORS, Backtest, Live
@@ -144,9 +144,7 @@ def log_scan():
         error_message = '\n\n'.join(error_lines)
         EmailSender().send_alert(error_message, title='Error detected in trading logs')
     app.logger.info(
-        'Finish log scan. Total lines: {}, debug: {}, info: {}, warning: {}, error: {}'.format(
-            num_debug + num_info + num_warning + len(error_lines), num_debug, num_info, num_warning, len(error_lines)
-        )
+        f'Finish log scan. Total lines: {num_debug + num_info + num_warning + len(error_lines)}, debug: {num_debug}, info: {num_info}, warning: {num_warning}, error: {len(error_lines)}'
     )
 
 

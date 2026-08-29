@@ -1,7 +1,6 @@
 import datetime
 import os
 import sqlite3
-from typing import Dict, List, Tuple
 
 import pandas as pd
 
@@ -64,12 +63,12 @@ class CacheClient(DataClient):
             db.commit()
             return df
 
-    def get_last_trades(self, symbols: List[str]) -> Dict[str, float]:
+    def get_last_trades(self, symbols: list[str]) -> dict[str, float]:
         return self._data_client.get_last_trades(symbols)
 
 
 class TimeRange:
-    def __init__(self, intervals: List[Tuple[datetime.date, datetime.date]]):
+    def __init__(self, intervals: list[tuple[datetime.date, datetime.date]]):
         self.intervals = intervals
 
     @classmethod
@@ -118,7 +117,7 @@ def get_db_file(time_interval: TimeInterval):
     return db_file
 
 
-def init_db() -> Dict[TimeInterval, sqlite3.Connection]:
+def init_db() -> dict[TimeInterval, sqlite3.Connection]:
     sql_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'cache_db.sql')
     with open(sql_file, 'r') as f:
         init_script = f.read()

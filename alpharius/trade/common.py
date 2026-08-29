@@ -2,7 +2,6 @@ import datetime
 import functools
 import logging
 import os
-from typing import List, Optional
 
 import pandas as pd
 
@@ -22,7 +21,7 @@ INTERDAY_LOOKBACK_LOAD = CALENDAR_DAYS_IN_A_YEAR
 BID_ASK_SPREAD = 0.001
 
 
-def timestamp_to_index(index: pd.Index, timestamp: pd.Timestamp) -> Optional[int]:
+def timestamp_to_index(index: pd.Index, timestamp: pd.Timestamp) -> int | None:
     pd_timestamp = timestamp.timestamp()
     left, right = 0, len(index) - 1
     while left <= right:
@@ -51,7 +50,7 @@ def get_unique_actions(actions):
     return unique_actions
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def logging_config(logging_file=None, detail=True, name=None, timezone=None) -> logging.Logger:
     """Configuration for logging."""
     logger = logging.getLogger(name=name)

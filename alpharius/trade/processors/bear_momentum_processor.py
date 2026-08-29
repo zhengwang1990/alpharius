@@ -1,5 +1,4 @@
 import datetime
-from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -39,21 +38,21 @@ class BearMomentumProcessor(Processor):
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return list(
             set(self._stock_universe.get_stock_universe(view_time) + list(CONFIG.keys()) + list(self._positions.keys()))
         )
 
-    def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
+    def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         self._memo = dict()
 
-    def process_data(self, context: Context) -> Optional[ProcessorAction]:
+    def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context)
         else:
             return self._open_position(context)
 
-    def _get_interday_min_max(self, context: Context) -> Tuple[float, float]:
+    def _get_interday_min_max(self, context: Context) -> tuple[float, float]:
         key = context.symbol + context.current_time.strftime('%F')
         if key not in self._memo:
             interday_closes = context.interday_lookback['Close'].iloc[-DAYS_IN_A_MONTH * 2 :]
@@ -62,7 +61,7 @@ class BearMomentumProcessor(Processor):
             self._memo[key] = (min_value, max_value)
         return self._memo[key]
 
-    def _open_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_position(self, context: Context) -> ProcessorAction | None:
         t = context.current_time.time()
         if t <= ENTRY_TIME or t >= EXIT_TIME:
             return
@@ -106,7 +105,7 @@ class BearMomentumProcessor(Processor):
             }
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _close_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _close_position(self, context: Context) -> ProcessorAction | None:
         def _exit_action():
             self._logger.debug(
                 f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '

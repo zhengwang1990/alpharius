@@ -1,5 +1,4 @@
 import datetime
-from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -25,7 +24,7 @@ class AbcdProcessor(Processor):
         lookback_end_date: pd.Timestamp,
         data_client: DataClient,
         output_dir: str,
-        logging_timezone: Optional[ZoneInfo] = None,
+        logging_timezone: ZoneInfo | None = None,
     ) -> None:
         super().__init__(output_dir, logging_timezone)
         self._positions = dict()
@@ -36,21 +35,21 @@ class AbcdProcessor(Processor):
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
-    def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
+    def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         to_remove = [symbol for symbol, position in self._positions.items() if position['status'] != 'active']
         for symbol in to_remove:
             self._positions.pop(symbol)
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return list(set(self._stock_universe.get_stock_universe(view_time) + list(self._positions.keys()) + ['TQQQ']))
 
-    def process_data(self, context: Context) -> Optional[ProcessorAction]:
+    def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context)
         elif context.symbol not in self._positions:
             return self._open_position(context)
 
-    def _open_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_position(self, context: Context) -> ProcessorAction | None:
         last_week_closes = context.interday_lookback['Close'].iloc[-DAYS_IN_A_WEEK:]
         if (
             abs(context.current_price / min(last_week_closes) - 1) > 0.5
@@ -70,7 +69,7 @@ class AbcdProcessor(Processor):
         ):
             return self._open_short_position(context)
 
-    def _open_long_position(self, context: Context, a: float, b: float) -> Optional[ProcessorAction]:
+    def _open_long_position(self, context: Context, a: float, b: float) -> ProcessorAction | None:
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
@@ -106,7 +105,7 @@ class AbcdProcessor(Processor):
         }
         return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _open_short_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_short_position(self, context: Context) -> ProcessorAction | None:
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
@@ -150,7 +149,7 @@ class AbcdProcessor(Processor):
         }
         return ProcessorAction(context.symbol, ActionType.SELL_TO_OPEN, 1)
 
-    def _close_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _close_position(self, context: Context) -> ProcessorAction | None:
         position = self._positions[context.symbol]
         side = position['side']
         intraday_closes = context.intraday_lookback['Close'].to_numpy()

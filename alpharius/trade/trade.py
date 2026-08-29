@@ -1,6 +1,5 @@
 import argparse
 import datetime
-from typing import Type
 
 import matplotlib
 from dateutil.relativedelta import relativedelta
@@ -12,7 +11,7 @@ from alpharius.utils import get_latest_day
 # Interactive plot is not disabled when trading or backtesting is invoked.
 matplotlib.use('agg')
 
-PROCESSORS: list[Type[processors.Processor] | processors.Processor] = [
+PROCESSORS: list[type[processors.Processor] | processors.Processor] = [
     processors.AbcdProcessor,
     processors.CrossCloseProcessor,
     processors.DownFourProcessor,
@@ -29,14 +28,13 @@ PROCESSORS: list[Type[processors.Processor] | processors.Processor] = [
 
 def _normalize_processor_name(name: str) -> str:
     normalized = name.lower().replace('_', '').replace('-', '')
-    if normalized.endswith('processor'):
-        normalized = normalized[: -len('processor')]
+    normalized = normalized.removesuffix('processor')
     return normalized
 
 
 def _filter_processors(
-    processors_list: list[Type[processors.Processor] | processors.Processor], processor_names: list[str]
-) -> list[Type[processors.Processor] | processors.Processor]:
+    processors_list: list[type[processors.Processor] | processors.Processor], processor_names: list[str]
+) -> list[type[processors.Processor] | processors.Processor]:
     allowed_names = {_normalize_processor_name(name) for name in processor_names}
     filtered = []
     for processor in processors_list:

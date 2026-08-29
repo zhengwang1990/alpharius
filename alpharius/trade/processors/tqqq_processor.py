@@ -1,6 +1,7 @@
 import datetime
 import operator
-from typing import Any, Callable, List, Optional
+from collections.abc import Callable
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -16,7 +17,7 @@ from .processor import Processor
 
 
 class TqqqProcessor(Processor):
-    def __init__(self, output_dir: str, logging_timezone: Optional[ZoneInfo] = None) -> None:
+    def __init__(self, output_dir: str, logging_timezone: ZoneInfo | None = None) -> None:
         super().__init__(output_dir, logging_timezone)
         self._positions = dict()
         self._early_signal = None
@@ -24,13 +25,13 @@ class TqqqProcessor(Processor):
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return ['TQQQ', 'SQQQ']
 
-    def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
+    def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         self._early_signal = None
 
-    def process_all_data(self, contexts: List[Context]) -> List[ProcessorAction]:
+    def process_all_data(self, contexts: list[Context]) -> list[ProcessorAction]:
         actions = []
         for context in contexts:
             if context.symbol == 'TQQQ':
@@ -39,7 +40,7 @@ class TqqqProcessor(Processor):
                     actions.append(action)
         return actions
 
-    def process_data(self, context: Context) -> Optional[ProcessorAction]:
+    def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context, self._positions[context.symbol])
         elif self.is_active('SQQQ'):
@@ -47,7 +48,7 @@ class TqqqProcessor(Processor):
         else:
             return self._open_position(context)
 
-    def _open_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_position(self, context: Context) -> ProcessorAction | None:
         if context.market_open_index is None:
             return
         action = self._last_hour_momentum(context)
@@ -76,7 +77,7 @@ class TqqqProcessor(Processor):
         if action:
             return action
 
-    def _mean_reversion(self, context: Context) -> Optional[ProcessorAction]:
+    def _mean_reversion(self, context: Context) -> ProcessorAction | None:
         t = context.current_time.time()
         if t <= datetime.time(11, 15) or t >= datetime.time(15, 0):
             return
@@ -147,7 +148,7 @@ class TqqqProcessor(Processor):
                 }
                 return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _first_hour_momentum(self, context: Context) -> Optional[ProcessorAction]:
+    def _first_hour_momentum(self, context: Context) -> ProcessorAction | None:
         t = context.current_time.time()
         if t != datetime.time(10, 0):
             return
@@ -180,7 +181,7 @@ class TqqqProcessor(Processor):
         }
         return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _last_hour_momentum(self, context: Context) -> Optional[ProcessorAction]:
+    def _last_hour_momentum(self, context: Context) -> ProcessorAction | None:
         def _open_position(side: str) -> ProcessorAction:
             symbol = context.symbol if side == 'long' else 'SQQQ'
             self._positions[symbol] = {
@@ -258,7 +259,7 @@ class TqqqProcessor(Processor):
             )
             return _open_position('long')
 
-    def _four_day_drop(self, context: Context) -> Optional[ProcessorAction]:
+    def _four_day_drop(self, context: Context) -> ProcessorAction | None:
         t = context.current_time.time()
         if not datetime.time(10, 0) <= t < datetime.time(12, 0):
             return
@@ -311,7 +312,7 @@ class TqqqProcessor(Processor):
             }
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _open_high_momentum(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_high_momentum(self, context: Context) -> ProcessorAction | None:
         t = context.current_time.time()
         if not datetime.time(11, 0) <= t < datetime.time(16, 0):
             return
@@ -345,7 +346,7 @@ class TqqqProcessor(Processor):
         }
         return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 0.5)
 
-    def _cross_close(self, context: Context, cmp_operator: Callable[[Any, Any], bool]) -> Optional[ProcessorAction]:
+    def _cross_close(self, context: Context, cmp_operator: Callable[[Any, Any], bool]) -> ProcessorAction | None:
         exit_time = datetime.time(15, 0)
         entry_time = datetime.time(10, 0)
         n = 4
@@ -408,7 +409,7 @@ class TqqqProcessor(Processor):
         self._positions[context.symbol] = position
         return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _two_troughs(self, context: Context) -> Optional[ProcessorAction]:
+    def _two_troughs(self, context: Context) -> ProcessorAction | None:
         t = context.current_time.time()
         if t < datetime.time(10, 30):
             return
@@ -462,7 +463,7 @@ class TqqqProcessor(Processor):
         }
         return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _low_open_high_close(self, context: Context) -> Optional[ProcessorAction]:
+    def _low_open_high_close(self, context: Context) -> ProcessorAction | None:
         if context.current_time.time() > datetime.time(10, 30):
             return
         market_open_index = context.market_open_index
@@ -499,7 +500,7 @@ class TqqqProcessor(Processor):
             }
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _close_position(self, context: Context, position: dict[str, Any]) -> Optional[ProcessorAction]:
+    def _close_position(self, context: Context, position: dict[str, Any]) -> ProcessorAction | None:
         side = position['side']
         symbol = 'SQQQ' if side == 'short' else context.symbol
         action = ProcessorAction(symbol, ActionType.SELL_TO_CLOSE, 1)
@@ -583,9 +584,11 @@ class TqqqProcessor(Processor):
                 return exit_position()
             if entry_price is not None:
                 if intraday_closes[-1] < intraday_closes[-2]:
-                    if context.current_price > entry_price * 1.01:
-                        return exit_position()
-                    elif context.current_price > entry_price * 1.005 and intraday_closes[-2] < intraday_closes[-3]:
+                    if (
+                        context.current_price > entry_price * 1.01
+                        or context.current_price > entry_price * 1.005
+                        and intraday_closes[-2] < intraday_closes[-3]
+                    ):
                         return exit_position()
         if strategy == 'two_troughs':
             stop_loss = False

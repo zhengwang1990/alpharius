@@ -1,5 +1,4 @@
 import datetime
-from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -35,10 +34,10 @@ class FirstHourM6mProcessor(Processor):
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return list(set(self._stock_universe.get_stock_universe(view_time) + list(self._positions.keys())))
 
-    def process_data(self, context: Context) -> Optional[ProcessorAction]:
+    def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context)
         elif context.symbol not in self._positions:
@@ -52,7 +51,7 @@ class FirstHourM6mProcessor(Processor):
             if action:
                 return action
 
-    def _open_long_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_long_position(self, context: Context) -> ProcessorAction | None:
         market_open_index = context.market_open_index
         intraday_highs = context.intraday_lookback['High'].tolist()[market_open_index:]
         intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
@@ -91,7 +90,7 @@ class FirstHourM6mProcessor(Processor):
         )
         return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _open_short_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_short_position(self, context: Context) -> ProcessorAction | None:
         t = context.current_time.time()
         if t != datetime.time(10, 0):
             return
@@ -136,7 +135,7 @@ class FirstHourM6mProcessor(Processor):
         )
         return ProcessorAction(context.symbol, ActionType.SELL_TO_OPEN, 1)
 
-    def _close_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _close_position(self, context: Context) -> ProcessorAction | None:
         position = self._positions[context.symbol]
         side = position['side']
         wait_minutes = 20 if side == 'long' else 10

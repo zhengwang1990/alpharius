@@ -1,5 +1,4 @@
 import datetime
-from typing import List, Optional
 
 import pandas as pd
 
@@ -31,23 +30,23 @@ class ExpProcessor(Processor):
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return list(set(self._stock_universe.get_stock_universe(view_time) + list(self._positions.keys())))
 
-    def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
+    def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         to_remove = [
             symbol for symbol, position in self._positions.items() if position['status'] != PositionStatus.ACTIVE
         ]
         for symbol in to_remove:
             self._positions.pop(symbol)
 
-    def process_data(self, context: Context) -> Optional[ProcessorAction]:
+    def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context)
         elif context.symbol not in self._positions:
             return self._open_position(context)
 
-    def _open_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_position(self, context: Context) -> ProcessorAction | None:
         if context.current_time.time() > datetime.time(10, 30):
             return
         market_open_index = context.market_open_index
@@ -84,7 +83,7 @@ class ExpProcessor(Processor):
             }
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _close_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _close_position(self, context: Context) -> ProcessorAction | None:
         def exit_position():
             self._logger.debug(
                 f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '

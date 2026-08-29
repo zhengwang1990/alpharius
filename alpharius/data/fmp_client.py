@@ -4,7 +4,6 @@ import os
 import threading
 import time
 from datetime import timedelta
-from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -20,7 +19,7 @@ _BASE_URL = 'https://financialmodelingprep.com/'
 
 
 class FmpClient(DataClient):
-    def __init__(self, api_key: Optional[str] = None) -> None:
+    def __init__(self, api_key: str | None = None) -> None:
         """Instantiates an FMP Data Client.
 
         Parameters:
@@ -112,7 +111,7 @@ class FmpClient(DataClient):
         wait_exponential_multiplier=500,
         retry_on_exception=lambda e: isinstance(e, requests.HTTPError),
     )
-    def get_last_trades(self, symbols: List[str]) -> Dict[str, float]:
+    def get_last_trades(self, symbols: list[str]) -> dict[str, float]:
         """Gets the last trade prices of a list of symbols."""
         url = _BASE_URL + 'stable/batch-quote-short'
         params = {'symbols': ','.join(symbols), 'apikey': self._api_key}

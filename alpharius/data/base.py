@@ -1,7 +1,6 @@
 import abc
 import os
 from enum import Enum
-from typing import Dict, List
 
 import pandas as pd
 
@@ -48,7 +47,7 @@ class DataClient(abc.ABC):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def get_last_trades(self, symbols: List[str]) -> Dict[str, float]:
+    def get_last_trades(self, symbols: list[str]) -> dict[str, float]:
         """Gets the last trade prices of a list of symbols."""
         raise NotImplementedError()
 

@@ -1,5 +1,4 @@
 import datetime
-from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -26,7 +25,7 @@ class O2hProcessor(Processor):
         lookback_end_date: pd.Timestamp,
         data_client: DataClient,
         output_dir: str,
-        logging_timezone: Optional[ZoneInfo] = None,
+        logging_timezone: ZoneInfo | None = None,
     ) -> None:
         super().__init__(output_dir, logging_timezone)
         self._stock_universe = IntradayVolatilityStockUniverse(
@@ -38,22 +37,22 @@ class O2hProcessor(Processor):
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
-    def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
+    def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         to_remove = [symbol for symbol, position in self._positions.items() if position['status'] != 'active']
         for symbol in to_remove:
             self._positions.pop(symbol)
         self._memo = dict()
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return list(set(self._stock_universe.get_stock_universe(view_time) + list(self._positions.keys())))
 
-    def process_data(self, context: Context) -> Optional[ProcessorAction]:
+    def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context)
         elif context.symbol not in self._positions:
             return self._open_position(context)
 
-    def _open_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_position(self, context: Context) -> ProcessorAction | None:
         t = context.current_time.time()
         if t >= EXIT_TIME:
             return
@@ -99,7 +98,7 @@ class O2hProcessor(Processor):
             self._positions[context.symbol] = {'entry_time': context.current_time, 'status': PositionStatus.PENDING}
             return ProcessorAction(context.symbol, ActionType.SELL_TO_OPEN, 1)
 
-    def _close_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _close_position(self, context: Context) -> ProcessorAction | None:
         position = self._positions[context.symbol]
         if (
             context.current_time >= position['entry_time'] + datetime.timedelta(minutes=35)

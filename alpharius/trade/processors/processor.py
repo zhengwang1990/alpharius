@@ -3,7 +3,6 @@ import functools
 import inspect
 import os
 import re
-from typing import List, Optional, Type, Union
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -16,7 +15,7 @@ from ..structs import Context, Position, ProcessorAction
 
 
 class Processor(abc.ABC):
-    def __init__(self, output_dir: str, logging_timezone: Optional[ZoneInfo] = None) -> None:
+    def __init__(self, output_dir: str, logging_timezone: ZoneInfo | None = None) -> None:
         split = re.findall('[A-Z][^A-Z]*', type(self).__name__)
         logger_name = '_'.join([s.lower() for s in split])
         self._output_dir = output_dir
@@ -36,13 +35,13 @@ class Processor(abc.ABC):
         return processor_name[: -len(suffix)]
 
     @abc.abstractmethod
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         raise NotImplementedError('Calling parent interface')
 
-    def process_data(self, context: Context) -> Optional[ProcessorAction]:
+    def process_data(self, context: Context) -> ProcessorAction | None:
         return None
 
-    def process_all_data(self, contexts: List[Context]) -> List[ProcessorAction]:
+    def process_all_data(self, contexts: list[Context]) -> list[ProcessorAction]:
         actions = []
         for context in contexts:
             action = self.process_data(context)
@@ -50,7 +49,7 @@ class Processor(abc.ABC):
                 actions.append(action)
         return actions
 
-    def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
+    def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         return
 
     def teardown(self) -> None:
@@ -71,12 +70,12 @@ class Processor(abc.ABC):
 
 
 def instantiate_processor(
-    processor_class: Union[Type[Processor], Processor],
+    processor_class: type[Processor] | Processor,
     lookback_start_date: pd.Timestamp,
     lookback_end_date: pd.Timestamp,
     data_client: DataClient,
     output_dir: str,
-    logging_timezone: Optional[ZoneInfo] = None,
+    logging_timezone: ZoneInfo | None = None,
     **kwargs,
 ) -> Processor:
 

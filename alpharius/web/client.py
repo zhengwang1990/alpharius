@@ -6,7 +6,6 @@ import re
 import threading
 import time
 from concurrent import futures
-from typing import List, Tuple
 
 import alpaca_trade_api as tradeapi
 import numpy as np
@@ -15,7 +14,7 @@ import retrying
 from dateutil.relativedelta import relativedelta
 from flask import Flask
 
-import alpharius.data as data
+from alpharius import data
 from alpharius.utils import (
     TIME_ZONE,
     construct_charts_link,
@@ -30,8 +29,8 @@ START_DATE = '2023-03-14'
 
 
 def get_time_vs_equity(
-    history_equity: List[float], history_time: List[int], time_format: str, cash_reserve: float
-) -> Tuple[List[str], List[float]]:
+    history_equity: list[float], history_time: list[int], time_format: str, cash_reserve: float
+) -> tuple[list[str], list[float]]:
     time_list = []
     equity_list = []
     for i, (e, t) in enumerate(zip(history_equity, history_time)):
@@ -321,7 +320,7 @@ class Client:
         return result
 
     @retrying.retry(stop_max_attempt_number=2, wait_exponential_multiplier=1000)
-    def get_info_today(self, symbols: List[str]):
+    def get_info_today(self, symbols: list[str]):
         if not symbols:
             return dict()
         result = dict()

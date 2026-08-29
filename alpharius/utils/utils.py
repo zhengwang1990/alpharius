@@ -9,12 +9,11 @@ import os
 import re
 import time
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
 from zoneinfo import ZoneInfo
 
-import alpaca.trading as trading
 import numpy as np
 import pandas as pd
+from alpaca import trading
 
 TIME_ZONE = ZoneInfo('America/New_York')
 ALPACA_API_KEY_ENV = 'APCA_API_KEY_ID'
@@ -25,16 +24,16 @@ ALPACA_SECRET_KEY_ENV = 'APCA_API_SECRET_KEY'
 class Transaction:
     symbol: str
     is_long: bool
-    processor: Optional[str]
+    processor: str | None
     entry_price: float
-    exit_price: Optional[float]
+    exit_price: float | None
     entry_time: pd.Timestamp
-    exit_time: Optional[pd.Timestamp]
+    exit_time: pd.Timestamp | None
     qty: float
-    gl: Optional[float]
-    gl_pct: Optional[float]
-    slippage: Optional[float]
-    slippage_pct: Optional[float]
+    gl: float | None
+    gl_pct: float | None
+    slippage: float | None
+    slippage_pct: float | None
 
     def __post_init__(self):
         # Type conversion to convert np.float32 types to float so that it is compatible with DB
@@ -95,9 +94,9 @@ def get_latest_day() -> datetime.date:
 
 
 def compute_risks(
-    values: List[float],
-    market_values: List[float],
-) -> Tuple[Optional[float], Optional[float], float]:
+    values: list[float],
+    market_values: list[float],
+) -> tuple[float | None, float | None, float]:
     """Computes alpha, beta and sharpe ratio risk factors.
 
     params:
@@ -121,7 +120,7 @@ def compute_risks(
     return a, b, s
 
 
-def compute_drawdown(values: List[float]) -> Tuple[float, int, int]:
+def compute_drawdown(values: list[float]) -> tuple[float, int, int]:
     """Computes drawdown of the target."""
     h = values[0]
     ci = 0
@@ -157,8 +156,8 @@ def get_trading_client() -> trading.TradingClient:
     return trading.TradingClient(api_key, secret_key)
 
 
-@functools.lru_cache()
-def get_all_symbols() -> List[str]:
+@functools.lru_cache
+def get_all_symbols() -> list[str]:
     """Gets all symbols that can be traded."""
     api_key = os.environ[ALPACA_API_KEY_ENV]
     secret_key = os.environ[ALPACA_SECRET_KEY_ENV]

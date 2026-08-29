@@ -1,5 +1,4 @@
 import os
-from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -19,7 +18,7 @@ from .base import DATA_COLUMNS, DataClient, TimeInterval
 
 
 class AlpacaClient(DataClient):
-    def __init__(self, api_key: Optional[str] = None, secret_key: Optional[str] = None) -> None:
+    def __init__(self, api_key: str | None = None, secret_key: str | None = None) -> None:
         """Instantiates an Alpaca Data Client.
 
         Parameters:
@@ -70,7 +69,7 @@ class AlpacaClient(DataClient):
         return pd.DataFrame(data, index=index, columns=DATA_COLUMNS)
 
     @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=500)
-    def get_last_trades(self, symbols: List[str]) -> Dict[str, float]:
+    def get_last_trades(self, symbols: list[str]) -> dict[str, float]:
         """Gets the last trade prices of a list of symbols."""
         request = StockLatestTradeRequest(symbol_or_symbols=symbols)
         trades = self._client.get_stock_latest_trade(request)

@@ -6,7 +6,6 @@ import math
 import os
 import re
 from concurrent import futures
-from typing import List, Tuple
 
 import flask
 import numpy as np
@@ -90,7 +89,7 @@ def dashboard_data():
     return json.dumps(data)
 
 
-def _list_processors(db_client: Db) -> List[str]:
+def _list_processors(db_client: Db) -> list[str]:
     aggs = db_client.list_aggregations()
     processors = sorted(list(set([agg.processor for agg in aggs if agg.processor != 'UNKNOWN'])))
     return processors
@@ -158,7 +157,7 @@ def _shift_to_last(arr, target_value):
             break
 
 
-def _get_stats(aggs: List[Aggregation]):
+def _get_stats(aggs: list[Aggregation]):
     stats = dict()
     transaction_cnt = []
     cash_flows = []
@@ -248,7 +247,7 @@ def _get_stats(aggs: List[Aggregation]):
     return [stats[processor] for processor in processors], transaction_cnt, cash_flows
 
 
-def _get_gl_bars(aggs: List[Aggregation]):
+def _get_gl_bars(aggs: list[Aggregation]):
     dated_values = {'Daily': collections.defaultdict(int), 'Monthly': collections.defaultdict(int)}
     processors = set()
     processors_aggs = collections.defaultdict(list)
@@ -476,7 +475,7 @@ def charts_data():
     return json.dumps(res)
 
 
-def _get_transaction_of_day(day, transaction_list, start_index) -> Tuple[List[Transaction], int]:
+def _get_transaction_of_day(day, transaction_list, start_index) -> tuple[list[Transaction], int]:
     res = []
     ind = start_index
     while ind < len(transaction_list):
@@ -488,7 +487,7 @@ def _get_transaction_of_day(day, transaction_list, start_index) -> Tuple[List[Tr
     return res, ind
 
 
-def _get_diff_table(a_transactions: List[Transaction], b_transactions: List[Transaction]):
+def _get_diff_table(a_transactions: list[Transaction], b_transactions: list[Transaction]):
     def _convert_time(dt):
         return pd.to_datetime(dt).tz_convert(TIME_ZONE).strftime('%H:%M')
 

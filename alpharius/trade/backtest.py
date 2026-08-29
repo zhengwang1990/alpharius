@@ -7,14 +7,13 @@ import os
 import signal
 import threading
 import time
-from typing import Dict, List, Optional, Set, Tuple, Type, Union
 
-import alpaca.trading as trading
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tabulate
+from alpaca import trading
 
 try:
     import git
@@ -60,11 +59,11 @@ _MAX_WORKERS = 20
 class Backtest:
     def __init__(
         self,
-        start_date: Union[pd.Timestamp, str],
-        end_date: Union[pd.Timestamp, str],
-        processors: List[Union[Type[Processor], Processor]],
+        start_date: pd.Timestamp | str,
+        end_date: pd.Timestamp | str,
+        processors: list[type[Processor] | Processor],
         data_client: DataClient,
-        ack_all: Optional[bool] = False,
+        ack_all: bool | None = False,
     ) -> None:
         if isinstance(start_date, str):
             start_date = pd.to_datetime(start_date)
@@ -73,7 +72,7 @@ class Backtest:
         self._start_date = start_date
         self._end_date = end_date
         self._processor_classes = processors
-        self._processors: List[Processor] = []
+        self._processors: list[Processor] = []
         self._positions = []
         self._daily_equity = [1]
         self._num_win, self._num_lose = 0, 0
@@ -179,7 +178,7 @@ class Backtest:
                     )
                 )
 
-    def run(self) -> List[Transaction]:
+    def run(self) -> list[Transaction]:
         self._run_start_time = time.time()
         if git is not None:
             try:
@@ -203,7 +202,7 @@ class Backtest:
     def _load_stock_universe(
         self,
         day: datetime.date,
-    ) -> Tuple[Dict[str, List[str]], Dict[TradingFrequency, Set[str]]]:
+    ) -> tuple[dict[str, list[str]], dict[TradingFrequency, set[str]]]:
         load_stock_universe_start = time.time()
         processor_stock_universes = dict()
         stock_universe = collections.defaultdict(set)
@@ -216,8 +215,8 @@ class Backtest:
         return processor_stock_universes, stock_universe
 
     def _process_data(
-        self, contexts: Dict[str, Context], stock_universes: Dict[str, List[str]], processors: List[Processor]
-    ) -> List[Action]:
+        self, contexts: dict[str, Context], stock_universes: dict[str, list[str]], processors: list[Processor]
+    ) -> list[Action]:
         actions = []
         for processor in processors:
             data_process_start = time.time()
@@ -239,7 +238,7 @@ class Backtest:
         return actions
 
     @functools.lru_cache(maxsize=1000)
-    def _prepare_interday_lookback(self, day: pd.Timestamp, symbol: str) -> Optional[pd.DataFrame]:
+    def _prepare_interday_lookback(self, day: pd.Timestamp, symbol: str) -> pd.DataFrame | None:
         if symbol not in self._interday_dataset:
             return
         interday_data = self._interday_dataset[symbol]
@@ -251,8 +250,8 @@ class Backtest:
 
     @staticmethod
     def _prepare_intraday_lookback(
-        current_interval_start: pd.Timestamp, symbol: str, intraday_datas: Dict[str, pd.DataFrame]
-    ) -> Optional[pd.DataFrame]:
+        current_interval_start: pd.Timestamp, symbol: str, intraday_datas: dict[str, pd.DataFrame]
+    ) -> pd.DataFrame | None:
         intraday_data = intraday_datas[symbol]
         intraday_ind = timestamp_to_index(intraday_data.index, current_interval_start)
         if intraday_ind is None:
@@ -261,8 +260,8 @@ class Backtest:
         return intraday_lookback
 
     def _load_intraday_data(
-        self, day: pd.Timestamp, stock_universe: Dict[TradingFrequency, Set[str]]
-    ) -> Dict[str, pd.DataFrame]:
+        self, day: pd.Timestamp, stock_universe: dict[TradingFrequency, set[str]]
+    ) -> dict[str, pd.DataFrame]:
         load_intraday_start = time.time()
         unique_symbols = set()
         for _, symbols in stock_universe.items():
@@ -271,7 +270,7 @@ class Backtest:
         self._intraday_load_time += time.time() - load_intraday_start
         return intraday_dataset
 
-    def _process(self, day: datetime.date) -> List[Transaction]:
+    def _process(self, day: datetime.date) -> list[Transaction]:
         for processor in self._processors:
             processor.setup(self._positions, day)
 
@@ -338,7 +337,7 @@ class Backtest:
         self._log_day(day, executed_actions)
         return executed_actions
 
-    def _process_actions(self, current_time: pd.Timestamp, actions: List[Action]) -> List[Transaction]:
+    def _process_actions(self, current_time: pd.Timestamp, actions: list[Action]) -> list[Transaction]:
         unique_actions = get_unique_actions(actions)
 
         close_actions = [
@@ -353,20 +352,20 @@ class Backtest:
 
         return executed_closes
 
-    def _pop_current_position(self, symbol: str) -> Optional[Position]:
+    def _pop_current_position(self, symbol: str) -> Position | None:
         for ind, position in enumerate(self._positions):
             if position.symbol == symbol:
                 current_position = self._positions.pop(ind)
                 return current_position
         return None
 
-    def _get_current_position(self, symbol: str) -> Optional[Position]:
+    def _get_current_position(self, symbol: str) -> Position | None:
         for position in self._positions:
             if position.symbol == symbol:
                 return position
         return None
 
-    def _close_positions(self, current_time: pd.Timestamp, actions: List[Action]) -> List[Transaction]:
+    def _close_positions(self, current_time: pd.Timestamp, actions: list[Action]) -> list[Transaction]:
         executed_actions = []
         one_time_processor_profit = collections.defaultdict(float)
         for action in actions:
@@ -429,7 +428,7 @@ class Backtest:
         self._transactions.extend(executed_actions)
         return executed_actions
 
-    def _open_positions(self, current_time: pd.Timestamp, actions: List[Action]) -> None:
+    def _open_positions(self, current_time: pd.Timestamp, actions: list[Action]) -> None:
         tradable_cash = self._cash
         for position in self._positions:
             if position.qty < 0:
@@ -474,7 +473,7 @@ class Backtest:
             self._positions.append(new_position)
             self._cash -= action.price * qty
 
-    def _log_day(self, day: datetime.date, executed_closes: List[Transaction]) -> None:
+    def _log_day(self, day: datetime.date, executed_closes: list[Transaction]) -> None:
         outputs = [get_header(day)]
         if executed_closes:
             table_list = [

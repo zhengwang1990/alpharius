@@ -4,11 +4,10 @@ import functools
 import inspect
 import json
 import os
-from typing import List
 
-import alpaca.trading as trading
 import numpy as np
 import pandas as pd
+from alpaca import trading
 
 from alpharius.data import DataClient, load_interday_dataset
 from alpharius.utils import (
@@ -81,7 +80,7 @@ class BaseStockUniverse:
                 raise ValueError(f'{view_time} is too early')
         return pd.Timestamp(prev_day).tz_localize(TIME_ZONE)
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return get_all_symbols()
 
 
@@ -110,7 +109,7 @@ class CachedStockUniverse(BaseStockUniverse, metaclass=SaveInitMeta):
         os.makedirs(self._cache_dir, exist_ok=True)
         return self._cache_dir
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         cache_file = os.path.join(self.get_cache_dir(), view_time.strftime('%F') + '.json')
         if os.path.isfile(cache_file):
             with open(cache_file, 'r') as f:
@@ -124,7 +123,7 @@ class CachedStockUniverse(BaseStockUniverse, metaclass=SaveInitMeta):
         return stock_universe
 
     @abc.abstractmethod
-    def get_stock_universe_impl(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe_impl(self, view_time: pd.Timestamp) -> list[str]:
         raise NotImplementedError()
 
 
@@ -158,7 +157,7 @@ class TopVolumeUniverse(DataBasedStockUniverse, CachedStockUniverse):
         ]
         return np.average(pv) if pv else 0
 
-    def get_stock_universe_impl(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe_impl(self, view_time: pd.Timestamp) -> list[str]:
         prev_day = self.get_prev_day(view_time)
         dollar_volumes = []
         for symbol, hist in self._historical_data.items():
@@ -201,7 +200,7 @@ class IntradayVolatilityStockUniverse(DataBasedStockUniverse, CachedStockUnivers
             res.append((h - l) / c)
         return np.average(res) if res else 0
 
-    def get_stock_universe_impl(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe_impl(self, view_time: pd.Timestamp) -> list[str]:
         prev_day = self.get_prev_day(view_time)
         intraday_volatility_list = []
         top_volume_symbols = set(self._top_volume.get_stock_universe(view_time))
@@ -247,7 +246,7 @@ class L2hVolatilityStockUniverse(DataBasedStockUniverse, CachedStockUniverse):
             res.append(l / h - 1)
         return np.average(res) if res else 0
 
-    def get_stock_universe_impl(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe_impl(self, view_time: pd.Timestamp) -> list[str]:
         prev_day = self.get_prev_day(view_time)
         top_volume_symbols = set(self._top_volume.get_stock_universe(view_time))
         symbols = []

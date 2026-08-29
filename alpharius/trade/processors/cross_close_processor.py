@@ -1,5 +1,4 @@
 import datetime
-from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -28,7 +27,7 @@ class CrossCloseProcessor(Processor):
         lookback_end_date: pd.Timestamp,
         data_client: DataClient,
         output_dir: str,
-        logging_timezone: Optional[ZoneInfo] = None,
+        logging_timezone: ZoneInfo | None = None,
     ) -> None:
         super().__init__(output_dir, logging_timezone)
         self._positions = dict()
@@ -39,17 +38,17 @@ class CrossCloseProcessor(Processor):
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
-    def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
+    def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         to_remove = [
             symbol for symbol, position in self._positions.items() if position['status'] != PositionStatus.ACTIVE
         ]
         for symbol in to_remove:
             self._positions.pop(symbol)
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return list(set(self._stock_universe.get_stock_universe(view_time) + list(self._positions.keys()) + ['TQQQ']))
 
-    def process_data(self, context: Context) -> Optional[ProcessorAction]:
+    def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context)
         elif context.symbol not in self._positions:
@@ -63,7 +62,7 @@ class CrossCloseProcessor(Processor):
             if action:
                 return action
 
-    def _open_break_long_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_break_long_position(self, context: Context) -> ProcessorAction | None:
         n_long = 6
         market_open_index = context.market_open_index
         if market_open_index is None:
@@ -118,7 +117,7 @@ class CrossCloseProcessor(Processor):
         }
         return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _open_break_short_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_break_short_position(self, context: Context) -> ProcessorAction | None:
         if context.symbol == 'TQQQ':
             return
         t = context.current_time.time()
@@ -165,7 +164,7 @@ class CrossCloseProcessor(Processor):
             }
             return ProcessorAction(context.symbol, ActionType.SELL_TO_OPEN, 1)
 
-    def _open_reject_short_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_reject_short_position(self, context: Context) -> ProcessorAction | None:
         n_bar = 6
         t = context.current_time.time()
         if not datetime.time(10, 30) <= t < datetime.time(15, 0):
@@ -180,9 +179,10 @@ class CrossCloseProcessor(Processor):
         intraday_closes = context.intraday_lookback['Close'].to_numpy()[market_open_index:]
         if len(intraday_closes) < n_bar + 1:
             return
-        if intraday_closes[-2] < context.prev_day_close < intraday_highs[-1]:
-            level = context.prev_day_close
-        elif intraday_closes[-3] < context.prev_day_close < intraday_closes[-1]:
+        if (
+            intraday_closes[-2] < context.prev_day_close < intraday_highs[-1]
+            or intraday_closes[-3] < context.prev_day_close < intraday_closes[-1]
+        ):
             level = context.prev_day_close
         else:
             return
@@ -225,7 +225,7 @@ class CrossCloseProcessor(Processor):
         }
         return ProcessorAction(context.symbol, ActionType.SELL_TO_OPEN, 1)
 
-    def _close_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _close_position(self, context: Context) -> ProcessorAction | None:
         position = self._positions[context.symbol]
         side = position['side']
         if side == 'short':

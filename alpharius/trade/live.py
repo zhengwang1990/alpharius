@@ -5,13 +5,12 @@ import socket
 import threading
 import time
 from concurrent import futures
-from typing import List, Optional, Type, Union
 from zoneinfo import ZoneInfo
 
-import alpaca.trading as trading
 import numpy as np
 import pandas as pd
 import retrying
+from alpaca import trading
 from alpaca.common import APIError
 from sqlalchemy import exc
 
@@ -48,9 +47,9 @@ _MAX_WORKERS = 10
 class Live:
     def __init__(
         self,
-        processors: List[Union[Type[Processor], Processor]],
+        processors: list[type[Processor] | Processor],
         data_client: DataClient,
-        logging_timezone: Optional[ZoneInfo] = None,
+        logging_timezone: ZoneInfo | None = None,
     ) -> None:
         self._output_dir = os.path.join(OUTPUT_DIR, 'live', datetime.datetime.now().strftime('%F'))
         os.makedirs(self._output_dir, exist_ok=True)
@@ -243,7 +242,7 @@ class Live:
         self._db_thread.start()
 
     def _update_intraday_data(
-        self, frequency_to_process: List[TradingFrequency], checkpoint_time: pd.Timestamp
+        self, frequency_to_process: list[TradingFrequency], checkpoint_time: pd.Timestamp
     ) -> None:
         update_start = time.time()
         tasks = dict()
@@ -314,13 +313,13 @@ class Live:
             time.time() - update_start,
         )
 
-    def _get_position(self, symbol: str) -> Optional[Position]:
+    def _get_position(self, symbol: str) -> Position | None:
         for position in self._positions:
             if symbol == position.symbol:
                 return position
         return None
 
-    def _trade(self, actions: List[Action]) -> List[Action]:
+    def _trade(self, actions: list[Action]) -> list[Action]:
         if not actions:
             return []
 
@@ -338,7 +337,7 @@ class Live:
 
         return close_actions
 
-    def _close_positions(self, actions: List[Action]) -> None:
+    def _close_positions(self, actions: list[Action]) -> None:
         """Closes positions instructed by input actions."""
         self._update_positions()
         order_ids = []
@@ -363,7 +362,7 @@ class Live:
 
         self._wait_for_order_to_fill(order_ids)
 
-    def _open_positions(self, actions: List[Action]) -> None:
+    def _open_positions(self, actions: list[Action]) -> None:
         """Opens positions instructed by input actions."""
         self._update_account()
         self._update_positions()
@@ -405,10 +404,10 @@ class Live:
         self,
         symbol: str,
         side: str,
-        qty: Optional[float] = None,
-        notional: Optional[float] = None,
-        limit_price: Optional[float] = None,
-    ) -> Optional[str]:
+        qty: float | None = None,
+        notional: float | None = None,
+        limit_price: float | None = None,
+    ) -> str | None:
         order_type = trading.OrderType.MARKET if limit_price is None else trading.OrderType.LIMIT
         self._logger.info(
             'Placing order for [%s]: side [%s]; qty [%s]; notional [%s]; type [%s].',
@@ -437,7 +436,7 @@ class Live:
             self._logger.error('Failed to place [%s] order for [%s]: %s: %s', side, symbol, type(e).__name__, e)
 
     @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=1000)
-    def _wait_for_order_to_fill(self, order_ids: List[str], timeout: int = 10) -> None:
+    def _wait_for_order_to_fill(self, order_ids: list[str], timeout: int = 10) -> None:
         def _update_open_orders(open_orders):
             remaining = []
             for order_id in open_orders:
@@ -463,7 +462,7 @@ class Live:
         else:
             self._logger.warning('[%d] orders not filled: %s', len(orders), orders)
 
-    def _update_db(self, close_actions: List[Action]) -> None:
+    def _update_db(self, close_actions: list[Action]) -> None:
         self._upload_log()
         if not close_actions:
             return

@@ -1,5 +1,4 @@
 import datetime
-from typing import List, Optional
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -23,7 +22,7 @@ class H2lFiveMinProcessor(Processor):
         lookback_end_date: pd.Timestamp,
         data_client: DataClient,
         output_dir: str,
-        logging_timezone: Optional[ZoneInfo] = None,
+        logging_timezone: ZoneInfo | None = None,
     ) -> None:
         super().__init__(output_dir, logging_timezone)
         self._stock_universe = IntradayVolatilityStockUniverse(
@@ -34,7 +33,7 @@ class H2lFiveMinProcessor(Processor):
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
-    def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
+    def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         to_remove = [
             symbol for symbol, position in self._positions.items() if position['status'] != PositionStatus.ACTIVE
         ]
@@ -42,10 +41,10 @@ class H2lFiveMinProcessor(Processor):
             self._positions.pop(symbol)
         self._memo = dict()
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return list(set(self._stock_universe.get_stock_universe(view_time) + list(self._positions.keys())))
 
-    def process_data(self, context: Context) -> Optional[ProcessorAction]:
+    def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context)
         elif context.symbol not in self._positions:
@@ -58,7 +57,7 @@ class H2lFiveMinProcessor(Processor):
             self._memo[key] = quarterly_high
         return self._memo[key]
 
-    def _open_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _open_position(self, context: Context) -> ProcessorAction | None:
         t = context.current_time.time()
         if t <= datetime.time(10, 0) or t >= datetime.time(15, 30):
             return
@@ -99,7 +98,7 @@ class H2lFiveMinProcessor(Processor):
             self._positions[context.symbol] = {'entry_time': context.current_time, 'status': PositionStatus.PENDING}
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
-    def _close_position(self, context: Context) -> Optional[ProcessorAction]:
+    def _close_position(self, context: Context) -> ProcessorAction | None:
         position = self._positions[context.symbol]
         intraday_closes = context.intraday_lookback['Close'].to_numpy()
         take_profit = len(intraday_closes) >= 2 and context.current_price > intraday_closes[-2]

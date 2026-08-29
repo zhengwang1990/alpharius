@@ -1,5 +1,3 @@
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 
@@ -14,8 +12,8 @@ class Context:
         current_time: pd.Timestamp,
         current_price: float,
         interday_lookback: pd.DataFrame,
-        intraday_lookback: Optional[pd.DataFrame],
-        mode: Optional['Mode'] = None,
+        intraday_lookback: pd.DataFrame | None,
+        mode: Mode | None = None,
     ) -> None:
         self.symbol = symbol
         self.current_time = current_time
@@ -30,7 +28,7 @@ class Context:
         return self.interday_lookback['Close'].iloc[-1]
 
     @property
-    def market_open_index(self) -> Optional[int]:
+    def market_open_index(self) -> int | None:
         if self._market_open_index is not None:
             return self._market_open_index
         for i in range(len(self.intraday_lookback)):

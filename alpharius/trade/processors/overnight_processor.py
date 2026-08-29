@@ -1,5 +1,4 @@
 import datetime
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -42,15 +41,15 @@ class OvernightProcessor(Processor):
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.CLOSE_TO_OPEN
 
-    def setup(self, hold_positions: List[Position], current_time: Optional[pd.Timestamp]) -> None:
+    def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         self._hold_positions = hold_positions
 
-    def get_stock_universe(self, view_time: pd.Timestamp) -> List[str]:
+    def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         hold_symbols = [position.symbol for position in self._hold_positions]
         self._universe_symbols = self._stock_universe.get_stock_universe(view_time)
         return list(set(hold_symbols + self._universe_symbols))
 
-    def process_all_data(self, contexts: List[Context]) -> List[ProcessorAction]:
+    def process_all_data(self, contexts: list[Context]) -> list[ProcessorAction]:
         current_prices = {context.symbol: context.current_price for context in contexts}
         if not contexts:
             return []
@@ -80,7 +79,7 @@ class OvernightProcessor(Processor):
         return actions
 
     def _logging(
-        self, performances: List[Tuple[str, float]], current_prices: Dict[str, float], current_time: pd.Timestamp
+        self, performances: list[tuple[str, float]], current_prices: dict[str, float], current_time: pd.Timestamp
     ) -> None:
         performance_info = []
         for symbol, metric in performances[: NUM_DIRECTIONAL_SYMBOLS + 15]:

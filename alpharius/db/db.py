@@ -2,14 +2,14 @@ import argparse
 import datetime
 import os
 import sys
-from typing import List, NamedTuple, Optional, Tuple
+from typing import NamedTuple
 
 import pandas as pd
 import retrying
 import sqlalchemy
 from tqdm import tqdm
 
-import alpharius.data as data
+from alpharius import data
 from alpharius.utils import TIME_ZONE, Transaction, get_today
 
 INSERT_TRANSACTION_QUERY = sqlalchemy.text("""
@@ -138,8 +138,8 @@ class Aggregation(NamedTuple):
     processor: str
     gl: float
     avg_gl_pct: float
-    slippage: Optional[float]
-    avg_slippage_pct: Optional[float]
+    slippage: float | None
+    avg_slippage_pct: float | None
     count: int
     win_count: int
     lose_count: int
@@ -265,8 +265,8 @@ class Db:
                     self._execute(UPSERT_LOG_QUERY, date=date, logger=logger, content=content)
 
     def list_transactions(
-        self, limit: int, offset: int, start_time=None, end_time=None, processor: Optional[str] = None
-    ) -> List[Transaction]:
+        self, limit: int, offset: int, start_time=None, end_time=None, processor: str | None = None
+    ) -> list[Transaction]:
         conditions = []
         kwargs = {'limit': limit, 'offset': offset}
         if processor:
@@ -285,7 +285,7 @@ class Db:
         results = self._execute(query, **kwargs)
         return [Transaction(*result) for result in results]
 
-    def get_transaction_count(self, processor: Optional[str] = None) -> int:
+    def get_transaction_count(self, processor: str | None = None) -> int:
         kwargs = {}
         condition = ''
         if processor:
@@ -295,19 +295,19 @@ class Db:
         results = self._execute(query, **kwargs)
         return int(next(results)[0])
 
-    def list_aggregations(self) -> List[Aggregation]:
+    def list_aggregations(self) -> list[Aggregation]:
         results = self._execute(SELECT_AGGREGATION_QUERY)
         return [Aggregation(*result) for result in results]
 
-    def list_log_dates(self) -> List[str]:
+    def list_log_dates(self) -> list[str]:
         results = self._execute(SELECT_LOG_DATES_QUERY)
         return sorted([result[0].strftime('%Y-%m-%d') for result in results])
 
-    def get_logs(self, date: str) -> List[Tuple[str, str]]:
+    def get_logs(self, date: str) -> list[tuple[str, str]]:
         results = self._execute(SELECT_LOG_QUERY, date=date)
         return [(result[0], result[1]) for result in results]
 
-    def get_backtest(self, start_time, end_time, processor: Optional[str] = None) -> List[Transaction]:
+    def get_backtest(self, start_time, end_time, processor: str | None = None) -> list[Transaction]:
         condition = ''
         kwargs = {'start_time': start_time, 'end_time': end_time}
         if processor:
@@ -317,7 +317,7 @@ class Db:
         results = self._execute(query, **kwargs)
         return [Transaction(*result) for result in results]
 
-    def backfill(self, data_client: data.DataClient, start_date: Optional[str] = None) -> None:
+    def backfill(self, data_client: data.DataClient, start_date: str | None = None) -> None:
         """Backfills the database from start_date."""
         today = get_today()
         start_date = start_date or today.strftime('%F')
