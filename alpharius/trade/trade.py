@@ -15,6 +15,7 @@ PROCESSORS: list[type[processors.Processor] | processors.Processor] = [
     processors.AbcdProcessor,
     processors.CrossCloseProcessor,
     processors.DownFourProcessor,
+    processors.FirstRedDayProcessor,
     processors.H2lFiveMinProcessor,
     processors.H2lHourProcessor,
     processors.L2hProcessor,

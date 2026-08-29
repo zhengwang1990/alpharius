@@ -5,6 +5,7 @@ from .down_four_processor import DownFourProcessor
 from .down_four_v2_processor import DownFourV2Processor
 from .exp_processor import ExpProcessor
 from .first_hour_m6m_processor import FirstHourM6mProcessor
+from .first_red_day_processor import FirstRedDayProcessor
 from .h2l_five_min_processor import H2lFiveMinProcessor
 from .h2l_hour_processor import H2lHourProcessor
 from .l2h_processor import L2hProcessor
