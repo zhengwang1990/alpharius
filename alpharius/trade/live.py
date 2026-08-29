@@ -488,6 +488,8 @@ class Live:
                 except exc.SQLAlchemyError as e:
                     self._logger.error('[%s] Transaction inserting encountered an error\n%s', symbol, e)
             wait_time *= 2
+        if actions:
+            self._logger.warning('Some actions were not filled: %s', list(actions.keys()))
         try:
             self._db.update_aggregation(self._today.strftime('%F'))
         except exc.SQLAlchemyError as e:
