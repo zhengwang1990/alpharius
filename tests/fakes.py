@@ -3,13 +3,13 @@ import contextlib
 import datetime
 import itertools
 import time
-import unittest.mock as mock
 import uuid
-from typing import Dict, List, Optional
+from typing import override
+from unittest import mock
 
-import alpaca.trading as trading
 import numpy as np
 import pandas as pd
+from alpaca import trading
 
 from alpharius import trade
 from alpharius.data import DATA_COLUMNS, DataClient, TimeInterval
@@ -106,7 +106,7 @@ class FakeAlpaca:
         current = pd.to_datetime(1615987000, utc=True, unit='s')
         next_open = pd.to_datetime(1615987800, utc=True, unit='s')
         next_close = pd.to_datetime(1616011200, utc=True, unit='s')
-        return trading.Clock(timestamp=current, next_open=next_open, next_close=next_close)
+        return trading.Clock(timestamp=current, is_open=True, next_open=next_open, next_close=next_close)
 
     def get_order(self, order_id):
         self.get_order_call_count += 1
@@ -280,9 +280,9 @@ class FakeAlpaca:
 def get_order(
     symbol: str,
     order_side: trading.OrderSide,
-    order_id: Optional[str] = None,
-    filled_at: Optional[pd.Timestamp] = None,
-    qty: Optional[str] = None,
+    order_id: str | None = None,
+    filled_at: pd.Timestamp | None = None,
+    qty: str | None = None,
 ):
     submitted_at = filled_at - datetime.timedelta(seconds=3) if filled_at else pd.to_datetime('2021-03-17T10:14:59.0Z')
     return trading.Order(
@@ -323,7 +323,7 @@ class FakeTradingClient:
         self.get_account_call_count += 1
         return Account(uuid.uuid4(), '2000', '2000', '8000')
 
-    def get_calendar(self, filters: trading.GetCalendarRequest) -> List[trading.Calendar]:
+    def get_calendar(self, filters: trading.GetCalendarRequest) -> list[trading.Calendar]:
         self.get_calendar_call_count += 1
         start_date = pd.Timestamp(filters.start)
         end_date = pd.Timestamp(filters.end)
@@ -447,13 +447,16 @@ class FakeProcessor(trade.Processor):
         self.process_data_call_count = 0
         self.trading_frequency = trading_frequency
 
+    @override
     def get_trading_frequency(self):
         return self.trading_frequency
 
+    @override
     def get_stock_universe(self, view_time):
         self.get_stock_universe_call_count += 1
         return ['QQQ', 'SPY', 'DIA']
 
+    @override
     def process_data(self, context):
         self.process_data_call_count += 1
         if context.current_time.time() == datetime.time(9, 35) and context.symbol == 'QQQ':
@@ -486,12 +489,13 @@ class FakeDbEngine:
 
 
 class FakeDataClient(DataClient):
-    def __init__(self, data: Optional[List[float]] = None):
+    def __init__(self, data: list[float] | None = None):
         self.get_data_call_count = 0
         self.get_last_trades_call_count = 0
         data = data or [42, 40, 41, 43, 42, 41.5, 40, 41, 42, 38, 41, 42]
         self._value_cycle = itertools.cycle(data)
 
+    @override
     def get_data(
         self, symbol: str, start_time: pd.Timestamp, end_time: pd.Timestamp, time_interval: TimeInterval
     ) -> pd.DataFrame:
@@ -523,7 +527,8 @@ class FakeDataClient(DataClient):
                 data.append([np.float32(open_price), high_price, low_price, np.float32(close_price), np.uint32(123)])
         return pd.DataFrame(data, index=index, columns=DATA_COLUMNS)
 
-    def get_last_trades(self, symbols: List[str]) -> Dict[str, float]:
+    @override
+    def get_last_trades(self, symbols: list[str]) -> dict[str, float]:
         self.get_last_trades_call_count += 1
         value = next(self._value_cycle) + 10 * (-1) ** self.get_last_trades_call_count
         return {symbol: value for symbol in symbols}

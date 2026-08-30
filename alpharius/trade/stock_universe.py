@@ -4,6 +4,7 @@ import functools
 import inspect
 import json
 import os
+from typing import override
 
 import numpy as np
 import pandas as pd
@@ -157,6 +158,7 @@ class TopVolumeUniverse(DataBasedStockUniverse, CachedStockUniverse):
         ]
         return np.average(pv) if pv else 0
 
+    @override
     def get_stock_universe_impl(self, view_time: pd.Timestamp) -> list[str]:
         prev_day = self.get_prev_day(view_time)
         dollar_volumes = []
@@ -200,6 +202,7 @@ class IntradayVolatilityStockUniverse(DataBasedStockUniverse, CachedStockUnivers
             res.append((h - l) / c)
         return np.average(res) if res else 0
 
+    @override
     def get_stock_universe_impl(self, view_time: pd.Timestamp) -> list[str]:
         prev_day = self.get_prev_day(view_time)
         intraday_volatility_list = []
@@ -246,6 +249,7 @@ class L2hVolatilityStockUniverse(DataBasedStockUniverse, CachedStockUniverse):
             res.append(l / h - 1)
         return np.average(res) if res else 0
 
+    @override
     def get_stock_universe_impl(self, view_time: pd.Timestamp) -> list[str]:
         prev_day = self.get_prev_day(view_time)
         top_volume_symbols = set(self._top_volume.get_stock_universe(view_time))

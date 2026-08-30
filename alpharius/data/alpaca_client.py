@@ -1,4 +1,5 @@
 import os
+from typing import override
 
 import numpy as np
 import pandas as pd
@@ -29,6 +30,7 @@ class AlpacaClient(DataClient):
         secret_key = secret_key or os.environ[ALPACA_SECRET_KEY_ENV]
         self._client = StockHistoricalDataClient(api_key=api_key, secret_key=secret_key)
 
+    @override
     @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=500)
     def get_data(
         self, symbol: str, start_time: pd.Timestamp, end_time: pd.Timestamp, time_interval: TimeInterval
@@ -68,6 +70,7 @@ class AlpacaClient(DataClient):
         ]
         return pd.DataFrame(data, index=index, columns=DATA_COLUMNS)
 
+    @override
     @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=500)
     def get_last_trades(self, symbols: list[str]) -> dict[str, float]:
         """Gets the last trade prices of a list of symbols."""

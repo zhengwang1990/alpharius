@@ -1,4 +1,5 @@
 import datetime
+from typing import override
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -34,17 +35,21 @@ class L2hProcessor(Processor):
             lookback_start_date, lookback_end_date, data_client, num_stocks=NUM_UNIVERSE_SYMBOLS
         )
 
+    @override
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
+    @override
     def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         to_remove = [symbol for symbol, position in self._positions.items() if position['status'] != 'active']
         for symbol in to_remove:
             self._positions.pop(symbol)
 
+    @override
     def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return list(set(self._stock_universe.get_stock_universe(view_time) + list(self._positions.keys())))
 
+    @override
     def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context)

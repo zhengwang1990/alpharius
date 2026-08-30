@@ -1,6 +1,7 @@
 import datetime
 import os
 import sqlite3
+from typing import override
 
 import pandas as pd
 
@@ -18,6 +19,7 @@ class CacheClient(DataClient):
         self._db = init_db()
         self.cache_hit = 0
 
+    @override
     def get_data(
         self, symbol: str, start_time: pd.Timestamp, end_time: pd.Timestamp, time_interval: TimeInterval
     ) -> pd.DataFrame:
@@ -63,6 +65,7 @@ class CacheClient(DataClient):
             db.commit()
             return df
 
+    @override
     def get_last_trades(self, symbols: list[str]) -> dict[str, float]:
         return self._data_client.get_last_trades(symbols)
 

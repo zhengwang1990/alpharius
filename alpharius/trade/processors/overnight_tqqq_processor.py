@@ -1,4 +1,5 @@
 import datetime
+from typing import override
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -14,12 +15,15 @@ class OvernightTqqqProcessor(Processor):
     def __init__(self, output_dir: str, logging_timezone: ZoneInfo | None = None) -> None:
         super().__init__(output_dir, logging_timezone)
 
+    @override
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.CLOSE_TO_OPEN
 
+    @override
     def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return ['TQQQ', 'SQQQ']
 
+    @override
     def process_data(self, context: Context) -> ProcessorAction | None:
         if context.current_time.time() < datetime.time(10, 0):
             return ProcessorAction(context.symbol, ActionType.SELL_TO_CLOSE, 1)

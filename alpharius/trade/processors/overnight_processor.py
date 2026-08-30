@@ -1,4 +1,5 @@
 import datetime
+from typing import override
 
 import numpy as np
 import pandas as pd
@@ -38,17 +39,21 @@ class OvernightProcessor(Processor):
         self._hold_positions = []
         self._output_dir = output_dir
 
+    @override
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.CLOSE_TO_OPEN
 
+    @override
     def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         self._hold_positions = hold_positions
 
+    @override
     def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         hold_symbols = [position.symbol for position in self._hold_positions]
         self._universe_symbols = self._stock_universe.get_stock_universe(view_time)
         return list(set(hold_symbols + self._universe_symbols))
 
+    @override
     def process_all_data(self, contexts: list[Context]) -> list[ProcessorAction]:
         current_prices = {context.symbol: context.current_price for context in contexts}
         if not contexts:

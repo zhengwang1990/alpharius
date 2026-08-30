@@ -1,7 +1,7 @@
 import datetime
 import operator
 from collections.abc import Callable
-from typing import Any
+from typing import Any, override
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -22,15 +22,19 @@ class TqqqProcessor(Processor):
         self._positions = dict()
         self._early_signal = None
 
+    @override
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
+    @override
     def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return ['TQQQ', 'SQQQ']
 
+    @override
     def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         self._early_signal = None
 
+    @override
     def process_all_data(self, contexts: list[Context]) -> list[ProcessorAction]:
         actions = []
         for context in contexts:
@@ -40,6 +44,7 @@ class TqqqProcessor(Processor):
                     actions.append(action)
         return actions
 
+    @override
     def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context, self._positions[context.symbol])
@@ -505,7 +510,7 @@ class TqqqProcessor(Processor):
         symbol = 'SQQQ' if side == 'short' else context.symbol
         action = ProcessorAction(symbol, ActionType.SELL_TO_CLOSE, 1)
 
-        def exit_position():
+        def exit_position() -> ProcessorAction:
             self._logger.debug(
                 f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                 f'Closing position. Current price {context.current_price}.'

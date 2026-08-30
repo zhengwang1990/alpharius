@@ -1,4 +1,5 @@
 import datetime
+from typing import override
 
 import numpy as np
 import pandas as pd
@@ -26,9 +27,11 @@ class FirstRedDayProcessor(Processor):
         )
         self._skip_cache = set()
 
+    @override
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
+    @override
     def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return list(set(self._stock_universe.get_stock_universe(view_time) + list(self._positions.keys())))
 

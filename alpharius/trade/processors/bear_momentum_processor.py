@@ -1,4 +1,5 @@
 import datetime
+from typing import override
 
 import numpy as np
 import pandas as pd
@@ -35,17 +36,21 @@ class BearMomentumProcessor(Processor):
         )
         self._memo = dict()
 
+    @override
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.FIVE_MIN
 
+    @override
     def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return list(
             set(self._stock_universe.get_stock_universe(view_time) + list(CONFIG.keys()) + list(self._positions.keys()))
         )
 
+    @override
     def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         self._memo = dict()
 
+    @override
     def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context)

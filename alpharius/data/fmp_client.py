@@ -4,6 +4,7 @@ import os
 import threading
 import time
 from datetime import timedelta
+from typing import override
 
 import numpy as np
 import pandas as pd
@@ -48,6 +49,7 @@ class FmpClient(DataClient):
         with self._lock:
             self._call_history.append(time.time())
 
+    @override
     @retrying.retry(
         stop_max_attempt_number=3,
         wait_exponential_multiplier=500,
@@ -106,6 +108,7 @@ class FmpClient(DataClient):
         ]
         return pd.DataFrame(data, index=index, columns=DATA_COLUMNS)
 
+    @override
     @retrying.retry(
         stop_max_attempt_number=3,
         wait_exponential_multiplier=500,
