@@ -35,6 +35,7 @@ class FirstRedDayProcessor(Processor):
     def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
         return list(set(self._stock_universe.get_stock_universe(view_time) + list(self._positions.keys())))
 
+    @override
     def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
         to_remove = [
             symbol for symbol, position in self._positions.items() if position['status'] != PositionStatus.ACTIVE
@@ -43,6 +44,7 @@ class FirstRedDayProcessor(Processor):
             self._positions.pop(symbol)
         self._skip_cache.clear()
 
+    @override
     def process_data(self, context: Context) -> ProcessorAction | None:
         if self.is_active(context.symbol):
             return self._close_position(context)
