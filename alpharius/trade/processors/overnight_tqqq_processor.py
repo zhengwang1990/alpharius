@@ -7,17 +7,22 @@ import pandas as pd
 
 from ..common import DAYS_IN_A_MONTH, DAYS_IN_A_WEEK
 from ..enums import ActionType, TradingFrequency
-from ..structs import Context, ProcessorAction
+from ..structs import Context, Position, ProcessorAction
 from .processor import Processor
 
 
 class OvernightTqqqProcessor(Processor):
     def __init__(self, output_dir: str, logging_timezone: ZoneInfo | None = None) -> None:
         super().__init__(output_dir, logging_timezone)
+        self._hold_symbols = set()
 
     @override
     def get_trading_frequency(self) -> TradingFrequency:
         return TradingFrequency.CLOSE_TO_OPEN
+
+    @override
+    def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
+        self._hold_symbols = {position.symbol for position in hold_positions}
 
     @override
     def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
@@ -26,7 +31,10 @@ class OvernightTqqqProcessor(Processor):
     @override
     def process_data(self, context: Context) -> ProcessorAction | None:
         if context.current_time.time() < datetime.time(10, 0):
-            return ProcessorAction(context.symbol, ActionType.SELL_TO_CLOSE, 1)
+            if context.symbol in self._hold_symbols:
+                return ProcessorAction(context.symbol, ActionType.SELL_TO_CLOSE, 1)
+            else:
+                return None
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
