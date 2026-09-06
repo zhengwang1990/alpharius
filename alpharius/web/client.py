@@ -10,7 +10,7 @@ from concurrent import futures
 import alpaca_trade_api as tradeapi
 import numpy as np
 import pandas as pd
-import retrying
+import tenacity
 from dateutil.relativedelta import relativedelta
 from flask import Flask
 
@@ -69,7 +69,7 @@ class Client:
         )
         return calendar
 
-    @retrying.retry(stop_max_attempt_number=2, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_portfolio_histories(self):
         start = time.time()
         result = dict()
@@ -233,7 +233,7 @@ class Client:
     def get_recent_orders(self):
         return self.get_orders(-1, False)
 
-    @retrying.retry(stop_max_attempt_number=2, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_orders(self, calendar_index: int, time_fmt_with_year: bool):
         start = time.time()
         result = []
@@ -243,7 +243,7 @@ class Client:
         )
         orders_used = [False] * len(orders)
         positions = self._alpaca.list_positions()
-        position_symbols = set([position.symbol for position in positions])
+        position_symbols: set[str] = {position.symbol for position in positions}
         cut_time = calendar[calendar_index].date
         for i in range(len(orders)):
             order = orders[i]
@@ -285,7 +285,7 @@ class Client:
         app.logger.info('Time cost for get_orders: [%.2fs]', time.time() - start)
         return result
 
-    @retrying.retry(stop_max_attempt_number=2, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_current_positions(self):
         start = time.time()
         result = []
@@ -319,7 +319,7 @@ class Client:
         app.logger.info('Time cost for get_current_positions: [%.2fs]', time.time() - start)
         return result
 
-    @retrying.retry(stop_max_attempt_number=2, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_info_today(self, symbols: list[str]):
         if not symbols:
             return dict()
@@ -361,7 +361,7 @@ class Client:
         app.logger.info('Time cost for get_market_watch: [%.2fs]', time.time() - start)
         return result
 
-    @retrying.retry(stop_max_attempt_number=2, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_daily_prices(self):
         start = time.time()
         calendar = self.get_calendar()
@@ -421,7 +421,7 @@ class Client:
         app.logger.info('Time cost for get_daily_prices: [%.2fs]', time.time() - start)
         return result
 
-    @retrying.retry(stop_max_attempt_number=2, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_charts(self, start_date: str, end_date: str, symbol: str, timeframe: str):
         start_time = pd.to_datetime(
             pd.Timestamp.combine(pd.to_datetime(start_date).date(), datetime.time(0, 0))
@@ -436,16 +436,17 @@ class Client:
         bars = self._data_client.get_data(
             symbol=symbol, start_time=start_time, end_time=end_time, time_interval=time_interval
         )
+        prev_close = None
         if timeframe == 'intraday':
-            prev_close = self._data_client.get_data(
+            day_bars = self._data_client.get_data(
                 symbol=symbol,
                 start_time=start_time - datetime.timedelta(days=7),
                 end_time=start_time - datetime.timedelta(days=1),
                 time_interval=data.TimeInterval.DAY,
-            )['Close'].iloc[-1]
-            prev_close = float(prev_close)
-        else:
-            prev_close = None
+            )
+            if len(day_bars) > 0:
+                prev_close = day_bars['Close'].iloc[-1]
+                prev_close = float(prev_close)
         name = self._alpaca.get_asset(symbol).name
         labels = []
         prices = []
@@ -473,7 +474,7 @@ class Client:
             volumes.append(volume)
         return {'labels': labels, 'prices': prices, 'volumes': volumes, 'prev_close': prev_close, 'name': name}
 
-    @retrying.retry(stop_max_attempt_number=2, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_all_symbols(self):
         assets = self._alpaca.list_assets()
-        return sorted(list(set([asset.symbol for asset in assets if re.match('^[A-Z]*$', asset.symbol)])))
+        return sorted({asset.symbol for asset in assets if re.match('^[A-Z]*$', asset.symbol)})

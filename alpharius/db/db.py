@@ -5,8 +5,8 @@ import sys
 from typing import NamedTuple
 
 import pandas as pd
-import retrying
 import sqlalchemy
+import tenacity
 from tqdm import tqdm
 
 from alpharius import data
@@ -194,7 +194,7 @@ class Db:
             gl_pct=transaction.gl_pct,
         )
 
-    @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_exponential(), reraise=True)
     def _execute(self, query, **kwargs):
         with self._eng.connect() as conn:
             return conn.execute(query, kwargs)

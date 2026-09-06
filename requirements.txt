@@ -16,8 +16,8 @@ python-dateutil
 pytz
 ratelimiter
 requests
-retrying
 sqlalchemy
 tabulate
+tenacity
 tqdm
 waitress

@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
-import retrying
+import tenacity
 from alpaca import trading
 from alpaca.common import APIError
 from sqlalchemy import exc
@@ -84,7 +84,7 @@ class Live:
             )
             self._logger.error('Trading process started after market open. The previous process might be interrupted')
 
-    @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_exponential(), reraise=True)
     def _update_account(self) -> None:
         account = self._alpaca.get_account()
         self._equity = float(account.equity)
@@ -399,7 +399,7 @@ class Live:
 
         self._wait_for_order_to_fill(order_ids)
 
-    @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_exponential(), reraise=True)
     def _place_order(
         self,
         symbol: str,
@@ -435,7 +435,7 @@ class Live:
         except APIError as e:
             self._logger.error('Failed to place [%s] order for [%s]: %s: %s', side, symbol, type(e).__name__, e)
 
-    @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_exponential(), reraise=True)
     def _wait_for_order_to_fill(self, order_ids: list[str], timeout: int = 10) -> None:
         def _update_open_orders(open_orders):
             remaining = []

@@ -9,7 +9,7 @@ from typing import override
 import numpy as np
 import pandas as pd
 import requests
-import retrying
+import tenacity
 
 from alpharius.utils import TIME_ZONE
 
@@ -50,10 +50,11 @@ class FmpClient(DataClient):
             self._call_history.append(time.time())
 
     @override
-    @retrying.retry(
-        stop_max_attempt_number=3,
-        wait_exponential_multiplier=500,
-        retry_on_exception=lambda e: isinstance(e, requests.HTTPError),
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(3),
+        wait=tenacity.wait_exponential(multiplier=0.5),
+        retry=tenacity.retry_if_exception_type(requests.HTTPError),
+        reraise=True,
     )
     def get_data(
         self, symbol: str, start_time: pd.Timestamp, end_time: pd.Timestamp, time_interval: TimeInterval
@@ -109,10 +110,11 @@ class FmpClient(DataClient):
         return pd.DataFrame(data, index=index, columns=DATA_COLUMNS)
 
     @override
-    @retrying.retry(
-        stop_max_attempt_number=3,
-        wait_exponential_multiplier=500,
-        retry_on_exception=lambda e: isinstance(e, requests.HTTPError),
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(3),
+        wait=tenacity.wait_exponential(multiplier=0.5),
+        retry=tenacity.retry_if_exception_type(requests.HTTPError),
+        reraise=True,
     )
     def get_last_trades(self, symbols: list[str]) -> dict[str, float]:
         """Gets the last trade prices of a list of symbols."""

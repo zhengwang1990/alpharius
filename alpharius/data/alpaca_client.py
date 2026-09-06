@@ -3,7 +3,7 @@ from typing import override
 
 import numpy as np
 import pandas as pd
-import retrying
+import tenacity
 from alpaca.data import (
     Adjustment,
     StockBarsRequest,
@@ -31,7 +31,7 @@ class AlpacaClient(DataClient):
         self._client = StockHistoricalDataClient(api_key=api_key, secret_key=secret_key)
 
     @override
-    @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=500)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_exponential(multiplier=0.5), reraise=True)
     def get_data(
         self, symbol: str, start_time: pd.Timestamp, end_time: pd.Timestamp, time_interval: TimeInterval
     ) -> pd.DataFrame:
@@ -71,7 +71,7 @@ class AlpacaClient(DataClient):
         return pd.DataFrame(data, index=index, columns=DATA_COLUMNS)
 
     @override
-    @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=500)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_exponential(multiplier=0.5), reraise=True)
     def get_last_trades(self, symbols: list[str]) -> dict[str, float]:
         """Gets the last trade prices of a list of symbols."""
         request = StockLatestTradeRequest(symbol_or_symbols=symbols)

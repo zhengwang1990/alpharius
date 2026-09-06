@@ -89,7 +89,7 @@ class ExpProcessor(Processor):
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
     def _close_position(self, context: Context) -> ProcessorAction | None:
-        def exit_position():
+        def exit_position() -> ProcessorAction:
             self._logger.debug(
                 f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
                 f'Closing position. Current price {context.current_price}.'

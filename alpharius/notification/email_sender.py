@@ -1,23 +1,20 @@
 import argparse
 import datetime
-import email.mime.image as image
-import email.mime.multipart as multipart
-import email.mime.text as text
 import html
 import io
 import logging
 import os
 import smtplib
 import time
-from typing import Optional
+from email.mime import image, multipart, text
 
 import alpaca_trade_api as tradeapi
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import retrying
+import tenacity
 
-import alpharius.data as data
+from alpharius import data
 from alpharius.utils import TIME_ZONE, get_today
 
 _SMTP_HOST = 'smtp.163.com'
@@ -26,7 +23,7 @@ _HTML_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'html')
 
 
 class EmailSender:
-    def __init__(self, logger: Optional[logging.Logger] = None) -> None:
+    def __init__(self, logger: logging.Logger | None = None) -> None:
         username = os.environ.get('EMAIL_USERNAME')
         password = os.environ.get('EMAIL_PASSWORD')
         receiver = os.environ.get('EMAIL_RECEIVER')
@@ -40,7 +37,7 @@ class EmailSender:
         self._receiver = receiver
         self._alpaca = tradeapi.REST()
 
-    @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_exponential(), reraise=True)
     def _create_client(self, username: str, password: str) -> smtplib.SMTP:
         self._logger.info('Logging into email server')
         client = smtplib.SMTP(_SMTP_HOST, _SMTP_PORT)
@@ -232,7 +229,7 @@ class EmailSender:
         message.attach(history_image)
         self._send_mail(message)
 
-    def send_alert(self, error_message: Optional[str], title: str = 'An unexpected error was encountered'):
+    def send_alert(self, error_message: str | None, title: str = 'An unexpected error was encountered'):
         if not self._client:
             self._logger.warning('Email client not created')
             return
@@ -248,7 +245,7 @@ class EmailSender:
         message.attach(text.MIMEText(html_template.format(error_time=error_time, error_message=error_message), 'html'))
         self._send_mail(message)
 
-    @retrying.retry(stop_max_attempt_number=3, wait_exponential_multiplier=1000)
+    @tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_exponential(), reraise=True)
     def _send_mail(self, message):
         self._client.sendmail(self._sender, [self._receiver], message.as_string())
         self._client.close()
