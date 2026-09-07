@@ -10,6 +10,7 @@ import pandas as pd
 from ..common import (
     DAYS_IN_A_MONTH,
     DAYS_IN_A_QUARTER,
+    DAYS_IN_A_WEEK,
 )
 from ..enums import ActionType, TradingFrequency
 from ..structs import Context, Position, ProcessorAction
@@ -120,6 +121,9 @@ class TqqqProcessor(Processor):
                 and interday_closes[-1] > interday_closes[-DAYS_IN_A_MONTH]
             ):
                 threshold *= 1.2
+            if interday_closes[-1] > np.min(interday_closes[-DAYS_IN_A_QUARTER:]) * 1.5:
+                # Already at a high level, not much room to go up
+                threshold *= 2
             if change < 0.8 * h2l:
                 self._logger.debug(
                     f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
@@ -175,6 +179,10 @@ class TqqqProcessor(Processor):
         bar_sizes.sort(reverse=True)
         if bar_sizes[0] > 2 * bar_sizes[1]:
             return
+        interday_closes = context.interday_lookback['Close'].to_numpy()
+        if interday_closes[-1] > np.min(interday_closes[-DAYS_IN_A_QUARTER:]) * 1.5:
+            # Already at a high level, not much room to go up
+            return
         self._logger.debug(
             f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
             f'First hour momentum strategy. Current price: {context.current_price}.'
@@ -211,7 +219,12 @@ class TqqqProcessor(Processor):
         change_from_open = context.current_price / intraday_opens[0] - 1
         change_from_close = context.current_price / context.prev_day_close - 1
         h2l = context.h2l_avg
-        if change_from_open < 0.7 * h2l or change_from_close < 2 * h2l:
+        multiplier = 1
+        weekly_high = np.max(interday_closes[-DAYS_IN_A_WEEK:])
+        if interday_closes[-1] < 0.9 * weekly_high:
+            # Yesterday already dropped, not much room to go down
+            multiplier = 1.2
+        if change_from_open < 0.7 * h2l * multiplier or change_from_close < 2 * h2l * multiplier:
             if context.current_price - np.min(intraday_closes) > np.max(intraday_closes) - context.current_price:
                 # No momentum
                 return
@@ -222,6 +235,9 @@ class TqqqProcessor(Processor):
                 f'Change from prev close [{change_from_close * 100:.2f}%].'
             )
             return _open_position('short')
+        if interday_closes[-1] > np.max(interday_closes[-DAYS_IN_A_QUARTER:]) * 0.7:
+            # Already at a high level, not much room to go up
+            return
         l2h = context.l2h_avg
         change_from_min = context.current_price / np.min(intraday_closes) - 1
         if change_from_min > 1.2 * l2h and intraday_closes[-1] < intraday_closes[-2]:

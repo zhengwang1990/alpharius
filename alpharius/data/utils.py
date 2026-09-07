@@ -92,6 +92,8 @@ def load_interday_dataset(
 
 def _get_read_only_cache_dir(start_time: pd.Timestamp, end_time: pd.Timestamp) -> str | None:
     daily_cache_dir = os.path.join(CACHE_DIR, str(TimeInterval.DAY))
+    if not os.path.isdir(daily_cache_dir):
+        return None
     start_dirs = os.listdir(daily_cache_dir)
     candidate_dir = None
     for start_dir in sorted(start_dirs, reverse=True):
