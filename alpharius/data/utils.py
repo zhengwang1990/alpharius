@@ -64,8 +64,10 @@ def load_interday_dataset(
     cache_key = hash_str(','.join(sorted(symbols)) + start_time.strftime('%F') + end_time.strftime('%F'))
     if cache_key in _interday_dataset_cache:
         return _interday_dataset_cache[cache_key]
-    start_time = start_time.tz_localize(TIME_ZONE)
-    end_time = end_time.tz_localize(TIME_ZONE)
+    if not start_time.tzinfo:
+        start_time = start_time.tz_localize(TIME_ZONE)
+    if not end_time.tzinfo:
+        end_time = end_time.tz_localize(TIME_ZONE)
     cache_dir = os.path.join(
         os.path.join(CACHE_DIR, str(TimeInterval.DAY)), start_time.strftime('%F'), end_time.strftime('%F')
     )
