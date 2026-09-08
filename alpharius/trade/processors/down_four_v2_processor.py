@@ -1,13 +1,14 @@
 import datetime
 from typing import override
+from zoneinfo import ZoneInfo
 
-import numpy as np
 import pandas as pd
 
 from alpharius.data import DataClient
+from alpharius.trade.common import DAYS_IN_A_QUARTER
 
 from ..enums import ActionType, Mode, PositionStatus, TradingFrequency
-from ..stock_universe import L2hVolatilityStockUniverse
+from ..stock_universe import IntradayVolatilityStockUniverse
 from ..structs import Context, Position, ProcessorAction
 from .processor import Processor
 
@@ -21,10 +22,13 @@ class DownFourV2Processor(Processor):
         lookback_end_date: pd.Timestamp,
         data_client: DataClient,
         output_dir: str,
+        logging_timezone: ZoneInfo | None = None,
     ) -> None:
-        super().__init__(output_dir)
+        super().__init__(output_dir, logging_timezone)
         self._positions = dict()
-        self._stock_universe = L2hVolatilityStockUniverse(lookback_start_date, lookback_end_date, data_client)
+        self._stock_universe = IntradayVolatilityStockUniverse(
+            lookback_start_date, lookback_end_date, data_client, num_stocks=10, num_top_volume=50
+        )
 
     @override
     def get_trading_frequency(self) -> TradingFrequency:
@@ -51,58 +55,56 @@ class DownFourV2Processor(Processor):
 
     def _open_position(self, context: Context) -> ProcessorAction | None:
         t = context.current_time.time()
-        if t >= datetime.time(15, 40):
+        if t >= datetime.time(14, 0) or t < datetime.time(10, 0):
             return
         market_open_index = context.market_open_index
         if market_open_index is None:
             return
-        if context.current_price > context.prev_day_close * 1.15:
+        interday_closes = context.interday_lookback['Close'].to_numpy()
+        if interday_closes[-1] > interday_closes[-2] and interday_closes[-1] >= max(
+            interday_closes[-DAYS_IN_A_QUARTER:-1]
+        ):
             return
-
         intraday_closes = context.intraday_lookback['Close'].tolist()[market_open_index:]
+        if len(intraday_closes) < N:
+            return
+        if abs(context.current_price / context.prev_day_close - 1) > 0.5:
+            return
         intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
-        intraday_vols = context.intraday_lookback['Volume'].tolist()[market_open_index:]
-        h2l_avg = context.h2l_avg
-
-        # Filters
-        if len(intraday_closes) < N + 1:
+        if max(intraday_opens[-2 * N :]) > context.prev_day_close > intraday_closes[-1]:
             return
-        try:
-            bar_losses = np.array([intraday_closes[i] / intraday_opens[i] - 1 for i in range(-N, 0)])
-        except ZeroDivisionError:
+        if (
+            context.current_time.time() <= datetime.time(10, 30)
+            and intraday_closes[-N] / intraday_opens[0] - 1 > context.l2h_avg
+        ):
             return
-        if any(bar_losses > 0):
+        losses = [intraday_closes[i] / intraday_opens[i] - 1 for i in range(-N, 0)]
+        for lose in losses:
+            if lose > 0:
+                return
+            if lose < -0.03:
+                return
+        if len(intraday_closes) >= N + 1 and intraday_closes[-N - 1] < intraday_opens[-N - 1] * 0.95:
             return
-        if any(bar_losses < -0.05):
+        h2l = context.h2l_avg
+        if intraday_opens[0] / context.prev_day_close - 1 < 1.5 * h2l:
             return
-        if intraday_vols[-2] > intraday_vols[-3]:
+        if all(intraday_closes[i] < intraday_opens[i] for i in range(len(intraday_closes) - N)):
             return
-        try:
-            all_bars = np.array(
-                [abs(intraday_closes[i] / intraday_closes[i - 1] - 1) for i in range(1, len(intraday_closes))]
-            )
-        except ZeroDivisionError:
+        intraday_highs = context.intraday_lookback['High'].tolist()[market_open_index:]
+        if context.current_time.time() < datetime.time(12, 0) and intraday_highs[-1] - intraday_opens[-1] > 3 * (
+            intraday_opens[-1] - intraday_closes[-1]
+        ):
             return
-        if all_bars[-1] > np.percentile(all_bars, 95) * 4:
-            return
-
-        current_bar_loss = bar_losses[-1]
-        current_high = context.intraday_lookback['High'].iloc[-1]
-        current_low = context.intraday_lookback['Low'].iloc[-1]
-        current_bar_range = current_low / current_high - 1
-        prev_bar_loss = bar_losses[-2]
-
-        is_trade = (
-            0.03 < current_bar_loss / h2l_avg < 0.1
-            and current_bar_range / h2l_avg < 0.35
-            and prev_bar_loss / h2l_avg > 0.2
-        )
-        if is_trade or (context.mode == Mode.TRADE and prev_bar_loss / h2l_avg > 0.18):
+        threshold1 = 0.25 * h2l
+        threshold2 = 0.1 * h2l
+        is_trade = losses[-2] < threshold1 and losses[-1] > threshold2
+        if is_trade or (context.mode == Mode.TRADE and losses[-2] < 0.8 * threshold1):
             self._logger.debug(
                 f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
-                f'Prev loss: {prev_bar_loss * 100:.2f}%. '
-                f'Current loss: {current_bar_loss * 100:.2f}%. '
-                f'H2l: {h2l_avg * 100:.2f}%. Current price {context.current_price}.'
+                f'Prev loss: {losses[-2] * 100:.2f}%. Threshold1: <{threshold1 * 100:.2f}%. '
+                f'Current loss: {losses[-1] * 100:.2f}%. Threshold2: >{threshold2 * 100:.2f}%. '
+                f'H2l: {h2l * 100:.2f}%. Current price {context.current_price}.'
             )
         if is_trade:
             self._positions[context.symbol] = {'entry_time': context.current_time, 'status': PositionStatus.PENDING}
@@ -110,13 +112,7 @@ class DownFourV2Processor(Processor):
 
     def _close_position(self, context: Context) -> ProcessorAction | None:
         position = self._positions[context.symbol]
-        intraday_closes = context.intraday_lookback['Close'].tolist()
-        is_close = (
-            context.current_time >= position['entry_time'] + datetime.timedelta(minutes=15)
-            and len(intraday_closes) >= 4
-            and (intraday_closes[-1] < intraday_closes[-2] or (intraday_closes[-1] >= intraday_closes[-4]))
-        )
-        is_close = is_close or context.current_time >= position['entry_time'] + datetime.timedelta(minutes=20)
+        is_close = context.current_time >= position['entry_time'] + datetime.timedelta(minutes=20)
         self._logger.debug(
             f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
             f'Closing position: {is_close}. Current price {context.current_price}.'
