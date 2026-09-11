@@ -125,6 +125,15 @@ class OvernightTqqqProcessor(Processor):
                     f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]' + 'Large intraday drop; Skip.'
                 )
                 return
+            if (
+                context.current_price / context.prev_day_close - 1 < -0.009
+                and context.current_price / intraday_low - 1 > 0.03
+            ):
+                self._logger.debug(
+                    f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                    + 'Large grow from intraday low; Skip.'
+                )
+                return
             if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
                 return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
             else:
