@@ -6,6 +6,7 @@ import re
 import threading
 import time
 from concurrent import futures
+from typing import Any
 
 import alpaca_trade_api as tradeapi
 import numpy as np
@@ -254,12 +255,15 @@ class Client:
                 break
             price = float(order.filled_avg_price)
             qty = float(order.filled_qty)
+            rounded_filled_at = filled_at if filled_at.second < 30 else filled_at + datetime.timedelta(minutes=1)
             order_obj = {
                 'symbol': order.symbol,
                 'side': order.side,
                 'price': f'{price:.4g}',
                 'value': f'{price * qty:.2f}',
-                'link': construct_charts_link(order.symbol, filled_at.strftime('%F')),
+                'link': construct_charts_link(
+                    order.symbol, filled_at.strftime('%F'), [rounded_filled_at.strftime('%H:%M')]
+                ),
                 'gl': '',
                 'time': round_time(filled_at, time_fmt_with_year),
             }
@@ -422,7 +426,7 @@ class Client:
         return result
 
     @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
-    def get_charts(self, start_date: str, end_date: str, symbol: str, timeframe: str):
+    def get_charts(self, start_date: str, end_date: str, symbol: str, timeframe: str) -> dict[str, Any]:
         start_time = pd.to_datetime(
             pd.Timestamp.combine(pd.to_datetime(start_date).date(), datetime.time(0, 0))
         ).tz_localize(TIME_ZONE)

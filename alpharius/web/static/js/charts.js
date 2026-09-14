@@ -116,6 +116,38 @@ const crosshair = {
     })
 };
 
+const closePointer = {
+    id: "closePointer",
+
+    afterDatasetsDraw: ((chart, args, pluginOptions) => {
+        const {ctx, data, scales: { y }} = chart;
+        const mark_points = pluginOptions.mark_points;
+        if (!Array.isArray(mark_points) || mark_points.length == 0) {
+            return;
+        }
+        const size = 0.9 * chart.width / data.datasets[0].data.length;
+        data.datasets[0].data.forEach((dataPoint, index) => {
+
+            if (mark_points.includes(dataPoint.x)) {
+                const xc = chart.getDatasetMeta(0).data[index].x;
+                const yc = y.getPixelForValue(dataPoint.c);
+
+                ctx.save();
+                ctx.fillStyle = "rgba(23, 23, 24, 0.6)";
+                ctx.beginPath();
+
+                ctx.moveTo(xc, yc);
+                const dir = dataPoint.c < dataPoint.o ? 1 : -1;
+                ctx.lineTo(xc - 0.5 * size, yc + dir * 0.75 * size);
+                ctx.lineTo(xc + 0.5 * size, yc + dir * 0.75 * size);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+        })
+    })
+};
+
 function displayAlert(type, message, timeframe) {
     var chart_container, chart_name, alert;
     if (timeframe === "intraday") {
@@ -139,11 +171,14 @@ function displayAlert(type, message, timeframe) {
     alert.style.removeProperty("display");
 }
 
-function get_chart_data(dates, symbol, timeframe) {
+function get_chart_data(dates, symbol, timeframe, marks=null) {
     var xmlHttp = new XMLHttpRequest();
     var route;
     if (timeframe === "intraday") {
         route = `/charts_data?date=${dates[0]}&symbol=${symbol}&timeframe=intraday`
+        if (marks !== null) {
+            route += `&marks=${marks}`
+        }
     } else {
         route = `/charts_data?start_date=${dates[0]}&end_date=${dates[1]}&symbol=${symbol}&timeframe=daily`
     }
@@ -172,6 +207,9 @@ function get_chart_data(dates, symbol, timeframe) {
             volumes: [],
             name: intraday_chart_data['name'],
             prev_close: intraday_chart_data["prev_close"]
+        }
+        if (obj.marks !== undefined) {
+            trimmed_intraday_chart_data.marks = obj.marks;
         }
         for (var i = 0; i < intraday_chart_data["labels"].length; i++) {
             var label = intraday_chart_data["labels"][i];
@@ -264,6 +302,10 @@ function update_chart(timeframe) {
         price_max = Math.max(price_max, current_data["prev_close"]);
         price_min = Math.min(price_min, current_data["prev_close"]);
     }
+    var mark_points = [];
+    if (current_data.marks !== undefined) {
+        mark_points.push(...current_data.marks);
+    }
     const data = {
         labels: current_data["labels"],
         datasets: [{
@@ -345,6 +387,10 @@ function update_chart(timeframe) {
         };
         chart_annotations.push(prev_close_annotation);
     }
+    var plugins = [candlestick, barPosition, crosshair];
+    if (timeframe === "intraday") {
+        plugins.push(closePointer);
+    }
     const chart_config = {
         type: "bar",
         data: data,
@@ -381,6 +427,9 @@ function update_chart(timeframe) {
                 },
                 annotation: {
                     annotations: chart_annotations
+                },
+                closePointer: {
+                    mark_points: mark_points
                 }
             },
             scales: {
@@ -408,7 +457,7 @@ function update_chart(timeframe) {
                 }
             }
         },
-        plugins: [candlestick, barPosition, crosshair]
+        plugins: plugins
     };
     var alert, chart_container, chart, chart_name;
     if (timeframe === "intraday") {
@@ -528,7 +577,7 @@ if (validateDate(INIT_DATE) && validateSymbol(INIT_SYMBOL)) {
     var date_utc = Date.parse(INIT_DATE);
     intraday_datepicker.setDate(date_utc + (new Date(date_utc).getTimezoneOffset() * 60000));
     intraday_symbol_input.value = INIT_SYMBOL;
-    get_chart_data([INIT_DATE], INIT_SYMBOL, "intraday");
+    get_chart_data([INIT_DATE], INIT_SYMBOL, "intraday", INIT_MARKS);
     update_chart("intraday");
     historical_symbols.push(INIT_SYMBOL);
     historical_dates.push(INIT_DATE);

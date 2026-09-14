@@ -70,6 +70,7 @@
     INIT_DATE = "{{ init_date }}";
     INIT_START_DATE = "{{ init_start_date }}";
     INIT_END_DATE = "{{ init_end_date }}";
+    INIT_MARKS = "{{ init_marks | safe }}";
 </script>
 <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 {% endblock %}

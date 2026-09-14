@@ -117,6 +117,11 @@ def transactions():
     trans = []
     time_fmt = '<span class="lg-hidden">%Y-%m-%d </span>%H:%M'
     for t in client.list_transactions(limit=items_per_page, offset=offset, processor=active_processor):
+        entry_time = pd.Timestamp(t.entry_time).tz_convert(TIME_ZONE)
+        exit_time = pd.Timestamp(t.exit_time).tz_convert(TIME_ZONE)
+        marks = None
+        if entry_time.date() == exit_time.date():
+            marks = [entry_time.strftime('%H:%M'), exit_time.strftime('%H:%M')]
         trans.append(
             {
                 'symbol': t.symbol,
@@ -124,8 +129,8 @@ def transactions():
                 'processor': t.processor if t.processor is not None else '',
                 'entry_price': f'{t.entry_price:.4g}',
                 'exit_price': f'{t.exit_price:.4g}',
-                'entry_time': pd.to_datetime(t.entry_time).tz_convert(TIME_ZONE).strftime(time_fmt),
-                'exit_time': pd.to_datetime(t.exit_time).tz_convert(TIME_ZONE).strftime(time_fmt),
+                'entry_time': entry_time.strftime(time_fmt),
+                'exit_time': exit_time.strftime(time_fmt),
                 'gl': get_colored_value(f'{t.gl:+,.2f} ({t.gl_pct * 100:+.2f}%)', 'green' if t.gl >= 0 else 'red'),
                 'gl_pct': get_signed_percentage(t.gl_pct),
                 'slippage': get_colored_value(
@@ -134,9 +139,7 @@ def transactions():
                 if t.slippage is not None
                 else '',
                 'slippage_pct': get_signed_percentage(t.slippage_pct) if t.slippage_pct is not None else '',
-                'link': construct_charts_link(
-                    t.symbol, pd.to_datetime(t.exit_time).tz_convert(TIME_ZONE).strftime('%F')
-                ),
+                'link': construct_charts_link(t.symbol, exit_time.strftime('%F'), marks),
             }
         )
     return flask.render_template(
@@ -439,6 +442,7 @@ def charts():
     date = flask.request.args.get('date')
     start_date = flask.request.args.get('start_date')
     end_date = flask.request.args.get('end_date')
+    marks = flask.request.args.get('marks')
     if start_date and end_date:
         pd_start = pd.to_datetime(start_date)
         if pd_start.isoweekday() > 5:
@@ -456,6 +460,7 @@ def charts():
         init_date=date,
         init_start_date=start_date,
         init_end_date=end_date,
+        init_marks=marks,
         init_symbol=symbol,
     )
 
@@ -472,6 +477,17 @@ def charts_data():
         end_date = flask.request.args.get('end_date')
     symbol = flask.request.args.get('symbol')
     res = client.get_charts(start_date=start_date, end_date=end_date, symbol=symbol, timeframe=timeframe)
+    marks = flask.request.args.get('marks')
+    if marks:
+        marks = marks.split(',')
+        for i, t in enumerate(marks):
+            try:
+                marks[i] = (datetime.datetime.strptime(t, '%H:%M') - datetime.timedelta(minutes=5)).strftime('%H:%M')
+            except ValueError as e:
+                print('value', e)
+                break
+        else:
+            res['marks'] = marks
     return json.dumps(res)
 
 
@@ -511,7 +527,12 @@ def _get_diff_table(a_transactions: list[Transaction], b_transactions: list[Tran
             + ('long' if t.is_long else 'short')
             + '</span>'
         )
-        link = construct_charts_link(t.symbol, pd.to_datetime(t.exit_time).tz_convert(TIME_ZONE).strftime('%F'))
+        entry_time = pd.to_datetime(t.entry_time).tz_convert(TIME_ZONE)
+        exit_time = pd.to_datetime(t.exit_time).tz_convert(TIME_ZONE)
+        marks = None
+        if entry_time.date() == exit_time.date():
+            marks = [entry_time.strftime('%H:%M'), exit_time.strftime('%H:%M')]
+        link = construct_charts_link(t.symbol, exit_time.strftime('%F'), marks)
         return template.format(
             cls=cls,
             cls_xs=cls_xs,

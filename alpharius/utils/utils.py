@@ -138,10 +138,13 @@ def compute_drawdown(values: list[float]) -> tuple[float, int, int]:
     return d, hi, li
 
 
-def construct_charts_link(symbol: str, date: str) -> str:
+def construct_charts_link(symbol: str, date: str, marks: list[str] | None = None) -> str:
     """Constructs link to charts page for the given symbol on a given day."""
     start_date = (pd.to_datetime(date) - datetime.timedelta(days=92)).strftime('%F')
-    return f'charts?date={date}&start_date={start_date}&end_date={date}&symbol={symbol}'
+    res = f'charts?date={date}&start_date={start_date}&end_date={date}&symbol={symbol}'
+    if marks:
+        res += f'&marks={",".join(marks)}'
+    return res
 
 
 def compute_bernoulli_ci95(p: float, n: int) -> float:
