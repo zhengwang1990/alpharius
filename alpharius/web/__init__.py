@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import traceback
 
 from flask import Flask, make_response, render_template
 
@@ -14,7 +15,10 @@ def handle_exception(e):
     if error_module is not None and 'builtin' not in error_module:
         error_name = error_module + '.' + error_name
     error_message = re.sub(r'([a-z]*api[a-z]*=)[a-zA-Z0-9]+', r'\1<detached>', str(e))
-    resp = make_response(render_template('exception.html', error_name=error_name, error_message=error_message))
+    tb = traceback.format_exception(e)
+    resp = make_response(
+        render_template('exception.html', error_name=error_name, error_message=error_message, traceback=''.join(tb))
+    )
     resp.status_code = 500
     return resp
 
