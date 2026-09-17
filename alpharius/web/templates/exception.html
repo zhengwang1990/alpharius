@@ -156,6 +156,12 @@
           }
         }
     }
+    .traceback {
+      font-family: 'Courier New', Courier, monospace;
+      text-align: left;
+      white-space: pre;
+      font-size: 0.8rem;
+    }
   </style>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo-32x32.png') }}" sizes="32x32">
   <link rel="apple-touch-icon" type="image/png" href="{{ url_for('static', filename='img/logo-180x180.png') }}" sizes="180x180">
@@ -185,6 +191,6 @@
 
     <h1>Unfortunately, something has gone wrong.</h1>
     <p class="errormsg"><b>{{ error_name }}:</b> {{ error_message }}</p>
-    <p class="traceback">{{trace_back}}</p>
+    <p class="traceback">{{traceback}}</p>
   </body>
 </html>
