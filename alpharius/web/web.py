@@ -91,7 +91,7 @@ def dashboard_data():
 
 def _list_processors(db_client: Db) -> list[str]:
     aggs = db_client.list_aggregations()
-    processors = sorted(list(set([agg.processor for agg in aggs if agg.processor != 'UNKNOWN'])))
+    processors = sorted({agg.processor for agg in aggs if agg.processor != 'UNKNOWN'})
     return processors
 
 

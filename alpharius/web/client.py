@@ -103,7 +103,7 @@ class Client:
         # Current equity value is wrong from get_portfolio_history
         current_equity = max(float(self._alpaca.get_account().equity) - cash_reserve, 0)
         result['current_equity'] = f'{current_equity:,.2f}'
-        if result['time_5y'][-1] != calendar[-1].date.strftime('%F'):
+        if not result['time_5y'] or result['time_5y'][-1] != calendar[-1].date.strftime('%F'):
             result['time_5y'].append(calendar[-1].date.strftime('%F'))
             result['equity_5y'].append(current_equity)
         else:
@@ -143,7 +143,10 @@ class Client:
             else:
                 base_value = result['equity_' + time_period][0] if result['equity_' + time_period] else current_equity
             change = current_equity - base_value
-            percent = current_equity / base_value - 1
+            try:
+                percent = current_equity / base_value - 1
+            except ZeroDivisionError:
+                percent = 0
             result['change_' + time_period] = get_colored_value(
                 f'{change:+.2f} ({percent * 100:+.2f}%)', 'green' if change >= 0 else 'red', with_arrow=True
             )
@@ -167,6 +170,9 @@ class Client:
                     result['time_1d'] = result['time_1d'][i:]
                     result['equity_1d'] = result['equity_1d'][i:]
                     break
+        if not result['time_1d'] and not result['equity_1d']:
+            result['time_1d'].append('09:30')
+            result['equity_1d'].append(current_equity)
         compare_symbols = ['QQQ', 'SPY', 'TQQQ']
         with futures.ThreadPoolExecutor(max_workers=3) as pool:
             lock = threading.RLock()
@@ -203,14 +209,14 @@ class Client:
             t = index.strftime('%F')
             dict_5y[t] = bar['Close']
         symbol_values = dict()
-        current_symbol_value = day_bars['Close'].iloc[-1] if len(day_bars) else year_bars['Close'].iloc[-1]
+        current_symbol_value = float(day_bars['Close'].iloc[-1] if len(day_bars) else year_bars['Close'].iloc[-1])
         timeframes = ['1d', '1w', '2w', '1m', '6m', 'ytd', '1y', '5y']
         for timeframe in timeframes:
             symbol_values[timeframe] = []
             timeline = portfolio_histories['time_' + timeframe]
             dict_ref = dict_1d if timeframe == '1d' else dict_5y
             for t in timeline:
-                symbol_values[timeframe].append(dict_ref.get(t))
+                symbol_values[timeframe].append(float(dict_ref.get(t)))
             if symbol_values[timeframe] and symbol_values[timeframe][-1]:
                 symbol_values[timeframe][-1] = current_symbol_value
         for timeframe in timeframes:
