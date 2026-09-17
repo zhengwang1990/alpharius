@@ -309,14 +309,19 @@ def _get_annual_return(daily_price):
 def _get_risks(daily_prices):
     def get_factors(v, mv):
         a, b, s = compute_risks(v, mv)
-        d, _, _ = compute_drawdown(v)
-        r = v[-1] / v[0] - 1
+        if v:
+            d, _, _ = compute_drawdown(v)
+            d = get_signed_percentage(d)
+            r = get_signed_percentage(v[-1] / v[0] - 1)
+        else:
+            d = 'N/A'
+            r = 'N/A'
         return {
             'alpha': get_signed_percentage(a) if not math.isnan(a) else 'N/A',
             'beta': f'{b:.2f}' if not math.isnan(b) else 'N/A',
             'sharpe': f'{s:.2f}' if not math.isnan(s) else 'N/A',
-            'drawdown': get_signed_percentage(d),
-            'return': get_signed_percentage(r),
+            'drawdown': d,
+            'return': r,
         }
 
     dates = daily_prices['dates']
