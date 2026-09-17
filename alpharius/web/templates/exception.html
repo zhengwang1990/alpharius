@@ -1,196 +1,519 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="icon"
+        type="image/png"
+        href="{{ url_for('static', filename='img/logo-32x32.png') }}"
+        sizes="32x32">
+
+  <link rel="apple-touch-icon"
+        type="image/png"
+        href="{{ url_for('static', filename='img/logo-180x180.png') }}"
+        sizes="180x180">
+
+  <title>Alpharius</title>
+
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #071525;
+      --card: #0e1d30;
+      --card-border: rgba(96, 165, 250, 0.16);
+
+      --text: #f1f7ff;
+      --muted: #8fa9c4;
+
+      --accent: #38bdf8;
+      --accent-soft: #60a5fa;
+
+      --error: #fb7185;
+
+      --terminal: #071321;
+    }
+
+    html,
     body {
-      background-image: radial-gradient(closest-side, #2EA3F2, #64bbf5);
+      margin: 0;
+      min-height: 100%;
+    }
+
+    body {
+      min-height: 100vh;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      padding: 40px 20px;
+
+      background:
+        radial-gradient(
+          circle at 50% 15%,
+          rgba(37, 99, 235, 0.28),
+          transparent 35%
+        ),
+        radial-gradient(
+          circle at 50% 70%,
+          rgba(14, 165, 233, 0.08),
+          transparent 45%
+        ),
+        linear-gradient(
+          145deg,
+          #050d18 0%,
+          #071525 45%,
+          #0a1d32 100%
+        );
+
+      color: var(--text);
+
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 720px;
+
       text-align: center;
-      color: #fff;
-      font-family: "Helvetica Neue";
-      font-size: 18px;
-      line-height: 1.5;
-      padding-top: 150px;
     }
 
-    h1 {
-      font-size: 28px;
-      line-height: 40px;
-      margin: 0 auto 16px;
-      padding: 0 20px;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
-      letter-spacing: 0.5px;
-      font-weight: 600;
-      max-width: 600px;
-    }
-
-    p {
-      font-weight: 300;
-      max-width: 600px;
-      margin: 0 auto 24px;
-      text-shadow: 0 2px 3px rgba(0,0,0,0.1);
-      letter-spacing: 0.5px;
-      padding: 0 20px;
-    }
-
+    /*
+     * Browser illustration
+     */
     .browser {
-      width: 400px;
-      min-width: 200px;
-      min-height: 264px;
-      background: #FFFFFF;
-      box-shadow: 0 40px 80px 0 rgba(0,0,0,0.25);
-      border-radius: 3px;
-      animation: bobble 1.8s ease-in-out infinite;
+      width: 360px;
+      height: 235px;
+
+      margin: 0 auto 42px;
+
       position: relative;
-      left: 50%;
-      margin-left: -200px;
-      .controls {
-        width: 100%;
-        height: 32px;
-        background: #E8ECEF;
-        border-radius: 3px 3px 0 0;
-        box-sizing: border-box;
-        padding: 10px 12px;
-        i {
-          height: 12px;
-          width: 12px;
-          border-radius: 100%;
-          display: block;
-          float: left;
-          background: #D6DCE0;
-          margin-right: 8px;
-        }
-      }
+
+      background: #f8fafc;
+
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+
+      box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.50),
+        0 0 70px rgba(37, 99, 235, 0.12),
+        0 0 20px rgba(56, 189, 248, 0.06);
+
+      overflow: hidden;
+
+      animation: float 4s ease-in-out infinite;
+    }
+
+    /*
+     * Browser controls
+     */
+    .controls {
+      height: 34px;
+
+      display: flex;
+      align-items: center;
+
+      gap: 7px;
+
+      padding: 0 12px;
+
+      background: #e5e7eb;
+
+      border-bottom: 1px solid #d1d5db;
+    }
+
+    .controls i {
+      width: 10px;
+      height: 10px;
+
+      display: block;
+
+      border-radius: 50%;
+
+      background: #cbd5e1;
+    }
+
+    .controls i:first-child {
+      background: #fb7185;
+    }
+
+    .controls i:nth-child(2) {
+      background: #fbbf24;
+    }
+
+    .controls i:nth-child(3) {
+      background: #34d399;
+    }
+
+    /*
+     * Sad face
+     */
+    .face {
+      position: absolute;
+      inset: 34px 0 0;
     }
 
     .eye {
       position: absolute;
-      left: 34%;
-      top: 80px;
-      width: 32px;
-      height: 32px;
-      opacity: 1;
-      + .eye {
-        right: 34%;
-        left: auto;
+
+      top: 58px;
+
+      width: 30px;
+      height: 30px;
+    }
+
+    .eye:first-child {
+      left: 30%;
+    }
+
+    .eye:nth-child(2) {
+      right: 30%;
+    }
+
+    .eye::before,
+    .eye::after {
+      content: "";
+
+      position: absolute;
+
+      left: 13px;
+      top: -4px;
+
+      width: 3px;
+      height: 38px;
+
+      border-radius: 3px;
+
+      background: var(--error);
+    }
+
+    .eye::before {
+      transform: rotate(45deg);
+    }
+
+    .eye::after {
+      transform: rotate(-45deg);
+    }
+
+    /*
+     * Mouth
+     */
+    .mouth {
+      position: absolute;
+
+      left: 50%;
+      top: 137px;
+
+      width: 210px;
+      height: 35px;
+
+      transform: translateX(-50%);
+    }
+
+    .lips {
+      position: absolute;
+
+      top: 0;
+
+      width: 3px;
+      height: 35px;
+
+      border-radius: 3px;
+
+      background: var(--error);
+    }
+
+    .lips:nth-child(1) {
+      left: 0;
+      transform: rotate(-54deg);
+    }
+
+    .lips:nth-child(2) {
+      left: 30px;
+      transform: rotate(54deg);
+    }
+
+    .lips:nth-child(3) {
+      left: 60px;
+      transform: rotate(-54deg);
+    }
+
+    .lips:nth-child(4) {
+      left: 90px;
+      transform: rotate(54deg);
+    }
+
+    .lips:nth-child(5) {
+      left: 120px;
+      transform: rotate(-54deg);
+    }
+
+    .lips:nth-child(6) {
+      left: 150px;
+      transform: rotate(54deg);
+    }
+
+    .lips:nth-child(7) {
+      left: 180px;
+      transform: rotate(-54deg);
+    }
+
+    .lips:nth-child(8) {
+      left: 210px;
+      transform: rotate(54deg);
+    }
+
+    /*
+     * Main message
+     */
+    h1 {
+      margin: 0 0 10px;
+
+      font-size: clamp(26px, 5vw, 34px);
+      line-height: 1.25;
+
+      font-weight: 650;
+
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      margin: 0 auto 26px;
+
+      max-width: 600px;
+
+      color: var(--muted);
+
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    /*
+     * Error / traceback panel
+     */
+    .error-card {
+      width: 100%;
+
+      text-align: left;
+
+      background: var(--terminal);
+
+      border: 1px solid rgba(96, 165, 250, 0.14);
+
+      border-radius: 10px;
+
+      overflow: hidden;
+
+      box-shadow:
+        0 20px 50px rgba(0, 0, 0, 0.30),
+        0 0 30px rgba(37, 99, 235, 0.04);
+    }
+
+    .error-header {
+      height: 38px;
+
+      display: flex;
+      align-items: center;
+
+      gap: 8px;
+
+      padding: 0 14px;
+
+      background: rgba(37, 99, 235, 0.06);
+
+      border-bottom: 1px solid rgba(96, 165, 250, 0.10);
+
+      color: #7f9bb8;
+
+      font-size: 12px;
+
+      font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        monospace;
+    }
+
+    .error-dot {
+      width: 7px;
+      height: 7px;
+
+      border-radius: 50%;
+
+      background: var(--error);
+
+      box-shadow: 0 0 8px rgba(251, 113, 133, 0.35);
+    }
+
+    .traceback {
+      margin: 0;
+
+      padding: 18px;
+
+      color: #cbd5e1;
+
+      font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        "Courier New",
+        monospace;
+
+      font-size: 13px;
+      line-height: 1.6;
+
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    .error-name {
+      color: var(--error);
+      font-weight: 600;
+    }
+
+    .error-message {
+      color: #e5e7eb;
+    }
+
+    /*
+     * Footer
+     */
+    .footer {
+      margin-top: 22px;
+
+      color: #58718c;
+
+      font-size: 12px;
+
+      letter-spacing: 0.3px;
+    }
+
+    /*
+     * Floating animation
+     */
+    @keyframes float {
+      0%,
+      100% {
+        transform: translateY(0);
       }
-      &:before, &:after {
-        position: absolute;
-        left: 15px;
-        content: ' ';
-        height: 40px;
-        width: 3px;
-        border-radius: 2px;
-        background-color: #FF5E5B;
-      }
-      &:before {
-        transform: rotate(45deg);
-      }
-      &:after {
-        transform: rotate(-45deg);
+
+      50% {
+        transform: translateY(-8px);
       }
     }
 
-    .mouth {
-      position: absolute;
-      width: 250px;
-      top: 178px;
-      left: 50%;
-      margin-left: -125px;
-      height: 40px;
-      .lips {
-        position: absolute;
-        left: 15px;
-        content: ' ';
-        height: 40px;
-        width: 3px;
-        border-radius: 2px;
-        background-color: #FF5E5B;
-        transform: rotate(-54deg);
-        &:nth-child(odd) {
-          transform: rotate(54deg);
-        }
-        &:nth-child(2) {
-          margin-left: 31px;
-        }
-        &:nth-child(3) {
-          margin-left: 62px;
-        }
-        &:nth-child(4) {
-          margin-left: 93px;
-        }
-        &:nth-child(5) {
-          margin-left: 124px;
-        }
-        &:nth-child(6) {
-          margin-left: 155px;
-        }
-        &:nth-child(7) {
-          margin-left: 186px;
-        }
-        &:nth-child(8) {
-          margin-left: 217px;
-        }
+    /*
+     * Mobile
+     */
+    @media (max-width: 500px) {
+      body {
+        padding: 30px 16px;
       }
-    }
-    @keyframes bobble {
-      0%, 100% {
-        margin-top: 40px;
-        margin-bottom: 48px;
-        box-shadow: 0 40px 80px rgba(0,0,0,0.24);
-      }
-      50% {
-        margin-top: 54px;
+
+      .browser {
+        width: min(320px, 90vw);
+        height: 210px;
+
         margin-bottom: 34px;
-        box-shadow: 0 24px 64px rgba(0,0,0,0.40);
+      }
+
+      .eye:first-child {
+        left: 28%;
+      }
+
+      .eye:nth-child(2) {
+        right: 28%;
+      }
+
+      .mouth {
+        transform: translateX(-50%) scale(0.85);
+      }
+
+      .traceback {
+        padding: 15px;
+
+        font-size: 12px;
       }
     }
-    @media only screen
-      and (min-device-width: 320px)
-      and (max-device-width: 480px) {
-        .browser {
-          .eye {
-            left: 30%;
-            + .eye {
-              left: auto;
-              right: 30%;
-            }
-          }
-        }
-    }
-    .traceback {
-      font-family: 'Courier New', Courier, monospace;
-      text-align: left;
-      white-space: pre;
-      font-size: 0.8rem;
+
+    /*
+     * Respect reduced-motion preferences
+     */
+    @media (prefers-reduced-motion: reduce) {
+      .browser {
+        animation: none;
+      }
     }
   </style>
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/logo-32x32.png') }}" sizes="32x32">
-  <link rel="apple-touch-icon" type="image/png" href="{{ url_for('static', filename='img/logo-180x180.png') }}" sizes="180x180">
-  <title>Alpharius</title>
 </head>
-  <body>
+
+<body>
+
+  <main class="container">
+
     <div class="browser">
+
       <div class="controls">
         <i></i>
         <i></i>
         <i></i>
       </div>
 
-      <div class="eye"></div>
-      <div class="eye"></div>
-      <div class="mouth">
-        <div class="lips"></div>
-        <div class="lips"></div>
-        <div class="lips"></div>
-        <div class="lips"></div>
-        <div class="lips"></div>
-        <div class="lips"></div>
-        <div class="lips"></div>
-        <div class="lips"></div>
+      <div class="face">
+
+        <div class="eye"></div>
+        <div class="eye"></div>
+
+        <div class="mouth">
+          <div class="lips"></div>
+          <div class="lips"></div>
+          <div class="lips"></div>
+          <div class="lips"></div>
+          <div class="lips"></div>
+          <div class="lips"></div>
+          <div class="lips"></div>
+          <div class="lips"></div>
+        </div>
+
       </div>
     </div>
 
-    <h1>Unfortunately, something has gone wrong.</h1>
-    <p class="errormsg"><b>{{ error_name }}:</b> {{ error_message }}</p>
-    <p class="traceback">{{traceback}}</p>
-  </body>
+    <h1>Something went wrong.</h1>
+
+    <p class="subtitle">
+      Alpharius encountered an unexpected error while processing your request.
+    </p>
+
+    <div class="error-card">
+
+      <div class="error-header">
+        <span class="error-dot"></span>
+        <span>error.log</span>
+      </div>
+
+      <pre class="traceback"><span class="error-name">{{ error_name }}</span>: <span class="error-message">{{ error_message }}</span>
+
+{{ traceback }}</pre>
+
+    </div>
+
+    <div class="footer">
+      Alpharius · Quantitative Trading
+    </div>
+
+  </main>
+
+</body>
 </html>

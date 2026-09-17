@@ -14,10 +14,24 @@ def handle_exception(e):
     error_name = cls.__qualname__
     if error_module is not None and 'builtin' not in error_module:
         error_name = error_module + '.' + error_name
-    error_message = re.sub(r'([a-z]*api[a-z]*=)[a-zA-Z0-9]+', r'\1<detached>', str(e))
-    tb = traceback.format_exception(e)
+    pattern = r'([a-z]*api[a-z]*=)[a-zA-Z0-9]+'
+    repl = r'\1<detached>'
+    error_message = re.sub(pattern, repl, str(e))
+    raw_tb_rows = traceback.format_exception(e)
+    tb_rows = []
+    base_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    keep = False
+    for i, row in enumerate(raw_tb_rows):
+        if 'File' in row:
+            if base_dir in row:
+                keep = True
+            else:
+                keep = False
+        if keep and i != len(raw_tb_rows) - 1:
+            tb_rows.append(row.replace(os.path.dirname(base_dir), '.'))
+    tb = re.sub(pattern, repl, ''.join(tb_rows))
     resp = make_response(
-        render_template('exception.html', error_name=error_name, error_message=error_message, traceback=''.join(tb))
+        render_template('exception.html', error_name=error_name, error_message=error_message, traceback=tb)
     )
     resp.status_code = 500
     return resp
