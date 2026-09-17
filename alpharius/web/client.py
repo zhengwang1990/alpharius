@@ -216,7 +216,7 @@ class Client:
             timeline = portfolio_histories['time_' + timeframe]
             dict_ref = dict_1d if timeframe == '1d' else dict_5y
             for t in timeline:
-                symbol_values[timeframe].append(float(dict_ref.get(t)))
+                symbol_values[timeframe].append(dict_ref.get(t))
             if symbol_values[timeframe] and symbol_values[timeframe][-1]:
                 symbol_values[timeframe][-1] = current_symbol_value
         for timeframe in timeframes:

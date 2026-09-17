@@ -4,9 +4,8 @@ import time
 import pandas as pd
 import pytest
 
-import alpharius.web.scheduler as scheduler
 from alpharius.utils import get_current_time
-from alpharius.web import web
+from alpharius.web import scheduler, web
 
 
 @pytest.mark.parametrize('route', ['/', '/dashboard_data'])
