@@ -7,17 +7,16 @@
 
 {% block content %}
 <div class="row">
-    {% for symbol in ['QQQ', 'SPY', 'DIA', 'TQQQ'] %}
-    <div class="col-lg-6 col-md-6 col-sm-6 col-xl-3 col-6">
-        <div class="card">
+    {% for symbol in ['QQQ', 'TQQQ', 'SPY', 'DIA'] %}
+    <div class="col-6 col-xl-3">
+        <div class="card stat-card market-{{ symbol | lower }}">
             <div class="card-body">
-                <div class="d-flex">
-                    <div class="mt-2">
-                        <h6>{{ symbol }}</h6>
-                        <h2 class="mb-0" id="{{symbol}}-watch-price"></h2>
-                    </div>
+                <div class="market-card-top">
+                    <span class="market-symbol"><span class="market-dot"></span>{{ symbol }}</span>
+                    <span class="market-label">MARKET</span>
                 </div>
-                <span class="text-muted footnote" id="{{symbol}}-watch-footnote"></span>
+                <div class="watch-price" id="{{symbol}}-watch-price"></div>
+                <div class="footnote" id="{{symbol}}-watch-footnote"></div>
             </div>
         </div>
     </div>
@@ -25,38 +24,32 @@
 </div>
 
 <div class="row">
-    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-12">
+    <div class="col-12">
         <div class="card">
             <div class="card-header"><span class="card-title">Portfolio Value</span></div>
             <div id="portfolio-info">
-                <span id="current-equity" class="mb-0 number-font"></span>
+                <span id="current-equity" class="number-font"></span>
                 <span id="current-change" class="number-font"></span>
             </div>
-            <div class="card-body" id="button-card">
-                <div class="button-title"><i class="uil uil-graph-bar"></i> COMPARE</div>
-                <div class="row">
-                    <div class="button-row compare-row">
+            <div class="chart-controls">
+                <div class="control-group">
+                    <div class="button-title"><i class="uil uil-graph-bar"></i> Compare</div>
+                    <div class="button-row">
                         {% for symbol in ['qqq', 'spy', 'tqqq'] %}
-                        <span class="btn my-btn-outline my-btn-{{symbol}}"  id="btn-{{symbol}}">{{ symbol | upper }}</span>
+                        <span class="btn my-btn-outline my-btn-{{symbol}}" id="btn-{{symbol}}">{{ symbol | upper }}</span>
                         {% endfor %}
                     </div>
                 </div>
-                <div class="button-title"><i class="uil uil-clock"></i> TIMEFRAME</div>
-                <div class="row button-row">
-                    {% for timeframe in ['1d', '1w', '2w', '1m', '6m', 'ytd', '1y', '5y'] %}
-                    {% if loop.index0 % 4 == 0 %}
-                    <div class="col-sm-12 col-md-12 col-lg-6 col-xl-6 button-col">
-                    {% endif %}
-                        <span class="btn my-btn-outline my-btn-primary" id="btn-{{timeframe}}">
-                            {{timeframe[0] + ' ' + timeframe[1] | upper if timeframe != 'ytd' else timeframe | upper}}
-                        </span>
-                    {% if loop.index0 % 4 == 3 %}
+                <div class="control-group">
+                    <div class="button-title"><i class="uil uil-clock"></i> Timeframe</div>
+                    <div class="button-row timeframe-row">
+                        {% for timeframe in ['1d', '1w', '2w', '1m', '6m', 'ytd', '1y', '5y'] %}
+                        <span class="btn my-btn-outline my-btn-primary" id="btn-{{timeframe}}">{{ timeframe | upper }}</span>
+                        {% endfor %}
                     </div>
-                    {% endif %}
-                    {% endfor %}
                 </div>
             </div>
-            <div id="chart-container">
+            <div class="chart-container" id="chart-container">
                 <canvas id="portfolio-graph"></canvas>
             </div>
         </div>
@@ -64,10 +57,10 @@
 </div>
 
 <div class="row">
-    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-6">
+    <div class="col-12 col-xl-6">
         <div class="card fix-height-card">
             <div class="card-header"><span class="card-title">Recent Orders</span></div>
-            <div class="card-body">
+            <div class="card-body overflow-auto">
                 <table class="table">
                     <thead>
                         <tr>
@@ -91,10 +84,10 @@
         </div>
     </div>
 
-    <div class="col-lg-12 col-md-12 col-sm-12 col-xl-6">
+    <div class="col-12 col-xl-6">
         <div class="card fix-height-card">
             <div class="card-header"><span class="card-title">Current Positions</span></div>
-            <div class="card-body">
+            <div class="card-body overflow-auto">
                 <table class="table">
                     <thead>
                         <tr>

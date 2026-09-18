@@ -1,43 +1,53 @@
-.card .card-body .lg-show {
-    display: none;
+.table .proc-col {
+    color: var(--muted);
+    font-size: 12.5px;
 }
 
-@media (max-width: 1500px) {
-    .card .card-body table {
-        font-size: 13px;
-    }
+.dash-content .pagination {
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 20px 0 8px;
+}
 
-    .badge-shape {
-        font-size: 10px;
-    }
+.dash-content .pagination .page-link {
+    min-width: 38px;
+    padding: 0.4rem 0.8rem;
+    margin-left: 0;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    color: var(--text);
+    background-color: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: none;
+}
 
-    .dash-content .pagination .page-link {
-        font-size: 13px;
-    }
+.dash-content .pagination .page-link:hover {
+    color: var(--accent-dark);
+    background-color: var(--accent-soft);
+    text-decoration: none;
+}
 
-    .card .card-body .lg-show {
-        display: inline;
-    }
+.dash-content .pagination .page-item.active .page-link {
+    color: #fff;
+    background-color: var(--accent);
+    border-color: var(--accent);
+}
 
-    .card .card-body .lg-hidden {
+.dash-content .pagination .page-item.disabled .page-link {
+    color: #9db0c4;
+    background-color: transparent;
+    border-color: transparent;
+}
+
+/* On phones only show Previous / current page / Next */
+@media (max-width: 575.98px) {
+    .dash-content .pagination .page-item:not(.active):not(:first-child):not(:last-child) {
         display: none;
     }
-}
-
-@media (max-width: 800px) {
-    .card .card-body table {
-        font-size: 8px;
-    }
-
-    .card .card-body table .proc-col {
-        font-size: 7px;
-    }
-
-    .badge-shape {
-        font-size: 6px;
-    }
 
     .dash-content .pagination .page-link {
-        font-size: 9px;
+        padding: 0.5rem 1rem;
     }
 }

@@ -1,19 +1,69 @@
 {% extends "base.html" %}
 
+{% block header %}
+<style>
+    .access-wrap {
+        display: flex;
+        justify-content: center;
+        padding-top: 8vh;
+    }
+
+    .access-card {
+        width: 100%;
+        max-width: 400px;
+    }
+
+    .dash-content .access-card .card-body {
+        padding: 24px;
+    }
+
+    .access-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        margin-bottom: 14px;
+        font-size: 24px;
+        color: var(--accent-dark);
+        background-color: var(--accent-soft);
+        border-radius: 14px;
+    }
+
+    .access-card .access-hint {
+        margin: 4px 0 18px;
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .access-card .btn-access {
+        width: 100%;
+        height: 42px;
+        font-weight: 600;
+        color: #fff;
+        background-color: var(--accent);
+        border-color: var(--accent);
+        border-radius: var(--radius-sm);
+    }
+
+    .access-card .btn-access:hover {
+        background-color: var(--accent-dark);
+        border-color: var(--accent-dark);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="form-group">
-    <form method="GET">
+<div class="access-wrap">
+    <form method="GET" class="access-card">
         <div class="card">
-            <div class="card-header">
-                <h5>Enter Access Code</h5>
-            </div>
             <div class="card-body">
-                <div style="margin-top:0.5em;">
-                    <input type="text" class="form-control" id="access" name="access" placeholder="Access Code">
-                </div>
-                <div style="margin-top:1em;text-align:center;">
-                    <input type="submit" class="btn btn-primary" value="Enter">
-                </div>
+                <div class="access-icon"><i class="uil uil-lock"></i></div>
+                <h5 class="mb-0 fw-semibold">Enter Access Code</h5>
+                <p class="access-hint">Enter your access code to continue.</p>
+                <input type="text" class="form-control mb-3" id="access" name="access" placeholder="Access Code"
+                       autocomplete="off" autofocus>
+                <button type="submit" class="btn btn-access">Enter</button>
             </div>
         </div>
     </form>

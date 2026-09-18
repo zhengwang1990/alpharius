@@ -32,59 +32,47 @@
     </div>
 
     <div class="card-body">
-        <table class="table margin-table">
-            <tbody>
-            <tr>
-                <td>
-                    <span class="margin-span" style="color:#ed594e">MISS: {{miss}}</span>
-                    <span class="margin-span" style="color:#fc791c">EXTRA: {{extra}}</span>
-                    <span class="margin-span" style="color:#c4c402">DIFF: {{time_diff}}</span>
-                    <span style="color:#04802f">COMMON: {{comm}}</span>
-                    <br>
-                    <span style="color:#807f7d">MISMATCH RATE: {{rate}}</span>
-                </td>
-            </tr>
-            </tbody>
-        </table>
-        {% for table in tables %}
-        <table class="table table-bordered margin-table">
-            <thead>
-            <tr>
-                <th colspan="2" class="diff_center">{{ table['date'] }}</th>
-            </tr>
-            <tr>
-                <th class="diff_center diff_half">BACKTEST</th>
-                <th class="diff_center diff_half">TRADE</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr>
-                {% for t in ['backtest', 'trade'] %}
-                <td>
-                    <table class="table">
-                        <thead>
-                        <tr>
-                            <th scope="col">
-                                <span class="xs-hidden">SYMBOL</span>
-                                <span class="xs-show">SYMB</span>
-                            </th>
-                            <th scope="col" class="xs-hidden">PROCESSOR</th>
-                            <th scope="col" class="lg-hidden">SIDE</th>
-                            <th scope="col">ENTRY TIME</th>
-                            <th scope="col">EXIT TIME</th>
-                            <th scope="col"><span class="lg-hidden">PROFIT & LOSS</span></th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {{ table[t] | safe }}
-                        </tbody>
-                    </table>
-                </td>
-                {% endfor %}
-            </tr>
-            </tbody>
-        </table>
-        {% endfor %}
+        <div class="diff-summary">
+            <div class="diff-stat stat-miss"><span class="diff-label">MISS</span><span class="diff-value">{{ miss }}</span></div>
+            <div class="diff-stat stat-extra"><span class="diff-label">EXTRA</span><span class="diff-value">{{ extra }}</span></div>
+            <div class="diff-stat stat-diff"><span class="diff-label">DIFF</span><span class="diff-value">{{ time_diff }}</span></div>
+            <div class="diff-stat stat-comm"><span class="diff-label">COMMON</span><span class="diff-value">{{ comm }}</span></div>
+            <div class="diff-stat stat-rate"><span class="diff-label">MISMATCH RATE</span><span class="diff-value">{{ rate }}</span></div>
+        </div>
+        <div class="diff-body">
+            {% for table in tables %}
+            <div class="diff-day">
+                <div class="diff-date">{{ table['date'] }}</div>
+                <div class="diff-cols">
+                    {% for t in ['backtest', 'trade'] %}
+                    <div class="diff-col">
+                        <div class="diff-col-title">{{ t | upper }}</div>
+                        <div class="overflow-auto">
+                            <table class="table">
+                                <thead>
+                                <tr>
+                                    <th scope="col">
+                                        <span class="xs-hidden">SYMBOL</span>
+                                        <span class="xs-show">SYMB</span>
+                                    </th>
+                                    <th scope="col" class="xs-hidden">PROCESSOR</th>
+                                    <th scope="col" class="lg-hidden">SIDE</th>
+                                    <th scope="col">ENTRY TIME</th>
+                                    <th scope="col">EXIT TIME</th>
+                                    <th scope="col"><span class="lg-hidden">PROFIT & LOSS</span></th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {{ table[t] | safe }}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
     </div>
 </div>
 {% endblock %}

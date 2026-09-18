@@ -17,14 +17,14 @@
                   <span class="input-group-text"><i class="uil uil-calendar-alt"></i></span>
                   <input type="text" class="form-control right-most-input" id="intraday-datepicker" placeholder="DATE">
               </div>
-         </span><span class="padding-span"></span><span class="inline-span">
+         </span><span class="padding-span"></span><span class="inline-span symbol-span">
               <div class="input-group">
                   <span class="input-group-text"><i class="uil uil-letter-english-a"></i></span>
                   <input type="text" class="form-control symbol-input" placeholder="SYMBOL" id="intraday-symbol-input">
               </div>
-         </span><button type="button" class="btn my-btn-outline my-btn-primary" id="intraday-chart-btn">
+         </span><button type="button" class="btn my-btn-outline my-btn-primary btn-query" id="intraday-chart-btn">
             <span id="query-context"><span class="query-text">QUERY</span><span class="query-icon"><i class="uil uil-search"></i></span></span>
-            <span id="sync-context" class="hidden"><span class="query-text">SYNC</span><span class="query-icon"><i class="uil uil-sync"></i></span>
+            <span id="sync-context" class="hidden"><span class="query-text">SYNC</span><span class="query-icon"><i class="uil uil-sync"></i></span></span>
         </button>
     </div>
     <div class="hidden" id="history-container"></div>
@@ -38,19 +38,19 @@
 <div class="card" id="daily-card">
     <div class="card-header"><span class="card-title">Daily Chart</span></div>
     <div class="select-container">
-         <span class="inline-span">
+         <span class="inline-span range-span">
               <div class="input-group" id="daily-datepicker">
                   <span class="input-group-text"><i class="uil uil-calendar-alt"></i></span>
                   <input type="text" class="form-control" name="start" placeholder="START" id="interday-start-input">
                   <span class="input-group-text" id="input-to"><i class="uil uil-angle-double-right"></i></span>
                   <input type="text" class="form-control right-most-input" name="end" placeholder="END" id="interday-end-input">
               </div>
-         </span><span class="padding-span"></span><span class="inline-span">
+         </span><span class="padding-span"></span><span class="inline-span symbol-span">
               <div class="input-group">
                   <span class="input-group-text"><i class="uil uil-letter-english-a"></i></span>
                   <input type="text" class="form-control symbol-input" placeholder="SYMBOL" id="daily-symbol-input">
               </div>
-         </span><button type="button" class="btn my-btn-outline my-btn-primary" id="daily-chart-btn">
+         </span><button type="button" class="btn my-btn-outline my-btn-primary btn-query" id="daily-chart-btn">
             <span class="query-text">QUERY</span><span class="query-icon"><i class="uil uil-search"></i></span>
         </button>
     </div>

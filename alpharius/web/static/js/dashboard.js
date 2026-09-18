@@ -13,7 +13,7 @@ var watch = INIT_WATCH;
 var orders = INIT_ORDERS;
 var positions = INIT_POSITIONS;
 const graph_timeframes = ["1d", "1w", "2w", "1m", "6m", "ytd", "1y", "5y"];
-const watch_symbols = ["QQQ", "SPY", "DIA", "TQQQ"];
+const watch_symbols = ["QQQ", "TQQQ", "SPY", "DIA"];
 const compare_symbols = ["qqq", "spy", "tqqq"];
 
 const graph_point_radius = {

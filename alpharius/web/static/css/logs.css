@@ -1,90 +1,125 @@
 .table {
-    font-family: monospace;
+    font-family: var(--mono);
 }
 
-.table .message-cells {
+.dash-content .card-body .table .message-cells {
     white-space: pre-wrap;
-    padding-left: 0rem;
+    word-break: break-word;
+    padding-left: 0.25rem;
+    line-height: 1.5;
 }
 
-.table .fit-content-cells {
+.dash-content .card-body .table .fit-content-cells {
     width: 1%;
     white-space: nowrap;
     padding-right: 1rem;
-    padding-left: 0rem;
 }
 
-.table .type-cells {
+.dash-content .card-body .table .type-cells {
     text-align: center;
 }
 
+.log-card .table > :not(caption) > * > * {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+    vertical-align: top;
+    font-size: 12.5px;
+}
+
+.log-card .table tbody tr.log-entry-error {
+    background-color: rgba(225, 29, 72, 0.045);
+}
+
+.log-card .table tbody tr.log-entry-warning {
+    background-color: rgba(245, 158, 11, 0.06);
+}
+
+.log-card .badge-shape {
+    font-weight: 400;
+    letter-spacing: 0.02em;
+}
+
 .badge-debug {
-    color: #6b696e;
-    background-color: rgba(170, 169, 171, 0.2);
+    color: #6b7f94;
+    background-color: rgba(100, 128, 155, 0.14);
 }
 
 .badge-info {
-    color: #0967b5;
-    background-color: rgba(83, 145, 237, 0.1);
+    color: #0369a1;
+    background-color: rgba(2, 132, 199, 0.11);
 }
 
 .badge-warning {
-    color: #f79a05;
-    background-color: rgba(255, 162, 43, 0.1);
+    color: #b45309;
+    background-color: rgba(245, 158, 11, 0.16);
 }
 
 .badge-error {
-    color: #d93d21;
-    background-color: rgba(250, 193, 182, 0.3);
-}
-
-.card .card-body h6 {
-    margin-bottom: 15px;
-}
-
-.dash-content .card .datepicker-picker {
-    font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", "Helvetica", "Arial", sans-serif
-}
-
-#nav-buttons {
-    position: fixed;
-    bottom: 25px;
-    right: 25px;
-    z-index: 99;
-    display: flex;
-}
-
-.btn-nav {
-    display: block;
-    margin-left: 10px;
-    --bs-btn-color: #6f706f;
-    --bs-btn-border-color: #6f706f;
-    --bs-btn-bg: rgba(111, 111, 111, 0.05);
-    --bs-btn-hover-bg: rgba(111, 111, 111, 0.05);
+    color: #be123c;
+    background-color: rgba(225, 29, 72, 0.12);
 }
 
 #datepicker {
-    border-top-right-radius: 0.375rem;
-    border-bottom-right-radius: 0.375rem;
+    border-top-right-radius: var(--radius-sm);
+    border-bottom-right-radius: var(--radius-sm);
 }
 
-@media (max-width: 800px) {
-    .dash-content .log-card .card-body {
-        padding: 10px 10px 10px 10px;
+.dash-content .card .datepicker-picker {
+    font-family: var(--font);
+}
+
+/* Floating scroll buttons */
+#nav-buttons {
+    position: fixed;
+    right: 20px;
+    bottom: 24px;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    font-size: 22px;
+    color: var(--muted);
+    background-color: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    box-shadow: 0 4px 14px rgba(15, 42, 68, 0.12);
+}
+
+.btn-nav:hover,
+.btn-nav:focus {
+    color: var(--accent-dark);
+    background-color: var(--accent-soft);
+    border-color: var(--border);
+}
+
+@media (max-width: 991.98px) {
+    #nav-buttons {
+        right: 14px;
+        bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 14px);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .log-card .table > :not(caption) > * > * {
+        font-size: 11.5px;
     }
 
-    .btn, .btn-lg {
-        --bs-btn-padding-y: 0.3rem;
-        --bs-btn-padding-x: 0.7rem;
-        --bs-btn-font-size: 1.25rem;
-        --bs-btn-border-radius: 0.5rem;
-    }
-
-    .card .card-body .table {
-        font-size: 11px;
-    }
-
-    .table .fit-content-cells {
+    .dash-content .card-body .table .fit-content-cells {
         padding-right: 0.5rem;
+    }
+
+    .btn-nav {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
     }
 }

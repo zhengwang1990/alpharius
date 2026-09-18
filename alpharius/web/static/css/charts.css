@@ -1,236 +1,157 @@
 .dash-content .card .chart-container {
-    display: block;
-    position: relative;
-    margin: auto;
-    padding: 0 15px 15px 15px;
-    height: 650px;
-    width: 100%;
+    height: 620px;
+    padding: 8px 16px 16px;
 }
 
 .dash-content .card .alert {
-    margin: 25px 15px 25px 15px;
-}
-
-.dash-content .card .datepicker-picker {
-    font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", "Helvetica", "Arial", sans-serif
-}
-
-.dash-content .card .select-container .input-group .right-most-input {
-    border-top-right-radius: 0.375rem !important;
-    border-bottom-right-radius: 0.375rem !important;
-}
-
-.dash-content .select-container {
-    padding: 25px 15px 10px 15px;
-}
-
-.dash-content .input-group .form-control {
-    width: 250px;
-    font-size: 15px;
-}
-
-.dash-content .input-group .symbol-input {
-    text-transform: uppercase;
-}
-
-.dash-content .btn {
-    height: 36px;
-    margin-left: 20px;
-    margin-bottom: 4px;
-    font-size: 15px;
-}
-
-.dash-content .card .inline-span {
-    display: inline-block;
-}
-
-.dash-content .card .padding-span {
-    padding-left: 20px;
+    margin: 4px 16px 16px;
+    font-size: 13.5px;
+    border-radius: var(--radius-sm);
 }
 
 .dash-content .card .chart-name {
-    padding: 10px 0 10px 15px;
-    font-weight: 500;
+    padding: 4px 16px 2px;
+    font-size: 15px;
+    font-weight: 600;
 }
 
-* { box-sizing: border-box; }
-body {
-    font: 16px Arial;
+.dash-content .card .datepicker-picker {
+    font-family: var(--font);
 }
-.autocomplete {
-    /*the container must be positioned relative:*/
-    position: relative;
-    display: inline-block;
+
+.select-container .input-group .right-most-input {
+    border-top-right-radius: var(--radius-sm) !important;
+    border-bottom-right-radius: var(--radius-sm) !important;
 }
-input {
-    border: 1px solid transparent;
-    padding: 10px;
-    font-size: 16px;
+
+.select-container .input-group .symbol-input {
+    text-transform: uppercase;
 }
-input[type=text] {
-    width: 100%;
+
+.select-container .range-span {
+    flex-basis: 380px;
+    max-width: 420px;
 }
-input[type=submit] {
-    background-color: DodgerBlue;
-    color: #fff;
+
+.select-container .symbol-span {
+    flex-basis: 220px;
 }
+
+#input-to {
+    min-width: 34px;
+}
+
+/* Query / sync button */
+.dash-content .card .btn.btn-query {
+    --bs-btn-padding-x: 1.1rem;
+    --bs-btn-color: #fff;
+    --bs-btn-bg: var(--accent);
+    --bs-btn-border-color: var(--accent);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: var(--accent-dark);
+    --bs-btn-hover-border-color: var(--accent-dark);
+    --bs-btn-active-bg: var(--accent-dark);
+    --bs-btn-active-border-color: var(--accent-dark);
+    height: 40px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    border-radius: var(--radius-sm);
+}
+
+.btn-query .query-text {
+    margin-right: 6px;
+}
+
+.btn-query .query-icon {
+    vertical-align: -1px;
+}
+
+/* Symbol autocomplete dropdown (created by charts.js) */
 .autocomplete-items {
     position: absolute;
-    border: 1px solid #d4d4d4;
-    border-bottom: none;
-    border-top: none;
-    z-index: 99;
-    /*position the autocomplete items to be the same width as the container:*/
-    top: 100%;
+    top: calc(100% + 4px);
     left: 42px;
     right: 0;
+    z-index: 99;
+    overflow: hidden;
+    font-size: 14px;
+    background-color: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 8px 24px rgba(15, 42, 68, 0.14);
 }
+
 .autocomplete-items div {
-    padding: 10px;
+    padding: 9px 14px;
     cursor: pointer;
-    background-color: #fff;
-    border-bottom: 1px solid #d4d4d4;
+    background-color: var(--panel);
+    border-bottom: 1px solid var(--border-soft);
 }
+
+.autocomplete-items div:last-child {
+    border-bottom: 0;
+}
+
 .autocomplete-items div:hover {
-    /*when hovering an item:*/
-    background-color: #e9e9e9;
+    background-color: var(--accent-soft);
 }
+
 .autocomplete-active {
-    /*when navigating through the items using the arrow keys:*/
-    background-color: DodgerBlue !important;
+    background-color: var(--accent) !important;
     color: #fff;
+}
+
+/* Recently viewed charts */
+.dash-content .card #history-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 0 16px 6px;
 }
 
 .dash-content .card .history-btn {
     --my-btn-color: rgb(20, 155, 120);
-    --my-btn-color-light: rgba(20, 155, 120, 0.6);
-    width: auto;
-    margin-left: 10px;
+    --bs-btn-padding-y: 0.25rem;
+    --bs-btn-font-size: 12px;
+    --bs-btn-border-radius: 999px;
 }
 
-.dash-content .card #history-container {
-    padding-left: 5px;
-}
-
-.dash-content .query-icon {
-    display: none;
-}
-
-@media (max-width: 1300px) {
-    .dash-content #daily-card .inline-span:nth-of-type(1) {
-        width: calc(66% - 45px);
-    }
-
-    .dash-content #daily-card .inline-span:nth-of-type(3) {
-        width: calc(33% - 45px);
-    }
-
-    .dash-content #daily-card .form-control {
-        width: calc(50% - 45px);
-    }
-
-    .dash-content .query-text {
-        display: none;
-    }
-    .dash-content .query-icon {
-        display: inline;
-    }
-}
-
-@media (max-width: 1000px) {
+@media (max-width: 991.98px) {
     .dash-content .card .chart-container {
-        height: 450px;
+        height: 460px;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .dash-content .card .chart-container {
+        height: 360px;
     }
 
-    .dash-content .card .padding-span {
-        padding-left: 10px;
+    .select-container .range-span,
+    .select-container .symbol-span {
+        max-width: none;
     }
 
-    .dash-content .card .inline-span {
-        width: calc(50% - 30px);
+    .select-container .symbol-span {
+        flex: 1 1 0;
+        min-width: 140px;
     }
 
-    .dash-content .input-group .form-control {
-        font-size: 0.6rem;
-        width: calc(100% - 200px);
+    .dash-content .card .btn.btn-query {
+        --bs-btn-padding-x: 0.9rem;
     }
 
-    .dash-content .btn {
-        margin-left: 10px;
-        margin-bottom: -3px;
-        width: 40px;
-        height: 28px;
-        font-size: 0.6rem;
-    }
-
-    .autocomplete-items {
-        font-size: 0.7rem;
-    }
-
-    .autocomplete-items {
-        left: 29px;
-    }
-
-    .alert {
-        font-size: 11px;
-    }
-
-    .dash-content .card .input-group-text {
-        font-size: 0.6rem;
-    }
-
-    .dash-content .card .input-group-text {
-        font-size: 0.6rem;
-    }
-
-    .dash-content .card #input-to {
-        font-size: 0.5rem;
-    }
-
-    .dash-content #daily-card .inline-span:nth-of-type(1) {
-        width: calc(66% - 24px);
-    }
-
-    .dash-content #daily-card .inline-span:nth-of-type(3) {
-        width: calc(33% - 24px);
-    }
-
-    .dash-content #daily-card .form-control {
-        font-size: 0.5rem;
-        width: calc(50% - 45px);
-    }
-
-    .dash-content #daily-card .padding-span {
-        padding-left: 5px;
-    }
-
-    .dash-content #daily-card .input-group-text {
-        padding: 0.25rem 0.3rem;
-    }
-
-    .dash-content #daily-card .btn {
-        height: 26px;
-        margin-left: 5px;
-    }
-
-    .form-control {
-        padding: 0.375rem 0.5rem;
-    }
-
-    .dash-content #daily-card .autocomplete-items {
-        left: 1.32rem;
+    .dash-content .card .alert {
+        margin: 4px 10px 10px;
+        font-size: 13px;
     }
 
     .dash-content .card .chart-name {
-        font-size: 12px;
-    }
-
-    .dash-content .card .history-btn {
-        margin-left: 5px;
-        margin-bottom: 3px;
+        padding: 4px 12px 2px;
+        font-size: 14px;
     }
 
     .dash-content .card #history-container {
-        padding-left: 10px;
+        padding: 0 12px 6px;
     }
 }
