@@ -8,14 +8,14 @@ import smtplib
 import time
 from email.mime import image, multipart, text
 
-import alpaca_trade_api as tradeapi
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tenacity
+from alpaca import trading
 
 from alpharius import data
-from alpharius.utils import TIME_ZONE, get_today
+from alpharius.utils import TIME_ZONE, get_day_range, get_portfolio_history, get_today, get_trading_client
 
 _SMTP_HOST = 'smtp.163.com'
 _SMTP_PORT = 25
@@ -35,7 +35,7 @@ class EmailSender:
         self._client = self._create_client(username, password)
         self._sender = f'Stock Trading System <{username}@163.com>'
         self._receiver = receiver
-        self._alpaca = tradeapi.REST()
+        self._alpaca = get_trading_client()
 
     @tenacity.retry(stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_exponential(), reraise=True)
     def _create_client(self, username: str, password: str) -> smtplib.SMTP:
@@ -65,13 +65,12 @@ class EmailSender:
             self._logger.info('Sending email')
         message = self._create_message('Summary', 'Trade summary of the day')
         today = get_today()
-        alpaca = tradeapi.REST()
-        calendar = alpaca.get_calendar(
-            start=(today - datetime.timedelta(days=40)).strftime('%F'), end=today.strftime('%F')
+        calendar = self._alpaca.get_calendar(
+            trading.GetCalendarRequest(start=(today - datetime.timedelta(days=40)).date(), end=today.date())
         )
         market_dates = [market_day.date for market_day in calendar]
         positions_html = ''
-        positions = self._alpaca.list_positions()
+        positions = self._alpaca.get_all_positions()
         for position in positions:
             change_today = float(position.change_today)
             gain = float(position.unrealized_plpc)
@@ -115,9 +114,10 @@ class EmailSender:
         account_equity = float(account.equity) - cash_reserve
         account_cash = float(account.cash) - cash_reserve
         history_length = 10
-        history = self._alpaca.get_portfolio_history(
-            date_start=market_dates[-history_length].strftime('%F'),
-            date_end=market_dates[-2].strftime('%F'),
+        history = get_portfolio_history(
+            self._alpaca,
+            start=get_day_range(market_dates[-history_length])[0],
+            end=get_day_range(market_dates[-2])[1],
             timeframe='1D',
         )
         for i in range(len(history.equity)):

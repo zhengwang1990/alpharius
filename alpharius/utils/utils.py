@@ -159,6 +159,44 @@ def get_trading_client() -> trading.TradingClient:
     return trading.TradingClient(api_key, secret_key)
 
 
+@dataclass(slots=True)
+class PortfolioHistory:
+    timestamp: list[int]
+    # Equity is None when the account has no data for that time window.
+    equity: list[float | None]
+
+
+def get_portfolio_history(
+    trading_client: trading.TradingClient,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+    timeframe: str,
+    extended_hours: bool | None = None,
+) -> PortfolioHistory:
+    """Gets portfolio history of the account.
+
+    Alpaca returns null for windows without data, which alpaca-py fails to parse into its PortfolioHistory model.
+    So the raw response is read here to keep those windows as None.
+
+    params:
+      start: Start of the history. Must be timezone aware.
+      end: End of the history (inclusive). Must be timezone aware.
+      timeframe: Time window size of each data element, e.g. 5Min or 1D.
+      extended_hours: If extended hours are included. Only effective for timeframe less than 1D.
+    """
+    request = trading.GetPortfolioHistoryRequest(
+        start=start.to_pydatetime(), end=end.to_pydatetime(), timeframe=timeframe, extended_hours=extended_hours
+    )
+    response = trading_client.get('/account/portfolio/history', request.to_request_fields())
+    return PortfolioHistory(timestamp=response['timestamp'], equity=response['equity'])
+
+
+def get_day_range(day: datetime.date) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Gets the start (00:00:00) and the end (23:59:59) of a day in NY time."""
+    start = pd.Timestamp(day).tz_localize(TIME_ZONE)
+    return start, start + datetime.timedelta(days=1, seconds=-1)
+
+
 @functools.lru_cache
 def get_all_symbols() -> list[str]:
     """Gets all symbols that can be traded."""

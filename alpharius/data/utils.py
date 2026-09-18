@@ -52,7 +52,7 @@ def _load_cached_symbol(
     return df
 
 
-def get_default_data_client():
+def get_default_data_client() -> DataClient:
     return FmpClient()
 
 

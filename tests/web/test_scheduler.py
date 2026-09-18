@@ -81,10 +81,9 @@ def test_backtest(mocker, mock_trading_client):
 
 
 @pytest.mark.parametrize('method_name', ['backtest', '_trade_run', 'backfill', 'log_scan'])
-def test_email_send(mocker, method_name, mock_smtp, mock_alpaca, mock_trading_client, mock_engine):
+def test_email_send(mocker, method_name, mock_smtp, mock_trading_client, mock_engine):
     mocker.patch.object(image, 'MIMEImage', autospec=True)
     mocker.patch.object(multipart.MIMEMultipart, 'as_string', return_value='')
-    mocker.patch.object(mock_alpaca, 'get_calendar', side_effect=Exception())
     mocker.patch.object(mock_trading_client, 'get_calendar', side_effect=Exception())
     mocker.patch.object(mock_engine.conn, 'execute', side_effect=Exception())
     mocker.patch.object(time, 'sleep')

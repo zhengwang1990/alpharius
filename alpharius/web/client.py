@@ -8,10 +8,10 @@ import time
 from concurrent import futures
 from typing import Any
 
-import alpaca_trade_api as tradeapi
 import numpy as np
 import pandas as pd
 import tenacity
+from alpaca import trading
 from dateutil.relativedelta import relativedelta
 from flask import Flask
 
@@ -20,8 +20,11 @@ from alpharius.utils import (
     TIME_ZONE,
     construct_charts_link,
     get_colored_value,
+    get_day_range,
     get_latest_day,
+    get_portfolio_history,
     get_signed_percentage,
+    get_trading_client,
 )
 
 app = Flask(__name__)
@@ -60,13 +63,15 @@ def round_time(t: pd.Timestamp, time_fmt_with_year: bool):
 
 class Client:
     def __init__(self):
-        self._alpaca = tradeapi.REST()
-        self._data_client = data.FmpClient()
+        self._alpaca = get_trading_client()
+        self._data_client = data.get_default_data_client()
 
     def get_calendar(self):
         latest_day = get_latest_day()
         calendar = self._alpaca.get_calendar(
-            start=max((latest_day - relativedelta(years=5)).strftime('%F'), START_DATE), end=latest_day.strftime('%F')
+            trading.GetCalendarRequest(
+                start=max(latest_day - relativedelta(years=5), datetime.date.fromisoformat(START_DATE)), end=latest_day
+            )
         )
         return calendar
 
@@ -81,12 +86,12 @@ class Client:
         tasks = dict()
         with futures.ThreadPoolExecutor(max_workers=2) as pool:
             for start_index, timeframe in [(-1, '5Min'), (0, '1D')]:
-                extended_hours = True if start_index == -1 else False
+                extended_hours = start_index == -1
                 tasks[timeframe] = pool.submit(
-                    self._alpaca.get_portfolio_history,
-                    date_start=market_dates[start_index].strftime('%F'),
-                    date_end=market_dates[-1].strftime('%F'),
-                    period=None,
+                    get_portfolio_history,
+                    self._alpaca,
+                    start=get_day_range(market_dates[start_index])[0],
+                    end=get_day_range(market_dates[-1])[1],
                     timeframe=timeframe,
                     extended_hours=extended_hours,
                 )
@@ -248,18 +253,22 @@ class Client:
         start = time.time()
         result = []
         calendar = self.get_calendar()
-        orders = self._alpaca.list_orders(
-            status='closed', after=calendar[calendar_index - 1].date.strftime('%F'), direction='desc'
+        orders = self._alpaca.get_orders(
+            trading.GetOrdersRequest(
+                status=trading.QueryOrderStatus.CLOSED,
+                after=pd.Timestamp(calendar[calendar_index - 1].date, tz='UTC').to_pydatetime(),
+                direction=trading.Sort.DESC,
+            )
         )
         orders_used = [False] * len(orders)
-        positions = self._alpaca.list_positions()
+        positions = self._alpaca.get_all_positions()
         position_symbols: set[str] = {position.symbol for position in positions}
         cut_time = calendar[calendar_index].date
         for i in range(len(orders)):
             order = orders[i]
             if order.filled_at is None:
                 continue
-            filled_at = order.filled_at.tz_convert(TIME_ZONE)
+            filled_at = pd.Timestamp(order.filled_at).tz_convert(TIME_ZONE)
             if filled_at < pd.Timestamp(cut_time).tz_localize(TIME_ZONE):
                 break
             price = float(order.filled_avg_price)
@@ -267,7 +276,7 @@ class Client:
             rounded_filled_at = filled_at if filled_at.second < 30 else filled_at + datetime.timedelta(minutes=1)
             order_obj = {
                 'symbol': order.symbol,
-                'side': order.side,
+                'side': order.side.value,
                 'price': f'{price:.4g}',
                 'value': f'{price * qty:.2f}',
                 'link': construct_charts_link(
@@ -283,11 +292,11 @@ class Client:
                     prev_order = orders[j]
                     if prev_order.filled_at is None or prev_order.symbol != order.symbol:
                         continue
-                    prev_filled_at = prev_order.filled_at.tz_convert(TIME_ZONE)
+                    prev_filled_at = pd.Timestamp(prev_order.filled_at).tz_convert(TIME_ZONE)
                     if prev_filled_at < filled_at and prev_order.side != order.side:
                         entry_price = float(prev_order.filled_avg_price)
                         order_gl = price / entry_price - 1
-                        if prev_order.side == 'sell':
+                        if prev_order.side == trading.OrderSide.SELL:
                             order_gl *= -1
                         order_obj['entry_price'] = f'{entry_price:.4g}'
                         order_obj['entry_time'] = round_time(prev_filled_at, time_fmt_with_year)
@@ -304,7 +313,7 @@ class Client:
         result = []
         calendar = self.get_calendar()
         last_trading_day = calendar[-1].date.strftime('%F')
-        positions = self._alpaca.list_positions()
+        positions = self._alpaca.get_all_positions()
         infos = self.get_info_today([p.symbol for p in positions])
         for position in positions:
             symbol = position.symbol
@@ -379,8 +388,12 @@ class Client:
         start = time.time()
         calendar = self.get_calendar()
         end_date = calendar[-1].date.strftime('%F')
-        portfolio_result = self._alpaca.get_portfolio_history(
-            date_start=START_DATE, date_end=end_date, timeframe='1D', extended_hours=False
+        portfolio_result = get_portfolio_history(
+            self._alpaca,
+            start=get_day_range(datetime.date.fromisoformat(START_DATE))[0],
+            end=get_day_range(calendar[-1].date)[1],
+            timeframe='1D',
+            extended_hours=False,
         )
         cash_reserve = float(os.environ.get('CASH_RESERVE', 0))
         portfolio_dates = []
@@ -428,7 +441,7 @@ class Client:
             symbol_values = bars[symbol]['Close'].tolist()
             # In case symbol values do not include today's data
             if bars[symbol].index[-1].strftime('%F') != end_date:
-                symbol_values.append(self._alpaca.get_latest_trades([symbol])[symbol].p)
+                symbol_values.append(self._data_client.get_last_trades([symbol])[symbol])
             assert len(symbol_values) == len(portfolio_values), f'Symbol {symbol} has a different length'
             result['values'].append(symbol_values[start_index:])
         app.logger.info('Time cost for get_daily_prices: [%.2fs]', time.time() - start)
@@ -489,5 +502,7 @@ class Client:
 
     @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_all_symbols(self):
-        assets = self._alpaca.list_assets()
+        assets = self._alpaca.get_all_assets(
+            trading.GetAssetsRequest(status=trading.AssetStatus.ACTIVE, asset_class=trading.AssetClass.US_EQUITY)
+        )
         return sorted({asset.symbol for asset in assets if re.match('^[A-Z]*$', asset.symbol)})
