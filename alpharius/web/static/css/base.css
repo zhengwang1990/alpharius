@@ -42,8 +42,6 @@
 
 html {
     -webkit-text-size-adjust: 100%;
-    /* no rubber-band overscroll, which drags the fixed bottom bar off the edge */
-    overscroll-behavior-y: none;
 }
 
 body {
