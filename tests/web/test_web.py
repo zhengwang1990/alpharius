@@ -1,11 +1,14 @@
+import os
+import re
 import textwrap
 import time
 
+import flask
 import pandas as pd
 import pytest
 
 from alpharius.utils import get_current_time
-from alpharius.web import scheduler, web
+from alpharius.web import create_app, scheduler, web
 
 
 @pytest.mark.parametrize('route', ['/', '/dashboard_data'])
@@ -322,3 +325,27 @@ def test_handle_exception(client, mocker):
     resp = client.get('/')
     assert 'fake test error' in resp.text
     assert resp.status_code != 200
+
+
+def test_static_urls_are_versioned_by_content(secret, tmp_path):
+    css = tmp_path / 'a.css'
+    css.write_text('body { color: red; }')
+
+    def url(filename='a.css'):
+        # A new app per call stands for a server restart, which is when files can have changed
+        app = create_app({'TESTING': True})
+        app.static_folder = str(tmp_path)
+        with app.test_request_context():
+            return flask.url_for('static', filename=filename)
+
+    first = url()
+    assert re.fullmatch(r'/static/a\.css\?v=[0-9a-f]{10}', first)
+
+    # A new mtime with identical content (what a deploy does) keeps the URL, so browsers keep their cache
+    os.utime(css, (time.time() + 3600, time.time() + 3600))
+    assert url() == first
+
+    css.write_text('body { color: tan; }')
+    assert url() != first
+
+    assert url('missing.css') == '/static/missing.css'

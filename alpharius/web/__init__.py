@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import re
@@ -44,6 +45,23 @@ def create_app(test_config=None):
 
     if test_config:
         app.config.from_mapping(test_config)
+
+    # Content hash per static file. Computed once: files don't change while the server runs.
+    static_hashes: dict[str, str] = {}
+
+    @app.url_defaults
+    def add_static_version(endpoint, values):
+        filename = values.get('filename')
+        if endpoint != 'static' or not filename or 'v' in values:
+            return
+        path = os.path.join(app.static_folder, filename)
+        if path not in static_hashes:
+            try:
+                with open(path, 'rb') as f:
+                    static_hashes[path] = hashlib.md5(f.read(), usedforsecurity=False).hexdigest()[:10]
+            except OSError:
+                return
+        values['v'] = static_hashes[path]
 
     app.logger.setLevel(logging.INFO)
     app.register_blueprint(web.bp)
