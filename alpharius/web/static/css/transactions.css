@@ -52,12 +52,6 @@
     }
 }
 
-.table td.empty-row {
-    padding: 28px 0;
-    text-align: center;
-    color: var(--muted);
-}
-
 /* Clear (x) button inside the date box */
 #select-container .input-group {
     position: relative;

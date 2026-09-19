@@ -23,3 +23,13 @@
         height: 260px;
     }
 }
+
+/* Time range select in a card header */
+.card .card-header .range-select {
+    width: auto;
+    height: 30px;
+    margin-left: auto;
+    padding: 0.15rem 2rem 0.15rem 0.7rem;
+    font-size: 13px;
+    font-weight: 500;
+}

@@ -187,94 +187,80 @@ def _shift_to_last(arr, target_value):
             break
 
 
+# Time ranges of the profit and slippage tables: name -> days back from today (None is all history)
+STATS_RANGES = {'3M': 90, '6M': 182, '1Y': 365, 'ALL': None}
+DEFAULT_STATS_RANGE = '3M'
+_STAT_KEYS = ['gl', 'cnt', 'win_cnt', 'slip', 'slip_pct_acc', 'slip_cnt', 'cash_flow']
+_SLIPPAGE_KEYS = {'slip', 'slip_pct_acc', 'slip_cnt'}
+
+
+def _format_stat(processor: str, stat: dict) -> dict:
+    win_rate = stat['win_cnt'] / stat['cnt'] if stat['cnt'] > 0 else None
+    win_rate_ci = compute_bernoulli_ci95(win_rate, stat['cnt']) if win_rate else None
+    has_slippage = processor != 'UNKNOWN'
+    return {
+        'processor': processor,
+        'cnt': f'{stat["cnt"]:,}',
+        'gl': get_colored_value(f'{stat["gl"]:,.2f}', 'green' if stat['gl'] >= 0 else 'red'),
+        'win_rate': f'{win_rate * 100:.2f}%' if win_rate is not None else 'N/A',
+        'win_rate_ci': f'&plusmn; {win_rate_ci * 100:.2f}%' if win_rate_ci else '',
+        'slip': get_colored_value(f'{stat["slip"]:,.2f}', 'green' if stat['slip'] >= 0 else 'red')
+        if has_slippage
+        else 'N/A',
+        'avg_slip_pct': get_signed_percentage(stat['slip_pct_acc'] / stat['slip_cnt'])
+        if has_slippage and stat['slip_cnt'] > 0
+        else 'N/A',
+    }
+
+
 def _get_stats(aggs: list[Aggregation]):
-    stats = dict()
-    transaction_cnt = []
-    cash_flows = []
-    three_month_ago = (get_today() - datetime.timedelta(days=90)).date()
+    """Gets per-processor stats and pie chart cash flows for every range in STATS_RANGES."""
+    today = get_today().date()
+    cutoffs = {name: today - datetime.timedelta(days=days) if days else None for name, days in STATS_RANGES.items()}
+    processors = sorted({agg.processor for agg in aggs})
+    # Every processor starts at zero in every range, so a processor with nothing traded in one still sums cleanly
+    sums = {name: {processor: dict.fromkeys(_STAT_KEYS, 0) for processor in processors} for name in STATS_RANGES}
     for agg in aggs:
-        processor = agg.processor
-        if processor not in stats:
-            stats[processor] = {
-                'gl': 0,
-                'gl_pct_acc': 0,
-                'cnt': 0,
-                'win_cnt': 0,
-                'slip': 0,
-                'slip_pct_acc': 0,
-                'slip_cnt': 0,
-                'cash_flow': 0,
-                'gl_3m': 0,
-                'win_cnt_3m': 0,
-                'cnt_3m': 0,
-                'slip_3m': 0,
-                'slip_pct_acc_3m': 0,
-                'slip_cnt_3m': 0,
-            }
-        stats[processor]['gl'] += agg.gl
-        stats[processor]['cnt'] += agg.count
-        stats[processor]['win_cnt'] += agg.win_count
-        stats[processor]['slip'] += agg.slippage
-        stats[processor]['cash_flow'] += agg.cash_flow
-        if agg.date >= three_month_ago:
-            stats[processor]['gl_3m'] += agg.gl
-            stats[processor]['cnt_3m'] += agg.count
-            stats[processor]['win_cnt_3m'] += agg.win_count
-            stats[processor]['slip_3m'] += agg.slippage
-        if agg.slippage_count > 0:
-            stats[processor]['slip_pct_acc'] += agg.avg_slippage_pct * agg.slippage_count
-            stats[processor]['slip_cnt'] += agg.slippage_count
-            if agg.date >= three_month_ago:
-                stats[processor]['slip_pct_acc_3m'] += agg.avg_slippage_pct * agg.slippage_count
-                stats[processor]['slip_cnt_3m'] += agg.slippage_count
-
-    total_stats = dict()
-    for processor, stat in stats.items():
-        transaction_cnt.append({'processor': processor, 'cnt': stat['cnt']})
-        cash_flows.append({'processor': processor, 'cash_flow': int(stat['cash_flow'])})
-        for k, v in stat.items():
-            if processor == 'UNKNOWN' and k in ['slip', 'slip_pct_acc', 'slip_cnt']:
+        for name, cutoff in cutoffs.items():
+            if cutoff is not None and agg.date < cutoff:
                 continue
-            if k not in total_stats:
-                total_stats[k] = 0
-            total_stats[k] += v
-    stats['ALL'] = total_stats
-    transaction_cnt.sort(key=lambda entry: entry['cnt'], reverse=True)
-    cash_flows.sort(key=lambda entry: entry['cash_flow'], reverse=True)
+            stat = sums[name][agg.processor]
+            stat['gl'] += agg.gl
+            stat['cnt'] += agg.count
+            stat['win_cnt'] += agg.win_count
+            stat['slip'] += agg.slippage
+            stat['cash_flow'] += agg.cash_flow
+            if agg.slippage_count > 0:
+                stat['slip_pct_acc'] += agg.avg_slippage_pct * agg.slippage_count
+                stat['slip_cnt'] += agg.slippage_count
 
-    for processor, stat in stats.items():
-        stat['processor'] = processor
-        stat['avg_slip_pct'] = (
-            get_signed_percentage(stat['slip_pct_acc'] / stat['slip_cnt'])
-            if stat.get('slip_cnt', 0) > 0 and processor != 'UNKNOWN'
-            else 'N/A'
+    stats = {}
+    cash_flows = {}
+    for name, processor_sums in sums.items():
+        # Pie chart entries, biggest first. Processors with nothing in the range are left out.
+        cash_flows[name] = sorted(
+            (
+                {'processor': p, 'cash_flow': int(stat['cash_flow'])}
+                for p, stat in processor_sums.items()
+                if int(stat['cash_flow']) != 0
+            ),
+            key=lambda entry: entry['cash_flow'],
+            reverse=True,
         )
-        stat['avg_slip_pct_3m'] = (
-            get_signed_percentage(stat['slip_pct_acc_3m'] / stat['slip_cnt_3m'])
-            if stat.get('slip_cnt_3m', 0) > 0 and processor != 'UNKNOWN'
-            else 'N/A'
-        )
-        win_rate = stat['win_cnt'] / stat['cnt'] if stat.get('cnt', 0) > 0 else None
-        win_rate_ci = compute_bernoulli_ci95(win_rate, stat['cnt']) if win_rate else None
-        stat['win_rate'] = f'{win_rate * 100:.2f}%' if win_rate is not None else 'N/A'
-        stat['win_rate_ci'] = f'&plusmn; {win_rate_ci * 100:.2f}%' if win_rate_ci else ''
-        win_rate_3m = stat['win_cnt_3m'] / stat['cnt_3m'] if stat.get('cnt_3m', 0) > 0 else None
-        win_rate_ci_3m = compute_bernoulli_ci95(win_rate_3m, stat['cnt_3m']) if win_rate_3m else None
-        stat['win_rate_3m'] = f'{win_rate_3m * 100:.2f}%' if win_rate_3m is not None else 'N/A'
-        stat['win_rate_ci_3m'] = f'&plusmn; {win_rate_ci_3m * 100: .2f}%' if win_rate_ci_3m else ''
-        for k in ['gl', 'slip', 'gl_3m', 'slip_3m']:
-            v = stat.get(k, 0)
-            color = 'green' if v >= 0 else 'red'
-            if k == 'slip' and processor == 'UNKNOWN':
-                stat[k] = 'N/A'
-            else:
-                stat[k] = get_colored_value(f'{v:,.2f}', color)
-
-    # Order stats alphabetically with 'UNKNOWN' and 'ALL' appearing at last
-    processors = sorted(stats.keys())
-    _shift_to_last(processors, 'UNKNOWN')
-    _shift_to_last(processors, 'ALL')
-    return [stats[processor] for processor in processors], transaction_cnt, cash_flows
+        total = dict.fromkeys(_STAT_KEYS, 0)
+        for processor, stat in processor_sums.items():
+            for key, value in stat.items():
+                # UNKNOWN transactions have no slippage, so they stay out of the slippage totals
+                if not (processor == 'UNKNOWN' and key in _SLIPPAGE_KEYS):
+                    total[key] += value
+        # Order alphabetically with 'UNKNOWN' and then the 'ALL' total at last. Rows with no transactions are left out.
+        order = sorted(processor_sums)
+        _shift_to_last(order, 'UNKNOWN')
+        rows = [_format_stat(p, processor_sums[p]) for p in order if processor_sums[p]['cnt'] > 0]
+        if total['cnt'] > 0:
+            rows.append(_format_stat('ALL', total))
+        stats[name] = rows
+    return stats, cash_flows
 
 
 def _get_gl_bars(aggs: list[Aggregation]):
@@ -384,7 +370,7 @@ def analytics():
         get_daily_price_task = pool.submit(client.get_daily_prices)
     db_client = Db()
     aggs = db_client.list_aggregations()
-    stats, transaction_cnt, cash_flows = _get_stats(aggs)
+    stats, cash_flows = _get_stats(aggs)
     gl_bars, processors = _get_gl_bars(aggs)
     daily_price = get_daily_price_task.result()
     annual_return = _get_annual_return(daily_price)
@@ -392,7 +378,8 @@ def analytics():
     return flask.render_template(
         'analytics.html',
         stats=stats,
-        transaction_cnt=transaction_cnt,
+        stats_ranges=list(STATS_RANGES),
+        default_stats_range=DEFAULT_STATS_RANGE,
         cash_flows=cash_flows,
         gl_bars=gl_bars,
         annual_return=annual_return,

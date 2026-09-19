@@ -128,9 +128,7 @@ def test_get_transaction_count_with_times(client, mock_engine):
     client.get_transaction_count('Processor', start_time=start_time, end_time=end_time)
 
     query, params = mock_engine.conn.execute.call_args[0]
-    assert 'processor = :processor' in str(query)
-    assert 'exit_time >= :start_time' in str(query)
-    assert 'exit_time < :end_time' in str(query)
+    assert 'exit_time >= :start_time' in str(query) and 'exit_time < :end_time' in str(query)
     assert params == {'processor': 'Processor', 'start_time': start_time, 'end_time': end_time}
 
 

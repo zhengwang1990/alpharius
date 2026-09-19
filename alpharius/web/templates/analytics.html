@@ -39,10 +39,26 @@
     </div>
 </div>
 
+{# One time range select per card, kept in sync by analytics.js. Tables have a body per range with only one shown. #}
+{% macro range_select() %}
+    <select class="form-select range-select" aria-label="Time range">
+        {% for range_name in stats_ranges %}
+            <option value="{{ range_name }}" {% if range_name == default_stats_range %} selected {% endif %}>{{ range_name }}</option>
+        {% endfor %}
+    </select>
+{% endmacro %}
+{% macro processor_cell(stat) %}
+    <td>
+        {%- if stat['processor'] == 'ALL' -%} <b> {%- endif -%}
+        {{ stat['processor'] }}
+        {%- if stat['processor'] == 'ALL' -%} </b> {%- endif -%}
+    </td>
+{% endmacro %}
+
 <div class="row">
     <div class="col-12 col-xl-6">
         <div class="card fix-height-card">
-            <div class="card-header"><span class="card-title">Profit Analysis</span></div>
+            <div class="card-header"><span class="card-title">Profit Analysis</span>{{ range_select() }}</div>
             <div class="card-body overflow-auto">
                 <table class="table">
                     <thead>
@@ -51,32 +67,26 @@
                             <th scope="col">
                                 <span class="lg-hidden">PROFIT & LOSS</span>
                                 <span class="lg-show">PnL</span>
-                                (ALL)
                             </th>
-                            <th scope="col">
-                                <span class="lg-hidden">PROFIT & LOSS</span>
-                                <span class="lg-show">PnL</span>
-                                (3M)
-                            </th>
-                            <th scope="col">WIN <span class="lg-hidden">RATE</span><span class="lg-show">%</span> (ALL)</th>
-                            <th scope="col">WIN <span class="lg-hidden">RATE</span><span class="lg-show">%</span> (3M)</th>
+                            <th scope="col">WIN <span class="lg-hidden">RATE</span><span class="lg-show">%</span></th>
+                            <th scope="col" title="Number of transactions"><span class="xs-hidden">COUNT</span><span class="xs-show">CNT</span></th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for stat in stats %}
+                    {% for range_name, range_stats in stats.items() %}
+                    <tbody data-range="{{ range_name }}" {% if range_name != default_stats_range %} class="hidden" {% endif %}>
+                        {% if not range_stats %}
+                        <tr><td colspan="4" class="empty-row">No transactions</td></tr>
+                        {% endif %}
+                        {% for stat in range_stats %}
                         <tr>
-                            <td>
-                                {%- if stat['processor'] == 'ALL' -%} <b> {%- endif -%}
-                                {{ stat['processor'] }}
-                                {%- if stat['processor'] == 'ALL' -%} </b> {%- endif -%}
-                            </td>
+                            {{ processor_cell(stat) }}
                             <td>{{ stat['gl'] | safe }}</td>
-                            <td>{{ stat['gl_3m'] | safe }}</td>
                             <td>{{ stat['win_rate'] }} <span class="win-rate-ci-font xs-hidden">{{ stat['win_rate_ci'] | safe }}</span></td>
-                            <td>{{ stat['win_rate_3m'] }} <span class="win-rate-ci-font xs-hidden">{{ stat['win_rate_ci_3m'] | safe }}</span></td>
+                            <td>{{ stat['cnt'] }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
+                    {% endfor %}
                 </table>
             </div>
         </div>
@@ -84,43 +94,35 @@
 
     <div class="col-12 col-xl-6">
         <div class="card fix-height-card">
-            <div class="card-header"><span class="card-title">Slippage Analysis</span></div>
+            <div class="card-header"><span class="card-title">Slippage Analysis</span>{{ range_select() }}</div>
             <div class="card-body overflow-auto">
                 <table class="table">
                     <thead>
                         <tr>
                             <th scope="col">PROCESSOR</th>
-                            <th scope="col">SLIP<span class="lg-hidden">PAGE</span> (ALL)</th>
-                            <th scope="col">SLIP<span class="lg-hidden">PAGE</span> (3M)</th>
+                            <th scope="col">SLIP<span class="lg-hidden">PAGE</span></th>
                             <th scope="col">
                                 <span class="lg-hidden">SLIPPAGE PERCENT</span>
                                 <span class="lg-show">SLIP %</span>
-                                (ALL)
-                            </th>
-                            <th scope="col">
-                                <span class="lg-hidden">SLIPPAGE PERCENT</span>
-                                <span class="lg-show">SLIP %</span>
-                                (3M)
                             </th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for stat in stats %}
+                    {% for range_name, range_stats in stats.items() %}
+                    <tbody data-range="{{ range_name }}" {% if range_name != default_stats_range %} class="hidden" {% endif %}>
+                        {% if not (range_stats | rejectattr('processor', 'equalto', 'UNKNOWN') | list) %}
+                        <tr><td colspan="3" class="empty-row">No transactions</td></tr>
+                        {% endif %}
+                        {% for stat in range_stats %}
                         {% if stat['processor'] != 'UNKNOWN' %}
                         <tr>
-                            <td>
-                                {%- if stat['processor'] == 'ALL' -%} <b> {%- endif -%}
-                                {{ stat['processor'] }}
-                                {%- if stat['processor'] == 'ALL' -%} </b> {%- endif -%}
-                            </td>
+                            {{ processor_cell(stat) }}
                             <td>{{ stat['slip'] | safe }}</td>
-                            <td>{{ stat['slip_3m'] | safe }}</td>
                             <td>{{ stat['avg_slip_pct'] | safe }}</td>
-                            <td>{{ stat['avg_slip_pct_3m'] | safe }}</td>
                         </tr>
                         {% endif %}
                         {% endfor %}
                     </tbody>
+                    {% endfor %}
                 </table>
             </div>
         </div>
@@ -180,7 +182,7 @@
 
     <div class="col-12 col-xl-6">
         <div class="card fix-height-card">
-            <div class="card-header"><span class="card-title">Cash Flow</span></div>
+            <div class="card-header"><span class="card-title">Cash Flow</span>{{ range_select() }}</div>
             <div class="chart-container short-chart-container">
                 <canvas id="graph-cash-flow"></canvas>
             </div>
@@ -189,15 +191,6 @@
 </div>
 
 <div class="row">
-    <div class="col-12 col-xl-6">
-        <div class="card fix-height-card">
-            <div class="card-header"><span class="card-title">Transaction Count</span></div>
-            <div class="chart-container short-chart-container">
-                <canvas id="graph-trans-cnt"></canvas>
-            </div>
-        </div>
-    </div>
-
     <div class="col-12 col-xl-6">
         <div class="card fix-height-card">
             <div class="card-header"><span class="card-title">Annual Return (%)</span></div>
@@ -212,8 +205,8 @@
 {% block scripts %}
 <script>
     const GL_BARS = {{ gl_bars | safe }};
-    const TRANSACTION_CNT = {{ transaction_cnt | safe }};
-    const CASH_FLOWS = {{ cash_flows | safe }};
+    const DEFAULT_STATS_RANGE = "{{ default_stats_range }}";
+    const CASH_FLOWS = {{ cash_flows | safe }};  // by time range
     const ANNUAL_RETURN = {{ annual_return | safe }};
 </script>
 <script src="{{ url_for('static', filename='js/analytics.js') }}"></script>

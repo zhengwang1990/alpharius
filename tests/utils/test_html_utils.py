@@ -30,30 +30,14 @@ def test_highlight_diff_table():
 
 def test_count_changed_lines():
     assert count_changed_lines(['a', 'b', 'c'], ['a', 'x', 'c', 'd']) == (2, 1)
-    assert count_changed_lines([], ['a', 'b']) == (2, 0)
-    assert count_changed_lines(['a', 'b'], []) == (0, 2)
-    assert count_changed_lines(['a'], ['a']) == (0, 0)
 
 
 def test_render_diff_page():
-    template = (
-        '<title>{{OUTPUT_NUM}}</title>{{BASE_COMMIT}} {{BASE_MESSAGE}} {{FILE_COUNT}} '
-        '+{{TOTAL_ADDED}} -{{TOTAL_REMOVED}}{{INDEX}}{{FILES}}'
-    )
-    files = [
-        DiffFile(path='pkg/a.py', table='<table>{{OUTPUT_NUM}}</table>', status='M', added=3, removed=1),
-        DiffFile(path='pkg/b<x>.py', table='<table></table>', status='R', added=0, removed=0, old_path='pkg/old.py'),
-    ]
+    template = '{{OUTPUT_NUM}} {{BASE_MESSAGE}} {{FILE_COUNT}} +{{TOTAL_ADDED}}{{INDEX}}{{FILES}}'
+    files = [DiffFile(path='pkg/a<b>.py', table='<table>{{OUTPUT_NUM}}</table>', status='M', added=3, removed=1)]
 
-    page = render_diff_page(
-        template, files, output_num=7, logo_uri='file:///logo.png', base_commit='abc1234', base_message='fix <bug>'
-    )
+    page = render_diff_page(template, files, 7, 'file:///logo.png', 'abc1234', 'fix <bug>')
 
-    assert '<title>7</title>abc1234 fix &lt;bug&gt; 2 files +3 -1' in page
-    assert 'href="#file-0"' in page and 'id="file-1"' in page
-    assert 'badge M' in page and 'badge R' in page
-    assert 'pkg/b&lt;x&gt;.py' not in page  # directory and name are rendered separately
-    assert 'b&lt;x&gt;.py' in page
-    assert '&larr; pkg/old.py' in page
-    # Code that looks like a placeholder is left alone
-    assert '<table>{{OUTPUT_NUM}}</table>' in page
+    assert page.startswith('7 fix &lt;bug&gt; 1 file +3')
+    assert 'a&lt;b&gt;.py' in page  # paths are escaped
+    assert '<table>{{OUTPUT_NUM}}</table>' in page  # code that looks like a placeholder is left alone

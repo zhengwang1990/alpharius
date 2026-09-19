@@ -49,25 +49,13 @@ for (var select of [processor_select, timeframe_select]) {
     });
 }
 
+// Colors are assigned over every processor in every time range, so a processor keeps its color when the range changes.
 var pie_chart_processors = [];
-var trans_label = [];
-var trans_value = [];
-var trans_color = [];
-for (var entry of TRANSACTION_CNT) {
-    trans_label.push(entry["processor"]);
-    trans_value.push(entry["cnt"]);
-    if (!pie_chart_processors.includes(entry["processor"])) {
-        pie_chart_processors.push(entry["processor"]);
-    }
-}
-var cash_flow_label = [];
-var cash_flow_value = [];
-var cash_flow_color = [];
-for (var entry of CASH_FLOWS) {
-    cash_flow_label.push(entry["processor"]);
-    cash_flow_value.push(entry["cash_flow"]);
-    if (!pie_chart_processors.includes(entry["processor"])) {
-        pie_chart_processors.push(entry["processor"]);
+for (const entries of Object.values(CASH_FLOWS)) {
+    for (const entry of entries) {
+        if (!pie_chart_processors.includes(entry["processor"])) {
+            pie_chart_processors.push(entry["processor"]);
+        }
     }
 }
 const color_pool = ["#4890e8", "#4fdba8", "#915bde", "#fabe57", "#1bd1cf", "#eb624d",
@@ -77,11 +65,15 @@ const color_assignments = {};
 for (var i = 0; i < pie_chart_processors.length; i++) {
     color_assignments[pie_chart_processors[i]] = color_pool[i];
 }
-for (var processor of trans_label) {
-    trans_color.push(color_assignments[processor]);
-}
-for (var processor of cash_flow_label) {
-    cash_flow_color.push(color_assignments[processor]);
+function pie_data(entries, value_key) {
+    return {
+        labels: entries.map(entry => entry["processor"]),
+        datasets: [{
+            label: '',
+            data: entries.map(entry => entry[value_key]),
+            backgroundColor: entries.map(entry => color_assignments[entry["processor"]])
+        }]
+    };
 }
 const pie_chart_config = {
     type: "pie",
@@ -93,18 +85,26 @@ const pie_chart_config = {
         }
     }
 };
-var trans_cnt_config = Object.assign({}, pie_chart_config);
-trans_cnt_config.data = {
-    labels: trans_label,
-    datasets: [{label: '', data: trans_value, backgroundColor: trans_color}]
-};
-const trans_chart = new Chart(document.getElementById("graph-trans-cnt"), trans_cnt_config);
 var cash_flow_config = Object.assign({}, pie_chart_config);
-cash_flow_config.data = {
-    labels: cash_flow_label,
-    datasets: [{label: '', data: cash_flow_value, backgroundColor: cash_flow_color}]
-};
+cash_flow_config.data = pie_data(CASH_FLOWS[DEFAULT_STATS_RANGE], "cash_flow");
 const cash_flow_chart = new Chart(document.getElementById("graph-cash-flow"), cash_flow_config);
+
+// Time range: the profit and slippage tables show the table body of the range and the cash flow pie redraws.
+// Every card has its own select, and they stay in sync.
+const range_selects = document.querySelectorAll(".range-select");
+function show_stats_range(range) {
+    for (const body of document.querySelectorAll("tbody[data-range]")) {
+        body.classList.toggle("hidden", body.dataset.range !== range);
+    }
+    cash_flow_chart.data = pie_data(CASH_FLOWS[range], "cash_flow");
+    cash_flow_chart.update();
+    for (const select of range_selects) {
+        select.value = range;
+    }
+}
+for (const select of range_selects) {
+    select.addEventListener("change", () => show_stats_range(select.value));
+}
 
 var annual_return_datasets = [];
 const symbol_colors = {

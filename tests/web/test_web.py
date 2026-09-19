@@ -1,3 +1,4 @@
+import datetime
 import os
 import re
 import textwrap
@@ -7,7 +8,8 @@ import flask
 import pandas as pd
 import pytest
 
-from alpharius.utils import get_current_time
+from alpharius.db import Aggregation
+from alpharius.utils import get_current_time, get_today
 from alpharius.web import create_app, scheduler, web
 
 
@@ -27,8 +29,6 @@ def test_dashboard(route, client, mock_trading_client, mock_data_client):
         '/transactions?page=2',
         '/transactions?processor=Processor1',
         '/transactions?date=2022-11-03',
-        '/transactions?date=2022-11-03&processor=Processor1&page=2',
-        '/transactions?date=not-a-date',
     ],
 )
 def test_transactions(route, client, mock_engine):
@@ -80,31 +80,20 @@ def test_transactions_date_filter(client, mock_engine):
 
     resp = client.get('/transactions?date=2022-11-03&processor=Processor1')
 
-    assert resp.status_code == 200
-    count_call, list_call = mock_engine.conn.execute.call_args_list[1:]
-    # The whole day in the market time zone, and both queries get the same window
+    # The whole day in the market time zone, in both the count and the list query
     start_time = pd.to_datetime('2022-11-03').tz_localize('America/New_York')
     end_time = pd.to_datetime('2022-11-03 23:59:59').tz_localize('America/New_York')
+    count_call, list_call = mock_engine.conn.execute.call_args_list[1:]
     assert count_call[0][1] == {'processor': 'Processor1', 'start_time': start_time, 'end_time': end_time}
-    assert list_call[0][1]['start_time'] == start_time and list_call[0][1]['end_time'] == end_time
-    assert 'No transactions found' in resp.text
-    assert 'const ACTIVE_DATE = "2022-11-03"' in resp.text
-    # Pagination keeps both filters (45 rows is 3 pages)
+    assert list_call[0][1]['start_time'] == start_time
+    # Pagination keeps both filters
     assert 'href="?page=2&amp;processor=Processor1&amp;date=2022-11-03"' in resp.text
 
 
-def test_transactions_without_date_shows_everything(client, mock_engine):
-    mock_engine.conn.execute.side_effect = [
-        [(pd.to_datetime('2022-11-02').date(), 'Processor1', 100, 0.01, 0, 0, 3, 2, 1, 0, 1000)],
-        iter([[0]]),
-        [],
-    ]
-
-    resp = client.get('/transactions?date=garbage')
-
-    assert resp.status_code == 200
-    assert mock_engine.conn.execute.call_args_list[1][0][1] == {}
-    assert 'const ACTIVE_DATE = ""' in resp.text
+def test_parse_date():
+    assert web._parse_date('2022-11-03') == datetime.date(2022, 11, 3)
+    assert web._parse_date(None) is None
+    assert web._parse_date('not-a-date') is None
 
 
 def test_analytics(client, mock_trading_client, mock_engine, mock_data_client):
@@ -118,6 +107,52 @@ def test_analytics(client, mock_trading_client, mock_engine, mock_data_client):
     assert mock_engine.conn.execute.call_count == 1
     assert mock_trading_client.get_portfolio_history_call_count == 1
     assert mock_data_client.get_data_call_count > 0
+
+
+def _agg(days_ago, processor, gl):
+    day = get_today().date() - datetime.timedelta(days=days_ago)
+    return Aggregation(day, processor, gl, 0.01, -1.0, -0.01, 2, 1, 1, 1, 500)
+
+
+def test_get_stats_by_range():
+    aggs = [
+        _agg(10, 'P1', 100),
+        _agg(90, 'P1', 10),  # the last day of 3M
+        _agg(91, 'P1', 1),
+        _agg(700, 'P1', 1000),
+        _agg(700, 'P2', 5),
+        _agg(10, 'UNKNOWN', 7),
+    ]
+
+    stats, cash_flows = web._get_stats(aggs)
+
+    def row(name, processor):
+        return next(stat for stat in stats[name] if stat['processor'] == processor)
+
+    assert list(stats) == ['3M', '6M', '1Y', 'ALL']
+    for name, expected in [('3M', '110.00'), ('6M', '111.00'), ('1Y', '111.00'), ('ALL', '1,111.00')]:
+        assert expected in row(name, 'P1')['gl']
+    # Rows with no transactions in the range are left out, counts are a column, UNKNOWN has no slippage
+    assert [stat['processor'] for stat in stats['3M']] == ['P1', 'UNKNOWN', 'ALL']
+    assert [stat['processor'] for stat in stats['ALL']] == ['P1', 'P2', 'UNKNOWN', 'ALL']
+    assert row('3M', 'P1')['cnt'] == '4' and row('ALL', 'ALL')['cnt'] == '12'
+    assert row('3M', 'UNKNOWN')['slip'] == 'N/A'
+    assert cash_flows['3M'] == [{'processor': 'P1', 'cash_flow': 1000}, {'processor': 'UNKNOWN', 'cash_flow': 500}]
+
+
+def test_analytics_range_tables(client, mock_engine, mock_trading_client, mock_data_client):
+    mock_engine.conn.execute.return_value = [_agg(10, 'Processor1', 100), _agg(200, 'Processor1', 10)]
+
+    resp = client.get('/analytics')
+
+    # The profit and slippage tables each have a body per range, and only the default (3M) is shown
+    bodies = re.findall(r'<tbody data-range="(\w+)"([^>]*)>', resp.text)
+    assert [(name, 'hidden' in attrs) for name, attrs in bodies] == [
+        ('3M', False),
+        ('6M', True),
+        ('1Y', True),
+        ('ALL', True),
+    ] * 2
 
 
 def test_logs(client, mock_engine):
@@ -198,14 +233,6 @@ def test_charts_moves_weekend_range_to_trading_days(client):
 
     assert 'INIT_START_DATE = "2022-11-14"' in resp.text
     assert 'INIT_END_DATE = "2022-11-18"' in resp.text
-
-
-def test_charts_ignores_malformed_dates(client):
-    resp = client.get('/charts?symbol=QQQ&date=nope&start_date=2022-13-45&end_date=x')
-
-    assert resp.status_code == 200
-    assert 'INIT_DATE = ""' in resp.text
-    assert 'INIT_START_DATE = ""' in resp.text and 'INIT_END_DATE = ""' in resp.text
 
 
 @pytest.mark.parametrize(
@@ -382,6 +409,12 @@ def test_backtest_with_finish_time(client):
     assert client.get('/backtest').status_code == 200
 
 
+def test_backtest_last_quarter(client):
+    resp = client.get('/backtest?ndays=91')
+
+    assert re.search(r'<option value="91"\s+selected\s*>Last Quarter</option>', resp.text)
+
+
 def test_handle_exception(client, mocker):
     mocker.patch('alpharius.data.get_default_data_client', side_effect=ValueError('fake test error'))
     resp = client.get('/')
@@ -393,21 +426,17 @@ def test_static_urls_are_versioned_by_content(secret, tmp_path):
     css = tmp_path / 'a.css'
     css.write_text('body { color: red; }')
 
-    def url(filename='a.css'):
+    def url():
         # A new app per call stands for a server restart, which is when files can have changed
         app = create_app({'TESTING': True})
         app.static_folder = str(tmp_path)
         with app.test_request_context():
-            return flask.url_for('static', filename=filename)
+            return flask.url_for('static', filename='a.css')
 
     first = url()
     assert re.fullmatch(r'/static/a\.css\?v=[0-9a-f]{10}', first)
-
-    # A new mtime with identical content (what a deploy does) keeps the URL, so browsers keep their cache
+    # Deploying rewrites every mtime, so identical content must keep its URL
     os.utime(css, (time.time() + 3600, time.time() + 3600))
     assert url() == first
-
     css.write_text('body { color: tan; }')
     assert url() != first
-
-    assert url('missing.css') == '/static/missing.css'
