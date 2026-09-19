@@ -944,7 +944,7 @@ function add_history_button(item) {
         }
     }
     const btn = document.createElement("span");
-    btn.className = "btn my-btn-outline history-btn " + (isMobile ? "my-btn-outline-no-hover" : "my-btn-outline-hover");
+    btn.className = "btn my-btn-outline my-btn-pill history-btn " + (isMobile ? "my-btn-outline-no-hover" : "my-btn-outline-hover");
     for (const key of ["symbol", "date", "entry", "exit"]) {
         btn.setAttribute(key, item[key]);
     }
@@ -1009,7 +1009,7 @@ function render_trades() {
     trades_container.innerHTML = "";
     trades.forEach((trade, index) => {
         const btn = document.createElement("span");
-        btn.className = "btn my-btn-outline trade-btn " + (isMobile ? "my-btn-outline-no-hover" : "my-btn-outline-hover");
+        btn.className = "btn my-btn-outline my-btn-pill trade-btn " + (isMobile ? "my-btn-outline-no-hover" : "my-btn-outline-hover");
         btn.classList.add(trade.gain.startsWith("-") ? "trade-loss" : "trade-win");
         btn.dataset.index = index;
         btn.title = `${trade.side} ${trade.entry} - ${trade.exit}`.trim();

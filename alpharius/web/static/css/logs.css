@@ -39,33 +39,9 @@
     letter-spacing: 0.02em;
 }
 
-.badge-debug {
-    color: #6b7f94;
-    background-color: rgba(100, 128, 155, 0.14);
-}
-
-.badge-info {
-    color: #0369a1;
-    background-color: rgba(2, 132, 199, 0.11);
-}
-
-.badge-warning {
-    color: #b45309;
-    background-color: rgba(245, 158, 11, 0.16);
-}
-
-.badge-error {
-    color: #be123c;
-    background-color: rgba(225, 29, 72, 0.12);
-}
-
 #datepicker {
     border-top-right-radius: var(--radius-sm);
     border-bottom-right-radius: var(--radius-sm);
-}
-
-.dash-content .card .datepicker-picker {
-    font-family: var(--font);
 }
 
 /* Floating scroll buttons */
