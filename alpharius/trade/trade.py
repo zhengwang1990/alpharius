@@ -18,6 +18,7 @@ PROCESSORS: list[type[processors.Processor] | processors.Processor] = [
     processors.DownFourV2Processor,
     processors.FirstGreenDayProcessor,
     processors.FirstRedDayProcessor,
+    processors.GapDownBreakoutProcessor,
     processors.H2lFiveMinProcessor,
     processors.H2lHourProcessor,
     processors.L2hProcessor,

@@ -7,6 +7,7 @@ from .exp_processor import ExpProcessor
 from .first_green_day_processor import FirstGreenDayProcessor
 from .first_hour_m6m_processor import FirstHourM6mProcessor
 from .first_red_day_processor import FirstRedDayProcessor
+from .gap_down_breakout_processor import GapDownBreakoutProcessor
 from .h2l_five_min_processor import H2lFiveMinProcessor
 from .h2l_hour_processor import H2lHourProcessor
 from .l2h_processor import L2hProcessor

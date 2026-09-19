@@ -134,4 +134,5 @@ dmypy.json
 cache/
 outputs/
 models/
+notes/
 bin/envs.sh
