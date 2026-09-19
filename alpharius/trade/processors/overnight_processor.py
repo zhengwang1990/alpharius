@@ -1,43 +1,20 @@
 import datetime
 from typing import override
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
-import tabulate
 
-from alpharius.data import DataClient
-
-from ..common import (
-    DAYS_IN_A_MONTH,
-    DAYS_IN_A_QUARTER,
-    DAYS_IN_A_WEEK,
-    DAYS_IN_A_YEAR,
-    get_header,
-)
+from ..common import DAYS_IN_A_MONTH, DAYS_IN_A_WEEK
 from ..enums import ActionType, TradingFrequency
-from ..stock_universe import TopVolumeUniverse
 from ..structs import Context, Position, ProcessorAction
 from .processor import Processor
 
-NUM_UNIVERSE_SYMBOLS = 200
-NUM_DIRECTIONAL_SYMBOLS = 5
-
 
 class OvernightProcessor(Processor):
-    def __init__(
-        self,
-        lookback_start_date: pd.Timestamp,
-        lookback_end_date: pd.Timestamp,
-        data_client: DataClient,
-        output_dir: str,
-    ) -> None:
-        super().__init__(output_dir)
-        self._stock_universe = TopVolumeUniverse(
-            lookback_start_date, lookback_end_date, data_client, num_stocks=NUM_UNIVERSE_SYMBOLS
-        )
-        self._universe_symbols = []
-        self._hold_positions = []
-        self._output_dir = output_dir
+    def __init__(self, output_dir: str, logging_timezone: ZoneInfo | None = None) -> None:
+        super().__init__(output_dir, logging_timezone)
+        self._hold_symbols = set()
 
     @override
     def get_trading_frequency(self) -> TradingFrequency:
@@ -45,84 +22,157 @@ class OvernightProcessor(Processor):
 
     @override
     def setup(self, hold_positions: list[Position], current_time: pd.Timestamp | None) -> None:
-        self._hold_positions = hold_positions
+        self._hold_symbols = {position.symbol for position in hold_positions}
 
     @override
     def get_stock_universe(self, view_time: pd.Timestamp) -> list[str]:
-        hold_symbols = [position.symbol for position in self._hold_positions]
-        self._universe_symbols = self._stock_universe.get_stock_universe(view_time)
-        return list(set(hold_symbols + self._universe_symbols))
+        return ['TQQQ', 'SQQQ']
 
     @override
-    def process_all_data(self, contexts: list[Context]) -> list[ProcessorAction]:
-        current_prices = {context.symbol: context.current_price for context in contexts}
-        if not contexts:
-            return []
-        current_time = contexts[0].current_time
-        if current_time.time() < datetime.time(10, 0):
-            actions = []
-            for position in self._hold_positions:
-                if position.symbol not in current_prices:
-                    self._logger.warning('Position [%s] not found in contexts', position.symbol)
-                    continue
-                action_type = ActionType.SELL_TO_CLOSE if position.qty >= 0 else ActionType.BUY_TO_CLOSE
-                actions.append(ProcessorAction(position.symbol, action_type, 1))
-            return actions
+    def process_data(self, context: Context) -> ProcessorAction | None:
+        if context.current_time.time() < datetime.time(10, 0):
+            if context.symbol in self._hold_symbols:
+                return ProcessorAction(context.symbol, ActionType.SELL_TO_CLOSE, 1)
+            else:
+                return None
+        market_open_index = context.market_open_index
+        if market_open_index is None:
+            return
+        intraday_high = max(context.intraday_lookback['High'].values[market_open_index:])
+        intraday_low = min(context.intraday_lookback['Low'].values[market_open_index:])
+        intraday_change = intraday_high / intraday_low - 1
+        interday_closes = context.interday_lookback['Close'].values
+        interday_opens = context.interday_lookback['Open'].values
+        two_week_closes = interday_closes[-2 * DAYS_IN_A_WEEK :]
+        two_week_changes = [two_week_closes[i] / two_week_closes[i - 1] - 1 for i in range(1, len(two_week_closes))]
+        two_week_std = np.std(two_week_changes)
 
-        contexts_selected = [context for context in contexts if context.symbol in self._universe_symbols]
-        performances = []
-        for context in contexts_selected:
-            performances.append((context.symbol, self._get_performance(context)))
-        performances.sort(key=lambda s: s[1], reverse=True)
-        long_symbols = [s[0] for s in performances[:NUM_DIRECTIONAL_SYMBOLS] if s[1] > 0]
+        one_week_closes = interday_closes[-DAYS_IN_A_WEEK:]
+        one_week_changes = [one_week_closes[i] / one_week_closes[i - 1] - 1 for i in range(1, len(one_week_closes))]
+        one_week_std = np.std(one_week_changes)
 
-        self._logging(performances, current_prices, current_time)
+        four_week_closes = interday_closes[-4 * DAYS_IN_A_WEEK :]
+        four_week_changes = [four_week_closes[i] / four_week_closes[i - 1] - 1 for i in range(1, len(four_week_closes))]
+        four_week_std = np.std(four_week_changes)
 
-        actions = []
-        for symbol in long_symbols:
-            actions.append(ProcessorAction(symbol, ActionType.BUY_TO_OPEN, 1))
-        return actions
-
-    def _logging(
-        self, performances: list[tuple[str, float]], current_prices: dict[str, float], current_time: pd.Timestamp
-    ) -> None:
-        performance_info = []
-        for symbol, metric in performances[: NUM_DIRECTIONAL_SYMBOLS + 15]:
-            price = current_prices[symbol]
-            performance_info.append([symbol, price, metric])
-        header = get_header(f'Metric Info {current_time.date()}')
         self._logger.debug(
-            '\n'
-            + header
-            + '\n'
-            + tabulate.tabulate(performance_info, headers=['Symbol', 'Price', 'Performance'], tablefmt='grid')
+            f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+            + f'{two_week_std=:.4f}, {intraday_change=:.4f}, current_price={context.current_price:.3f}'
         )
-
-    @staticmethod
-    def _get_performance(context: Context) -> float:
-        interday_lookback = context.interday_lookback
-        if len(interday_lookback) < DAYS_IN_A_YEAR:
-            return 0
-        closes = interday_lookback['Close'].tolist()[-DAYS_IN_A_YEAR:]
-        if context.current_price / closes[-DAYS_IN_A_WEEK] - 1 < -0.5:
-            return 0
-        values = np.append(closes, context.current_price)
-        profits = [np.log(values[k + 1] / values[k]) for k in range(len(values) - 1)]
-        r = np.average(profits)
-        std = np.std(profits)
-        if (profits[-1] - r) / std < -1:
-            return 0
-        today_open = context.today_open
-        opens = np.append(interday_lookback['Open'].iloc[-DAYS_IN_A_YEAR + 1 :], today_open)
-        overnight_returns = []
-        for close_price, open_price in zip(closes, opens):
-            overnight_returns.append(np.log(open_price / close_price))
-        quarterly = np.sum(overnight_returns[-DAYS_IN_A_QUARTER:])
-        weekly = np.sum(overnight_returns[-DAYS_IN_A_WEEK:])
-        if (quarterly < 0 or closes[-1] < closes[-DAYS_IN_A_MONTH]) and (
-            weekly < 0 or closes[-1] < closes[-DAYS_IN_A_WEEK]
+        if (
+            two_week_std < 0.05
+            and intraday_change < 0.09
+            and context.current_price / max(two_week_closes) > 0.8
+            and context.symbol == 'TQQQ'
         ):
-            return 0
-        yearly = np.sum(sorted(overnight_returns)[25:-25])
-        performance = yearly + 0.3 * quarterly + 0.3 * weekly
-        return performance
+            self._logger.debug(
+                f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                + f'interday_closes {interday_closes[-3:]}'
+            )
+            two_week_max = max(two_week_closes)
+            # If large drop and it's Friday, don't buy
+            if context.current_time.isoweekday() == 5:
+                if (
+                    context.current_price / max(two_week_closes) < 0.85
+                    or context.current_price / interday_closes[-1] < 0.95
+                ):
+                    self._logger.debug(
+                        f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                        + ' Large recent drop; Skip.'
+                    )
+                    return
+                price_high = max(intraday_high, context.prev_day_close)
+                if price_high / intraday_low - 1 > 0.06 and context.current_price < 0.94 * two_week_max:
+                    self._logger.debug(
+                        f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]' + ' Large volatility; Skip.'
+                    )
+                    return
+            else:
+                six_week_closes = interday_closes[-6 * DAYS_IN_A_WEEK :]
+                # If grows too much, starts to drop and today's volatility is low
+                if (
+                    context.current_price < 0.9 * two_week_max
+                    and two_week_max > 1.3 * min(six_week_closes)
+                    and context.prev_day_close * 1.06 > context.current_price > context.prev_day_close * 0.97
+                ):
+                    self._logger.debug(
+                        f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]' + ' Recent pullback; Skip.'
+                    )
+                    return
+            if all(
+                interday_opens[i] < interday_closes[i] and interday_opens[i] < interday_closes[i - 1]
+                for i in range(-5, 0)
+            ):
+                self._logger.debug(
+                    f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                    + 'Bad recent performance in last 5 days; Skip.'
+                )
+                return
+            four_week_max = max(four_week_closes)
+            if (
+                context.today_open / four_week_max - 1 < -0.15
+                and interday_opens[-1] < interday_closes[-1]
+                and interday_opens[-1] < interday_closes[-2]
+                and context.today_open < interday_closes[-1] < context.current_price
+            ):
+                self._logger.debug(
+                    f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                    + 'Bad pattern in correction period; Skip.'
+                )
+                return
+            if context.current_price / context.today_open - 1 < -0.045:
+                self._logger.debug(
+                    f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]' + 'Large intraday drop; Skip.'
+                )
+                return
+            if (
+                context.current_price / context.prev_day_close - 1 < -0.009
+                and context.current_price / intraday_low - 1 > 0.03
+            ):
+                self._logger.debug(
+                    f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                    + 'Large grow from intraday low; Skip.'
+                )
+                return
+            if not interday_closes[-1] > interday_closes[-2] > interday_closes[-3]:
+                return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
+            else:
+                if context.current_price > context.prev_day_close * 1.05 or (
+                    min(four_week_closes) / max(four_week_closes) - 1 > -0.15
+                    and intraday_low > context.prev_day_close * 0.99
+                ):
+                    self._logger.debug(
+                        f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]' + ' Upward momentum; Buy.'
+                    )
+                    return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
+                quarter_max = max(interday_closes[-DAYS_IN_A_MONTH * 3 :])
+                arg_quarter_min = int(np.argmin(interday_closes[-DAYS_IN_A_MONTH * 3 :])) - DAYS_IN_A_MONTH * 3
+                quarter_min = interday_closes[arg_quarter_min]
+                ratio = 1 if quarter_min < 0.7 * quarter_max else 1.01
+                if (
+                    -arg_quarter_min < 15  # trough happens recently
+                    and context.today_open * ratio < context.current_price  # price is going up today
+                ):
+                    self._logger.debug(
+                        f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}]'
+                        + ' Rebound from recent quarter low; Buy.'
+                    )
+                    return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
+        if (
+            2 * one_week_std > two_week_std > four_week_std > 0.05
+            and context.current_price / interday_closes[-1] - 1 < -0.07
+            and context.symbol == 'SQQQ'
+        ):
+            self._logger.debug(
+                f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                + f'{two_week_std=:.4f}, {four_week_std=:.4f}'
+            )
+            if context.current_price / min(interday_closes[-3 * DAYS_IN_A_MONTH :]) > 1.6:
+                self._logger.debug(
+                    f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] '
+                    + 'Large increase in recent quarter; skip.'
+                )
+                return
+            # Only trade half for safety reason. The SQQQ historical data is not well-adjusted, causing
+            # unreliable backtesting results. We can change it to 1 once the strategy is proved to be good.
+            return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 0.5)
