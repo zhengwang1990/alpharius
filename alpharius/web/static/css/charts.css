@@ -1,5 +1,6 @@
+/* --mark-extra (set by charts.js) adds room above the plot for the ENTRY / EXIT labels */
 .dash-content .card .chart-container {
-    height: 620px;
+    height: calc(620px + var(--mark-extra, 0px));
     padding: 8px 16px 16px;
 }
 
@@ -35,6 +36,15 @@
 
 .select-container .symbol-span {
     flex-basis: 220px;
+}
+
+.select-container .time-range-span {
+    flex-basis: 300px;
+    max-width: 340px;
+}
+
+.time-to {
+    min-width: 34px;
 }
 
 #input-to {
@@ -106,35 +116,90 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    padding: 0 16px 6px;
+    padding: 14px 16px;
 }
 
 .dash-content .card .history-btn {
-    --my-btn-color: rgb(20, 155, 120);
+    --my-btn-color: var(--accent);
     --bs-btn-padding-y: 0.25rem;
-    --bs-btn-font-size: 12px;
+    --bs-btn-font-size: 12.5px;
     --bs-btn-border-radius: 999px;
+}
+
+/* Rows wrap at these widths: let fields grow so every row fills the card */
+@media (max-width: 1199.98px) {
+    .select-container .inline-span,
+    .select-container .range-span,
+    .select-container .symbol-span,
+    .select-container .time-range-span {
+        max-width: none;
+    }
+}
+
+/* Narrow: stacked rows. Daily: range / (symbol + query). Intraday: date / symbol / (entry-exit + query). */
+@media (max-width: 699.98px) {
+    .select-container .inline-span {
+        max-width: none;
+    }
+
+    .select-container .range-span,
+    #intraday-card .select-container .symbol-span,
+    #intraday-card .select-container .inline-span:first-child {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    #daily-card .select-container .symbol-span {
+        flex: 1 1 0;
+        min-width: 140px;
+    }
+
+    #intraday-card .select-container .time-range-span {
+        flex: 1 1 0;
+        min-width: 200px;
+    }
+}
+
+/* Wide enough: everything, including the query button, stays on one line */
+@media (min-width: 700px) {
+    .select-container {
+        flex-wrap: nowrap;
+    }
+
+    .select-container .inline-span {
+        flex: 1 1 140px;
+        min-width: 130px;
+    }
+
+    .select-container .symbol-span {
+        flex: 1 1 110px;
+        min-width: 100px;
+    }
+
+    .select-container .range-span {
+        flex: 2 1 320px;
+        min-width: 280px;
+    }
+
+    .select-container .time-range-span {
+        flex: 2 1 240px;
+        min-width: 210px;
+    }
+
+    .select-container .btn-query {
+        flex: 0 0 auto;
+    }
 }
 
 @media (max-width: 991.98px) {
     .dash-content .card .chart-container {
-        height: 460px;
+        height: calc(460px + var(--mark-extra, 0px));
     }
 }
 
 @media (max-width: 575.98px) {
     .dash-content .card .chart-container {
-        height: 360px;
-    }
-
-    .select-container .range-span,
-    .select-container .symbol-span {
-        max-width: none;
-    }
-
-    .select-container .symbol-span {
-        flex: 1 1 0;
-        min-width: 140px;
+        height: calc(360px + var(--mark-extra, 0px));
     }
 
     .dash-content .card .btn.btn-query {
@@ -152,6 +217,83 @@
     }
 
     .dash-content .card #history-container {
-        padding: 0 12px 6px;
+        padding: 12px;
     }
+
+    /* Trade list is a desktop workflow */
+    #trades-card {
+        display: none;
+    }
+}
+
+/* Trade list (pasted from backtest summary) */
+#trades-card .trades-actions {
+    margin-left: auto;
+}
+
+#trades-input-container {
+    padding: 8px 16px 8px;
+}
+
+#trades-textarea {
+    height: auto; /* base.css fixes .form-control at 40px, which would ignore rows */
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    white-space: pre;
+    overflow-x: auto;
+    border-radius: var(--radius-sm);
+}
+
+.trades-input-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.trades-hint {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+#trades-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 14px 16px;
+}
+
+/* Directly under the paste box the box's own bottom padding already separates them */
+#trades-input-container:not(.hidden) + #trades-container {
+    padding-top: 6px;
+}
+
+#trades-container:empty {
+    display: none;
+}
+
+.dash-content .card .trade-btn {
+    --bs-btn-padding-y: 0.25rem;
+    --bs-btn-font-size: 12.5px;
+    --bs-btn-border-radius: 999px;
+}
+
+.dash-content .card .trade-btn.trade-win {
+    --my-btn-color: rgb(20, 155, 120);
+}
+
+.dash-content .card .trade-btn.trade-loss {
+    --my-btn-color: rgb(210, 65, 65);
+}
+
+.dash-content .card .trade-btn.trade-active {
+    background-color: var(--my-btn-color);
+    border-color: var(--my-btn-color);
+    color: #fff;
+}
+
+.trade-btn .trade-gain {
+    margin-left: 4px;
+    font-weight: 600;
 }

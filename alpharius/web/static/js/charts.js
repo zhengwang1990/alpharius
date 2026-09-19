@@ -22,9 +22,13 @@ var daily_chart = null;
 var symbol_tree = {symbols: [], children: {}};
 var historical_symbols = [];
 var historical_dates = [];
+var historical_entries = [];
+var historical_exits = [];
 const symbol_set = new Set(ALL_SYMBOLS);
 const intraday_alert = document.getElementById("intraday-alert");
 const intraday_symbol_input = document.getElementById("intraday-symbol-input");
+const intraday_entry_input = document.getElementById("intraday-entry-input");
+const intraday_exit_input = document.getElementById("intraday-exit-input");
 const intraday_chart_container = document.getElementById("intraday-chart-container");
 const intraday_chart_name = document.getElementById("intraday-chart-name");
 const intraday_button = document.getElementById("intraday-chart-btn");
@@ -33,6 +37,7 @@ const daily_symbol_input = document.getElementById("daily-symbol-input");
 const daily_chart_container = document.getElementById("daily-chart-container");
 const daily_chart_name = document.getElementById("daily-chart-name");
 const daily_button = document.getElementById("daily-chart-btn");
+const history_card = document.getElementById("history-card");
 const history_container = document.getElementById("history-container");
 
 if (window.innerWidth <= 800) {
@@ -116,35 +121,130 @@ const crosshair = {
     })
 };
 
+const MARK_STYLES = {
+    entry: {color: "rgb(2, 132, 199)", label: "ENTRY"},
+    exit: {color: "rgb(124, 58, 237)", label: "EXIT"},
+    mark: {color: "rgb(23, 23, 24)", label: ""},
+};
+
+// Height of the strip above the plot that holds the ENTRY / EXIT labels.
+function mark_label_space() {
+    return chart_mode === "compact" ? 22 : 26;
+}
+
+// Finds the bar each entry/exit mark falls in and returns its pixel position and style.
+// Bars are 5 minutes long and labeled by start time, so 10:42 belongs to the 10:40 bar.
+function get_mark_bars(chart, mark_points) {
+    const { data, chartArea: { left, width } } = chart;
+    const bar_width = width / data.labels.length;
+    const to_minutes = (t) => parseInt(t.slice(0, 2)) * 60 + parseInt(t.slice(3, 5));
+    const res = [];
+    if (!Array.isArray(mark_points)) {
+        return res;
+    }
+    const bars = data.datasets[0].data;
+    for (const mark of mark_points) {
+        const index = bars.findIndex(bar => {
+            const diff = to_minutes(mark.time) - to_minutes(bar.x);
+            return diff >= 0 && diff < 5;
+        });
+        if (index >= 0) {
+            res.push({
+                dataPoint: bars[index],
+                x: left + bar_width * (index + 0.5),
+                bar_width: bar_width,
+                style: MARK_STYLES[mark.role] || MARK_STYLES.mark,
+            });
+        }
+    }
+    return res;
+}
+
+// Horizontal positions for the ENTRY / EXIT labels. Each is centered on its line; if two would overlap,
+// the earlier one ends at its line and the later one starts at its line, like two flags.
+function layout_mark_labels(labels, left, right) {
+    const gap = 3;
+    const clamp = (l, width) => Math.min(Math.max(l, left), right - width);
+    labels.sort((a, b) => a.x - b.x);
+    for (const label of labels) {
+        label.left = clamp(label.x - label.width / 2, label.width);
+    }
+    for (let i = 1; i < labels.length; i++) {
+        const prev = labels[i - 1];
+        const cur = labels[i];
+        if (cur.left < prev.left + prev.width + gap) {
+            prev.left = clamp(prev.x - prev.width, prev.width);
+            cur.left = clamp(cur.x, cur.width);
+            if (cur.left < prev.left + prev.width + gap) {
+                prev.left = cur.left - gap - prev.width;
+            }
+        }
+    }
+}
+
 const closePointer = {
     id: "closePointer",
 
-    afterDatasetsDraw: ((chart, args, pluginOptions) => {
-        const {ctx, data, scales: { y }} = chart;
-        const mark_points = pluginOptions.mark_points;
-        if (!Array.isArray(mark_points) || mark_points.length == 0) {
-            return;
+    // Dashed vertical line behind the candles, full chart height.
+    beforeDatasetsDraw: ((chart, args, pluginOptions) => {
+        const { ctx, chartArea: { top, bottom } } = chart;
+        for (const bar of get_mark_bars(chart, pluginOptions.mark_points)) {
+            ctx.save();
+            ctx.strokeStyle = bar.style.color;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 3]);
+            drawLine(ctx, bar.x, top, bar.x, bottom);
+            ctx.restore();
         }
-        const size = 0.9 * chart.width / data.datasets[0].data.length;
-        data.datasets[0].data.forEach((dataPoint, index) => {
+    }),
 
-            if (mark_points.includes(dataPoint.x)) {
-                const xc = chart.getDatasetMeta(0).data[index].x;
-                const yc = y.getPixelForValue(dataPoint.c);
+    // Triangle at the close price plus an ENTRY / EXIT tag above the plot.
+    afterDatasetsDraw: ((chart, args, pluginOptions) => {
+        const { ctx, chartArea: { top, left, right }, scales: { y } } = chart;
+        const font_size = chart_mode === "compact" ? 9 : 11;
+        const pad = 4;
+        const label_height = font_size + 2 * pad - 2;
+        const label_y = top - label_height - 3;
+        const labels = [];
+        ctx.save();
+        ctx.font = `600 ${font_size}px sans-serif`;
+        for (const bar of get_mark_bars(chart, pluginOptions.mark_points)) {
+            const { dataPoint, x: xc, style } = bar;
+            const yc = y.getPixelForValue(dataPoint.c);
+            const size = Math.max(0.9 * bar.bar_width, 6);
+            const dir = dataPoint.c < dataPoint.o ? 1 : -1;
 
-                ctx.save();
-                ctx.fillStyle = "rgba(23, 23, 24, 0.6)";
-                ctx.beginPath();
+            ctx.fillStyle = style.color;
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = 1.5;
+            ctx.lineJoin = "round";
+            ctx.beginPath();
+            ctx.moveTo(xc, yc);
+            ctx.lineTo(xc - 0.5 * size, yc + dir * 0.9 * size);
+            ctx.lineTo(xc + 0.5 * size, yc + dir * 0.9 * size);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.fill();
 
-                ctx.moveTo(xc, yc);
-                const dir = dataPoint.c < dataPoint.o ? 1 : -1;
-                ctx.lineTo(xc - 0.5 * size, yc + dir * 0.75 * size);
-                ctx.lineTo(xc + 0.5 * size, yc + dir * 0.75 * size);
-                ctx.closePath();
-                ctx.fill();
-                ctx.restore();
+            if (style.label) {
+                labels.push({x: xc, width: ctx.measureText(style.label).width + 2 * pad, style: style});
             }
-        })
+        }
+        layout_mark_labels(labels, left, right);
+        ctx.textBaseline = "middle";
+        for (const label of labels) {
+            ctx.fillStyle = label.style.color;
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(label.left, label_y, label.width, label_height, 3);
+            } else {
+                ctx.rect(label.left, label_y, label.width, label_height);
+            }
+            ctx.fill();
+            ctx.fillStyle = "white";
+            ctx.fillText(label.style.label, label.left + pad, label_y + label_height / 2 + 0.5);
+        }
+        ctx.restore();
     })
 };
 
@@ -224,6 +324,44 @@ function get_chart_data(dates, symbol, timeframe, marks=null) {
     }
 }
 
+// Returns "HH:MM" for inputs like "9:45" or "09:45:00", or null if invalid.
+function normalize_time(text) {
+    const m = text.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+    if (m === null || parseInt(m[1]) > 23 || parseInt(m[2]) > 59) {
+        return null;
+    }
+    return `${m[1].padStart(2, "0")}:${m[2]}`;
+}
+
+// Entry/exit inputs as a comma separated marks string, or null if both are empty.
+// Also records which of the marks is the entry and which the exit, in the same order.
+var intraday_mark_roles = [];
+function get_marks() {
+    const marks = [];
+    const roles = [];
+    for (const [role, input] of [["entry", intraday_entry_input], ["exit", intraday_exit_input]]) {
+        const time = normalize_time(input.value);
+        if (time !== null) {
+            marks.push(time);
+            roles.push(role);
+        }
+    }
+    intraday_mark_roles = roles;
+    return marks.length > 0 ? marks.join(",") : null;
+}
+
+// Fills the intraday inputs without querying.
+function fill_intraday_inputs(symbol, date, entry, exit) {
+    intraday_symbol_input.value = symbol;
+    intraday_entry_input.value = entry || "";
+    intraday_exit_input.value = exit || "";
+    const date_utc = Date.parse(date);
+    intraday_datepicker.setDate(date_utc + (new Date(date_utc).getTimezoneOffset() * 60000));
+    if (button_state === 1) {
+        toggle_button_state();
+    }
+}
+
 function get_chart(timeframe) {
     var dates, symbol_input;
     if (timeframe === "intraday") {
@@ -238,6 +376,27 @@ function get_chart(timeframe) {
         }
         dates = [date];
         symbol_input = intraday_symbol_input;
+        for (var time_input of [intraday_entry_input, intraday_exit_input]) {
+            const time_text = time_input.value.trim();
+            if (time_text === "") {
+                continue;
+            }
+            const time = normalize_time(time_text);
+            if (time === null) {
+                displayAlert("danger", `${time_text} is not a valid time, expected HH:MM`, timeframe);
+                return 1;
+            }
+            if (parseInt(time.slice(3)) % 5 !== 0) {
+                displayAlert("danger", `${time_text} is not a multiple of 5 minutes, e.g. 10:45`, timeframe);
+                return 1;
+            }
+        }
+        const entry_time = normalize_time(intraday_entry_input.value);
+        const exit_time = normalize_time(intraday_exit_input.value);
+        if (entry_time !== null && exit_time !== null && entry_time >= exit_time) {
+            displayAlert("danger", `Entry time ${entry_time} must be earlier than exit time ${exit_time}`, timeframe);
+            return 1;
+        }
     } else {
         dates = daily_datepicker.getDates("yyyy-mm-dd");
         for (var date of dates) {
@@ -261,7 +420,7 @@ function get_chart(timeframe) {
         displayAlert("danger", `${symbol} is not a valid symbol`, timeframe);
         return 1;
     }
-    get_chart_data(dates, symbol, timeframe);
+    get_chart_data(dates, symbol, timeframe, timeframe === "intraday" ? get_marks() : null);
     update_chart(timeframe);
     // Auto set daily input boxes
     if (timeframe === "intraday" && daily_chart_container.style.display === "none") {
@@ -303,8 +462,10 @@ function update_chart(timeframe) {
         price_min = Math.min(price_min, current_data["prev_close"]);
     }
     var mark_points = [];
-    if (current_data.marks !== undefined) {
-        mark_points.push(...current_data.marks);
+    if (timeframe === "intraday" && current_data.marks !== undefined) {
+        current_data.marks.forEach((time, i) => {
+            mark_points.push({time: time, role: intraday_mark_roles[i] || "mark"});
+        });
     }
     const data = {
         labels: current_data["labels"],
@@ -396,6 +557,9 @@ function update_chart(timeframe) {
         data: data,
         options: {
             maintainAspectRatio: false,
+            layout: {
+                padding: {top: mark_points.length > 0 ? mark_label_space() : 0}
+            },
             interaction: {
                 intersect: false
             },
@@ -472,6 +636,7 @@ function update_chart(timeframe) {
         chart_name = daily_chart_name;
     }
     alert.style.display = "none";
+    chart_container.style.setProperty("--mark-extra", mark_points.length > 0 ? `${mark_label_space()}px` : "0px");
     chart_container.style.removeProperty("display");
     chart_name.style.removeProperty("display");
     chart_name.innerHTML = current_data["name"];
@@ -500,11 +665,13 @@ function toggle_button_state() {
     document.getElementById("sync-context").classList.toggle("hidden");
     intraday_button.blur();
 }
-intraday_symbol_input.addEventListener("input", () => {
-    if (button_state === 1) {
-        toggle_button_state();
-    }
-});
+for (const input of [intraday_symbol_input, intraday_entry_input, intraday_exit_input]) {
+    input.addEventListener("input", () => {
+        if (button_state === 1) {
+            toggle_button_state();
+        }
+    });
+}
 intraday_datepicker.element.addEventListener("changeDate", () => {
     if (button_state === 1) {
         toggle_button_state();
@@ -514,24 +681,26 @@ intraday_datepicker.element.addEventListener("changeDate", () => {
 intraday_button.addEventListener("click", () => {
     if (button_state === 0) {
         if (get_chart("intraday") === 0) {
-            historical_symbols.push(intraday_symbol_input.value);
-            historical_dates.push(intraday_datepicker.getDate("yyyy-mm-dd"));
+            const query = {
+                symbol: intraday_symbol_input.value.toUpperCase(),
+                date: intraday_datepicker.getDate("yyyy-mm-dd"),
+                entry: normalize_time(intraday_entry_input.value) || "",
+                exit: normalize_time(intraday_exit_input.value) || "",
+            };
+            historical_symbols.push(query.symbol);
+            historical_dates.push(query.date);
+            historical_entries.push(query.entry);
+            historical_exits.push(query.exit);
+            save_last_query(query);
             toggle_button_state();
-            if ((historical_symbols.length >= 2) && (historical_dates.length >= 2)) {
-                history_container.classList.remove("hidden");
-                let date = historical_dates[historical_dates.length - 2];
-                let symbol = historical_symbols[historical_symbols.length - 2];
-                let existing_buttons = document.getElementsByClassName("history-btn");
-                for (let i = 0; i < existing_buttons.length; i++) {
-                    let existing_button = existing_buttons[i];
-                    if ((existing_button.getAttribute("date") === date) && (existing_button.getAttribute("symbol") == symbol)) {
-                        existing_button.classList.add("hidden");
-                    }
-                }
-                content = `<span date=${date} symbol=${symbol} class='btn my-btn-outline history-btn `
-                content += isMobile ? "my-btn-outline-no-hover" : "my-btn-outline-hover";
-                content += `'><i class='uil uil-history'></i> ${date} ${symbol}</span>`
-                history_container.innerHTML = content + history_container.innerHTML;
+            if (historical_symbols.length >= 2) {
+                const n = historical_symbols.length - 2;
+                add_history_button({
+                    symbol: historical_symbols[n],
+                    date: historical_dates[n],
+                    entry: historical_entries[n],
+                    exit: historical_exits[n],
+                });
             }
         }
     } else {
@@ -577,10 +746,22 @@ if (validateDate(INIT_DATE) && validateSymbol(INIT_SYMBOL)) {
     var date_utc = Date.parse(INIT_DATE);
     intraday_datepicker.setDate(date_utc + (new Date(date_utc).getTimezoneOffset() * 60000));
     intraday_symbol_input.value = INIT_SYMBOL;
-    get_chart_data([INIT_DATE], INIT_SYMBOL, "intraday", INIT_MARKS);
+    // Links carry [entry, exit]. Anything else is drawn as plain marks without filling the boxes.
+    const init_times = INIT_MARKS.split(",").map(normalize_time).filter(t => t !== null);
+    let init_marks = null;
+    if (init_times.length === 2) {
+        [intraday_entry_input.value, intraday_exit_input.value] = init_times;
+        init_marks = get_marks();
+    } else if (init_times.length > 0) {
+        intraday_mark_roles = [];
+        init_marks = init_times.join(",");
+    }
+    get_chart_data([INIT_DATE], INIT_SYMBOL, "intraday", init_marks);
     update_chart("intraday");
     historical_symbols.push(INIT_SYMBOL);
     historical_dates.push(INIT_DATE);
+    historical_entries.push(intraday_entry_input.value);
+    historical_exits.push(intraday_exit_input.value);
 } else {
     displayAlert("info", "Enter date and symbol. Then click QUERY.", "intraday");
 }
@@ -719,17 +900,195 @@ function add_auto_complete(symbol_input) {
 add_auto_complete(intraday_symbol_input);
 add_auto_complete(daily_symbol_input);
 
-history_container.addEventListener("click", function(event) {
-    if (event.target.classList.contains("btn")) {
-        let date = event.target.getAttribute("date");
-        let symbol = event.target.getAttribute("symbol");
-        intraday_symbol_input.value = symbol;
-        var date_utc = Date.parse(date);
-        intraday_datepicker.setDate(date_utc + (new Date(date_utc).getTimezoneOffset() * 60000));
-        if (button_state === 1) {
-            button_state = 0;
-            document.getElementById("query-context").classList.toggle("hidden");
-            document.getElementById("sync-context").classList.toggle("hidden");
+// History and trade list live in sessionStorage: they survive a refresh but not a new tab or window.
+const HISTORY_STORAGE_KEY = "charts.history";
+const LAST_QUERY_STORAGE_KEY = "charts.last_query";
+
+function read_session(key) {
+    try {
+        return JSON.parse(sessionStorage.getItem(key));
+    } catch (e) {
+        return null;
+    }
+}
+
+function write_session(key, value) {
+    try {
+        sessionStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {}
+}
+
+function save_last_query(query) {
+    write_session(LAST_QUERY_STORAGE_KEY, query);
+}
+
+function save_history() {
+    write_session(HISTORY_STORAGE_KEY, Array.from(history_container.children).map(btn => ({
+        symbol: btn.getAttribute("symbol"),
+        date: btn.getAttribute("date"),
+        entry: btn.getAttribute("entry"),
+        exit: btn.getAttribute("exit"),
+    })));
+}
+
+function is_valid_history_item(item) {
+    return item !== null && typeof item === "object" && validateDate(String(item.date))
+        && validateSymbol(String(item.symbol));
+}
+
+function add_history_button(item) {
+    for (const existing of Array.from(history_container.children)) {
+        if (existing.getAttribute("date") === item.date && existing.getAttribute("symbol") === item.symbol
+            && existing.getAttribute("entry") === item.entry && existing.getAttribute("exit") === item.exit) {
+            existing.remove();
         }
     }
+    const btn = document.createElement("span");
+    btn.className = "btn my-btn-outline history-btn " + (isMobile ? "my-btn-outline-no-hover" : "my-btn-outline-hover");
+    for (const key of ["symbol", "date", "entry", "exit"]) {
+        btn.setAttribute(key, item[key]);
+    }
+    const icon = document.createElement("i");
+    icon.className = "uil uil-history";
+    const times = (item.entry || item.exit) ? ` ${item.entry || "?"}-${item.exit || "?"}` : "";
+    btn.append(icon, ` ${item.date} ${item.symbol}${times}`);
+    history_container.prepend(btn);
+    history_card.classList.remove("hidden");
+    save_history();
+}
+
+history_container.addEventListener("click", function(event) {
+    const btn = event.target.closest(".history-btn");
+    if (btn !== null) {
+        fill_intraday_inputs(btn.getAttribute("symbol"), btn.getAttribute("date"),
+                             btn.getAttribute("entry"), btn.getAttribute("exit"));
+    }
 });
+
+// Trade list: paste trades from the backtest summary and click one to chart it.
+const TRADES_STORAGE_KEY = "charts.trades_text";
+const trades_textarea = document.getElementById("trades-textarea");
+const trades_input_container = document.getElementById("trades-input-container");
+const trades_container = document.getElementById("trades-container");
+const trades_hint = document.getElementById("trades-hint");
+const trades_toggle_btn = document.getElementById("trades-toggle-btn");
+var trades = [];
+
+function parse_trades(text) {
+    const parsed = [];
+    const seen = new Set();
+    for (const line of text.split("\n")) {
+        const tokens = line.split(/[|\s,]+/).filter(t => t.length > 0);
+        const date_index = tokens.findIndex(t => /^\d{4}-\d{2}-\d{2}$/.test(t));
+        if (date_index < 1 || !/^[A-Za-z][A-Za-z0-9.\-]*$/.test(tokens[0])) {
+            continue;
+        }
+        const times = tokens.slice(date_index + 1).filter(t => /^\d{1,2}:\d{2}(:\d{2})?$/.test(t));
+        if (times.length < 2) {
+            continue;
+        }
+        const [entry, exit] = times.slice(0, 2).map(t => t.split(":").slice(0, 2).map(p => p.padStart(2, "0")).join(":"));
+        const trade = {
+            symbol: tokens[0].toUpperCase(),
+            date: tokens[date_index],
+            entry: entry,
+            exit: exit,
+            side: tokens.find(t => /^(long|short)$/i.test(t)) || "",
+            gain: tokens.find(t => /^[+-]\d+(\.\d+)?%$/.test(t)) || "",
+        };
+        const key = `${trade.symbol} ${trade.date} ${trade.entry} ${trade.exit}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            parsed.push(trade);
+        }
+    }
+    return parsed;
+}
+
+function render_trades() {
+    trades_container.innerHTML = "";
+    trades.forEach((trade, index) => {
+        const btn = document.createElement("span");
+        btn.className = "btn my-btn-outline trade-btn " + (isMobile ? "my-btn-outline-no-hover" : "my-btn-outline-hover");
+        btn.classList.add(trade.gain.startsWith("-") ? "trade-loss" : "trade-win");
+        btn.dataset.index = index;
+        btn.title = `${trade.side} ${trade.entry} - ${trade.exit}`.trim();
+        btn.textContent = `${trade.symbol} ${trade.date} ${trade.entry}`;
+        if (trade.gain) {
+            const gain = document.createElement("span");
+            gain.className = "trade-gain";
+            gain.textContent = trade.gain;
+            btn.appendChild(gain);
+        }
+        trades_container.appendChild(btn);
+    });
+}
+
+function select_trade(index) {
+    const trade = trades[index];
+    fill_intraday_inputs(trade.symbol, trade.date, trade.entry, trade.exit);
+    for (const btn of trades_container.children) {
+        btn.classList.toggle("trade-active", btn.dataset.index === String(index));
+    }
+}
+
+function load_trades() {
+    trades = parse_trades(trades_textarea.value);
+    try {
+        sessionStorage.setItem(TRADES_STORAGE_KEY, trades_textarea.value);
+    } catch (e) {}
+    render_trades();
+    trades_hint.textContent = trades.length > 0 ? `${trades.length} trades loaded` : "No trades found";
+    if (trades.length > 0) {
+        trades_input_container.classList.add("hidden");
+        trades_toggle_btn.innerHTML = "<i class='uil uil-edit'></i> EDIT";
+    }
+}
+
+trades_container.addEventListener("click", function(event) {
+    const btn = event.target.closest(".trade-btn");
+    if (btn !== null) {
+        select_trade(parseInt(btn.dataset.index));
+    }
+});
+document.getElementById("trades-load-btn").addEventListener("click", load_trades);
+document.getElementById("trades-clear-btn").addEventListener("click", () => {
+    trades_textarea.value = "";
+    load_trades();
+    trades_input_container.classList.remove("hidden");
+    trades_hint.textContent = "";
+});
+trades_toggle_btn.addEventListener("click", () => {
+    trades_input_container.classList.toggle("hidden");
+    trades_toggle_btn.innerHTML = trades_input_container.classList.contains("hidden")
+        ? "<i class='uil uil-edit'></i> EDIT" : "<i class='uil uil-angle-up'></i> HIDE";
+});
+
+try {
+    trades_textarea.value = sessionStorage.getItem(TRADES_STORAGE_KEY) || "";
+} catch (e) {}
+if (trades_textarea.value.trim().length > 0) {
+    load_trades();
+} else {
+    trades_toggle_btn.innerHTML = "<i class='uil uil-angle-up'></i> HIDE";
+}
+
+// Restore history after a refresh. The last query is not in the history yet (it was the displayed chart),
+// so add it too, unless the page just re-displayed it from the URL.
+const saved_history = read_session(HISTORY_STORAGE_KEY);
+if (Array.isArray(saved_history)) {
+    for (const item of saved_history.reverse()) {
+        if (is_valid_history_item(item)) {
+            add_history_button({symbol: item.symbol, date: item.date, entry: item.entry || "", exit: item.exit || ""});
+        }
+    }
+}
+const saved_last = read_session(LAST_QUERY_STORAGE_KEY);
+if (is_valid_history_item(saved_last)) {
+    const n = historical_symbols.length - 1;
+    const displayed = n >= 0 && historical_symbols[n] === saved_last.symbol && historical_dates[n] === saved_last.date
+        && historical_entries[n] === (saved_last.entry || "") && historical_exits[n] === (saved_last.exit || "");
+    if (!displayed) {
+        add_history_button({symbol: saved_last.symbol, date: saved_last.date, entry: saved_last.entry || "", exit: saved_last.exit || ""});
+    }
+}

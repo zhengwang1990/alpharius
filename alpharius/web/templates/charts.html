@@ -9,6 +9,36 @@
 {% endblock %}
 
 {% block content %}
+<div class="card" id="trades-card">
+    <div class="card-header">
+        <span class="card-title">Trade List</span>
+        <span class="trades-actions">
+            <button type="button" class="btn btn-sm my-btn-outline my-btn-primary" id="trades-toggle-btn">
+                <i class="uil uil-edit"></i> EDIT
+            </button>
+        </span>
+    </div>
+    <div id="trades-input-container">
+        <textarea class="form-control" id="trades-textarea" rows="3" spellcheck="false"
+                  placeholder="Paste trades from the backtest summary, e.g.&#10;| TQQQ | Exp | 2025-04-07 | 10:45:00 | 11:05:00 | long | +8.64% |&#10;or simply: TQQQ 2025-04-07 10:45 11:05"></textarea>
+        <div class="trades-input-actions">
+            <button type="button" class="btn my-btn-outline my-btn-primary" id="trades-load-btn">
+                <i class="uil uil-check"></i> LOAD
+            </button>
+            <button type="button" class="btn my-btn-outline my-btn-primary" id="trades-clear-btn">
+                <i class="uil uil-trash-alt"></i> CLEAR
+            </button>
+            <span class="trades-hint" id="trades-hint"></span>
+        </div>
+    </div>
+    <div id="trades-container"></div>
+</div>
+
+<div class="card hidden" id="history-card">
+    <div class="card-header"><span class="card-title">History</span></div>
+    <div id="history-container"></div>
+</div>
+
 <div class="card" id="intraday-card">
     <div class="card-header"><span class="card-title">Intraday Chart</span></div>
     <div class="select-container">
@@ -22,12 +52,18 @@
                   <span class="input-group-text"><i class="uil uil-letter-english-a"></i></span>
                   <input type="text" class="form-control symbol-input" placeholder="SYMBOL" id="intraday-symbol-input">
               </div>
+         </span><span class="padding-span"></span><span class="inline-span time-range-span">
+              <div class="input-group">
+                  <span class="input-group-text"><i class="uil uil-clock"></i></span>
+                  <input type="text" class="form-control" placeholder="ENTRY" id="intraday-entry-input" autocomplete="off">
+                  <span class="input-group-text time-to"><i class="uil uil-angle-double-right"></i></span>
+                  <input type="text" class="form-control right-most-input" placeholder="EXIT" id="intraday-exit-input" autocomplete="off">
+              </div>
          </span><button type="button" class="btn my-btn-outline my-btn-primary btn-query" id="intraday-chart-btn">
             <span id="query-context"><span class="query-text">QUERY</span><span class="query-icon"><i class="uil uil-search"></i></span></span>
             <span id="sync-context" class="hidden"><span class="query-text">SYNC</span><span class="query-icon"><i class="uil uil-sync"></i></span></span>
         </button>
     </div>
-    <div class="hidden" id="history-container"></div>
     <div class="alert" style="display:none" id="intraday-alert" role="alert"></div>
     <div class="chart-name" id="intraday-chart-name" style="display:none"></div>
     <div class="chart-container" id="intraday-chart-container" style="display:none">

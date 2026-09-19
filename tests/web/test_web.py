@@ -318,7 +318,7 @@ def test_backtest_with_finish_time(client):
 
 
 def test_handle_exception(client, mocker):
-    mocker.patch('alpharius.data.FmpClient', side_effect=ValueError('fake test error'))
+    mocker.patch('alpharius.data.get_default_data_client', side_effect=ValueError('fake test error'))
     resp = client.get('/')
     assert 'fake test error' in resp.text
     assert resp.status_code != 200
