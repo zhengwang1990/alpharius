@@ -45,11 +45,11 @@
 .dash-content .card .btn.btn-query {
     --bs-btn-padding-x: 1.1rem;
     --bs-btn-color: #fff;
-    --bs-btn-bg: var(--accent);
-    --bs-btn-border-color: var(--accent);
+    --bs-btn-bg: #0ea5e9;
+    --bs-btn-border-color: #0ea5e9;
     --bs-btn-hover-color: #fff;
-    --bs-btn-hover-bg: var(--accent-dark);
-    --bs-btn-hover-border-color: var(--accent-dark);
+    --bs-btn-hover-bg: var(--accent);
+    --bs-btn-hover-border-color: var(--accent);
     --bs-btn-active-bg: var(--accent-dark);
     --bs-btn-active-border-color: var(--accent-dark);
     height: var(--control-h);
