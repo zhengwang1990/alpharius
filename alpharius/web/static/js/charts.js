@@ -201,7 +201,8 @@ const closePointer = {
     // Triangle at the close price plus an ENTRY / EXIT tag above the plot.
     afterDatasetsDraw: ((chart, args, pluginOptions) => {
         const { ctx, chartArea: { top, left, right }, scales: { y } } = chart;
-        const font_size = chart_mode === "compact" ? 9 : 11;
+        const compact = chart_mode === "compact";
+        const font_size = compact ? 9 : 11;
         const pad = 4;
         const label_height = font_size + 2 * pad - 2;
         const label_y = top - label_height - 3;
@@ -211,19 +212,16 @@ const closePointer = {
         for (const bar of get_mark_bars(chart, pluginOptions.mark_points)) {
             const { dataPoint, x: xc, style } = bar;
             const yc = y.getPixelForValue(dataPoint.c);
-            const size = Math.max(0.9 * bar.bar_width, 6);
+            // On mobile the triangle is never wider than a bar.
+            const size = compact ? bar.bar_width : Math.max(0.9 * bar.bar_width, 6);
             const dir = dataPoint.c < dataPoint.o ? 1 : -1;
 
             ctx.fillStyle = style.color;
-            ctx.strokeStyle = "white";
-            ctx.lineWidth = 1.5;
-            ctx.lineJoin = "round";
             ctx.beginPath();
             ctx.moveTo(xc, yc);
             ctx.lineTo(xc - 0.5 * size, yc + dir * 0.9 * size);
             ctx.lineTo(xc + 0.5 * size, yc + dir * 0.9 * size);
             ctx.closePath();
-            ctx.stroke();
             ctx.fill();
 
             if (style.label) {
