@@ -248,7 +248,7 @@ def _object_to_readable_str(obj: object) -> str:
     elif isinstance(obj, (int, float, str)):
         return str(obj)
     else:
-        raise ValueError(f'Unsupported type for hashing: {type(obj)}')
+        raise TypeError(f'Unsupported type for hashing: {type(obj)}')
 
 
 def hash_str(value: str) -> str:

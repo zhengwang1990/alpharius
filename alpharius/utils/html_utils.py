@@ -1,10 +1,10 @@
 import builtins
-import dataclasses
 import difflib
 import html as _html
 import keyword
 import re
 import warnings
+from dataclasses import dataclass
 
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 
@@ -90,7 +90,7 @@ def highlight_diff_table(diff_table: str) -> str:
     return str(soup)
 
 
-@dataclasses.dataclass
+@dataclass(slots=True)
 class DiffFile:
     """One changed file: its side-by-side diff table plus what the page header needs to describe it."""
 
