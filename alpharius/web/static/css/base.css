@@ -416,6 +416,12 @@ nav .logo-image {
     }
 }
 
+@media (max-width: 1199.98px) {
+    .md-hidden {
+        display: none;
+    }
+}
+
 @media (max-width: 767.98px) {
     .xs-hidden {
         display: none !important;
