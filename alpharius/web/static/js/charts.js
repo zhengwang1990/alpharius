@@ -975,10 +975,21 @@ var trades = [];
 function parse_trades(text) {
     const parsed = [];
     const seen = new Set();
+    // Rows without their own date (e.g. the per-day tables in details.txt) inherit the date of the
+    // closest preceding section header such as "== [ 2020-03-05 ] ====".
+    let section_date = "";
     for (const line of text.split("\n")) {
         const tokens = line.split(/[|\s,]+/).filter(t => t.length > 0);
         const date_index = tokens.findIndex(t => /^\d{4}-\d{2}-\d{2}$/.test(t));
-        if (date_index < 1 || !/^[A-Za-z][A-Za-z0-9.\-]*$/.test(tokens[0])) {
+        const has_symbol = tokens.length > 0 && /^[A-Za-z][A-Za-z0-9.\-]*$/.test(tokens[0]);
+        if (!has_symbol) {
+            if (date_index >= 0) {
+                section_date = tokens[date_index];
+            }
+            continue;
+        }
+        const date = date_index >= 1 ? tokens[date_index] : section_date;
+        if (!date) {
             continue;
         }
         const times = tokens.slice(date_index + 1).filter(t => /^\d{1,2}:\d{2}(:\d{2})?$/.test(t));
@@ -988,7 +999,7 @@ function parse_trades(text) {
         const [entry, exit] = times.slice(0, 2).map(t => t.split(":").slice(0, 2).map(p => p.padStart(2, "0")).join(":"));
         const trade = {
             symbol: tokens[0].toUpperCase(),
-            date: tokens[date_index],
+            date: date,
             entry: entry,
             exit: exit,
             side: tokens.find(t => /^(long|short)$/i.test(t)) || "",

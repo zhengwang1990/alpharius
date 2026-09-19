@@ -77,6 +77,8 @@ def main():
         selected_processors = PROCESSORS
         if args.processors:
             selected_processors = _filter_processors(PROCESSORS, args.processors)
+            if not selected_processors:  # Try exp processor if nothing found
+                selected_processors = _filter_processors([processors.ExpProcessor], args.processors)
             if not selected_processors:
                 parser.error(f'No processors matched: {args.processors}')
 
