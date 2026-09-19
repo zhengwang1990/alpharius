@@ -20,7 +20,17 @@ def test_dashboard(route, client, mock_trading_client, mock_data_client):
     assert mock_data_client.get_data_call_count > 0
 
 
-@pytest.mark.parametrize('route', ['/transactions', '/transactions?page=2', '/transactions?processor=Processor1'])
+@pytest.mark.parametrize(
+    'route',
+    [
+        '/transactions',
+        '/transactions?page=2',
+        '/transactions?processor=Processor1',
+        '/transactions?date=2022-11-03',
+        '/transactions?date=2022-11-03&processor=Processor1&page=2',
+        '/transactions?date=not-a-date',
+    ],
+)
 def test_transactions(route, client, mock_engine):
     mock_engine.conn.execute.side_effect = [
         [(pd.to_datetime('2022-11-02').date(), 'Processor1', 100, 0.01, 0, 0, 3, 2, 1, 0, 1000)],
@@ -59,6 +69,42 @@ def test_transactions(route, client, mock_engine):
 
     assert client.get(route).status_code == 200
     assert mock_engine.conn.execute.call_count == 3
+
+
+def test_transactions_date_filter(client, mock_engine):
+    mock_engine.conn.execute.side_effect = [
+        [(pd.to_datetime('2022-11-02').date(), 'Processor1', 100, 0.01, 0, 0, 3, 2, 1, 0, 1000)],
+        iter([[45]]),
+        [],
+    ]
+
+    resp = client.get('/transactions?date=2022-11-03&processor=Processor1')
+
+    assert resp.status_code == 200
+    count_call, list_call = mock_engine.conn.execute.call_args_list[1:]
+    # The whole day in the market time zone, and both queries get the same window
+    start_time = pd.to_datetime('2022-11-03').tz_localize('America/New_York')
+    end_time = pd.to_datetime('2022-11-03 23:59:59').tz_localize('America/New_York')
+    assert count_call[0][1] == {'processor': 'Processor1', 'start_time': start_time, 'end_time': end_time}
+    assert list_call[0][1]['start_time'] == start_time and list_call[0][1]['end_time'] == end_time
+    assert 'No transactions found' in resp.text
+    assert 'const ACTIVE_DATE = "2022-11-03"' in resp.text
+    # Pagination keeps both filters (45 rows is 3 pages)
+    assert 'href="?page=2&amp;processor=Processor1&amp;date=2022-11-03"' in resp.text
+
+
+def test_transactions_without_date_shows_everything(client, mock_engine):
+    mock_engine.conn.execute.side_effect = [
+        [(pd.to_datetime('2022-11-02').date(), 'Processor1', 100, 0.01, 0, 0, 3, 2, 1, 0, 1000)],
+        iter([[0]]),
+        [],
+    ]
+
+    resp = client.get('/transactions?date=garbage')
+
+    assert resp.status_code == 200
+    assert mock_engine.conn.execute.call_args_list[1][0][1] == {}
+    assert 'const ACTIVE_DATE = ""' in resp.text
 
 
 def test_analytics(client, mock_trading_client, mock_engine, mock_data_client):
@@ -144,6 +190,22 @@ def test_get_risks():
 )
 def test_charts(route, client):
     assert client.get(route).status_code == 200
+
+
+def test_charts_moves_weekend_range_to_trading_days(client):
+    # Sunday to Sunday becomes Monday to Friday
+    resp = client.get('/charts?symbol=QQQ&start_date=2022-11-13&end_date=2022-11-20')
+
+    assert 'INIT_START_DATE = "2022-11-14"' in resp.text
+    assert 'INIT_END_DATE = "2022-11-18"' in resp.text
+
+
+def test_charts_ignores_malformed_dates(client):
+    resp = client.get('/charts?symbol=QQQ&date=nope&start_date=2022-13-45&end_date=x')
+
+    assert resp.status_code == 200
+    assert 'INIT_DATE = ""' in resp.text
+    assert 'INIT_START_DATE = ""' in resp.text and 'INIT_END_DATE = ""' in resp.text
 
 
 @pytest.mark.parametrize(

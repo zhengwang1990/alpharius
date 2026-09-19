@@ -632,6 +632,12 @@ nav .logo-image {
     border-bottom-right-radius: var(--radius-sm);
 }
 
+/* The datepicker adds a sibling after its input, so :last-child above misses it: mark the last input by hand */
+.input-group .right-most-input {
+    border-top-right-radius: var(--radius-sm) !important;
+    border-bottom-right-radius: var(--radius-sm) !important;
+}
+
 /* ==========================================================================
    Buttons
    ========================================================================== */

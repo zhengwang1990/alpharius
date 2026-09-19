@@ -5,6 +5,7 @@ import json
 import math
 import os
 import re
+import urllib.parse
 from concurrent import futures
 
 import flask
@@ -21,6 +22,7 @@ from alpharius.utils import (
     construct_charts_link,
     get_colored_value,
     get_current_time,
+    get_day_range,
     get_signed_percentage,
     get_today,
 )
@@ -95,6 +97,18 @@ def _list_processors(db_client: Db) -> list[str]:
     return processors
 
 
+def _parse_date(value: str | None) -> datetime.date | None:
+    """Parses a YYYY-MM-DD request argument. Missing or malformed values give None instead of an error."""
+    try:
+        return datetime.date.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def _format_date(day: datetime.date | None) -> str:
+    return day.isoformat() if day else ''
+
+
 @bp.route('/transactions')
 @access_control
 def transactions():
@@ -110,13 +124,18 @@ def transactions():
     if active_processor not in processors:
         active_processor = None
     processors = ['ALL PROCESSORS'] + processors
-    count = client.get_transaction_count(active_processor)
+    # Optional day filter, on exit time in the market time zone. Anything that isn't a date means no filter.
+    active_date = _parse_date(flask.request.args.get('date'))
+    start_time, end_time = get_day_range(active_date) if active_date else (None, None)
+    count = client.get_transaction_count(active_processor, start_time=start_time, end_time=end_time)
     total_page = max(int(np.ceil(count / items_per_page)), 1)
     page = max(min(page, total_page), 1)
     offset = (page - 1) * items_per_page
     trans = []
     time_fmt = '<span class="lg-hidden">%Y-%m-%d </span>%H:%M'
-    for t in client.list_transactions(limit=items_per_page, offset=offset, processor=active_processor):
+    for t in client.list_transactions(
+        limit=items_per_page, offset=offset, start_time=start_time, end_time=end_time, processor=active_processor
+    ):
         entry_time = pd.Timestamp(t.entry_time).tz_convert(TIME_ZONE)
         exit_time = pd.Timestamp(t.exit_time).tz_convert(TIME_ZONE)
         marks = None
@@ -142,12 +161,20 @@ def transactions():
                 'link': construct_charts_link(t.symbol, exit_time.strftime('%F'), marks),
             }
         )
+    # Filters the pagination links carry along
+    filters = {}
+    if active_processor:
+        filters['processor'] = active_processor
+    if active_date:
+        filters['date'] = active_date.isoformat()
     return flask.render_template(
         'transactions.html',
         transactions=trans,
         current_page=page,
         total_page=total_page,
         active_processor=active_processor,
+        active_date=_format_date(active_date),
+        extra_query='&' + urllib.parse.urlencode(filters) if filters else '',
         processors=processors,
     )
 
@@ -447,27 +474,24 @@ def logs():
 @access_control
 def charts():
     client = Client()
-    date = flask.request.args.get('date')
-    start_date = flask.request.args.get('start_date')
-    end_date = flask.request.args.get('end_date')
+    date = _parse_date(flask.request.args.get('date'))
+    start_date = _parse_date(flask.request.args.get('start_date'))
+    end_date = _parse_date(flask.request.args.get('end_date'))
     marks = flask.request.args.get('marks')
     if start_date and end_date:
-        pd_start = pd.to_datetime(start_date)
-        if pd_start.isoweekday() > 5:
-            pd_start += datetime.timedelta(days=8 - pd_start.isoweekday())
-        start_date = pd_start.strftime('%F')
-        pd_end = pd.to_datetime(end_date)
-        if pd_end.isoweekday() > 5:
-            pd_end -= datetime.timedelta(days=pd_end.isoweekday() - 5)
-        end_date = pd_end.strftime('%F')
+        # Weekends have no data: move the range inward to trading days
+        if start_date.isoweekday() > 5:
+            start_date += datetime.timedelta(days=8 - start_date.isoweekday())
+        if end_date.isoweekday() > 5:
+            end_date -= datetime.timedelta(days=end_date.isoweekday() - 5)
     symbol = flask.request.args.get('symbol')
     all_symbols = client.get_all_symbols()
     return flask.render_template(
         'charts.html',
         all_symbols=all_symbols,
-        init_date=date,
-        init_start_date=start_date,
-        init_end_date=end_date,
+        init_date=_format_date(date),
+        init_start_date=_format_date(start_date),
+        init_end_date=_format_date(end_date),
         init_marks=marks,
         init_symbol=symbol,
     )

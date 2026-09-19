@@ -10,11 +10,6 @@
     font-weight: 600;
 }
 
-.select-container .input-group .right-most-input {
-    border-top-right-radius: var(--radius-sm) !important;
-    border-bottom-right-radius: var(--radius-sm) !important;
-}
-
 .select-container .input-group .symbol-input {
     text-transform: uppercase;
 }

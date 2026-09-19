@@ -264,11 +264,11 @@ class Db:
                         continue
                     self._execute(UPSERT_LOG_QUERY, date=date, logger=logger, content=content)
 
-    def list_transactions(
-        self, limit: int, offset: int, start_time=None, end_time=None, processor: str | None = None
-    ) -> list[Transaction]:
+    @staticmethod
+    def _transaction_filter(start_time, end_time, processor: str | None) -> tuple[str, dict]:
+        """Returns the WHERE clause and its parameters. Times filter on exit time: start inclusive, end exclusive."""
         conditions = []
-        kwargs = {'limit': limit, 'offset': offset}
+        kwargs = {}
         if processor:
             conditions.append('processor = :processor')
             kwargs['processor'] = processor
@@ -278,19 +278,19 @@ class Db:
         if end_time:
             conditions.append('exit_time < :end_time')
             kwargs['end_time'] = end_time
-        condition = ''
-        if conditions:
-            condition = 'WHERE ' + ' AND '.join(conditions)
+        condition = 'WHERE ' + ' AND '.join(conditions) if conditions else ''
+        return condition, kwargs
+
+    def list_transactions(
+        self, limit: int, offset: int, start_time=None, end_time=None, processor: str | None = None
+    ) -> list[Transaction]:
+        condition, kwargs = self._transaction_filter(start_time, end_time, processor)
         query = sqlalchemy.text(SELECT_TRANSACTION_DETAIL_QUERY.format(condition=condition))
-        results = self._execute(query, **kwargs)
+        results = self._execute(query, limit=limit, offset=offset, **kwargs)
         return [Transaction(*result) for result in results]
 
-    def get_transaction_count(self, processor: str | None = None) -> int:
-        kwargs = {}
-        condition = ''
-        if processor:
-            condition = 'WHERE processor = :processor'
-            kwargs['processor'] = processor
+    def get_transaction_count(self, processor: str | None = None, start_time=None, end_time=None) -> int:
+        condition, kwargs = self._transaction_filter(start_time, end_time, processor)
         query = sqlalchemy.text(COUNT_TRANSACTION_QUERY.format(condition=condition))
         results = self._execute(query, **kwargs)
         return int(next(results)[0])

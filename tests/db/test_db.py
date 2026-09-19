@@ -121,6 +121,19 @@ def test_get_transaction_count(processor, client, mock_engine):
     mock_engine.conn.execute.assert_called_once()
 
 
+def test_get_transaction_count_with_times(client, mock_engine):
+    start_time = pd.to_datetime('2022-11-03').tz_localize('America/New_York')
+    end_time = pd.to_datetime('2022-11-04').tz_localize('America/New_York')
+
+    client.get_transaction_count('Processor', start_time=start_time, end_time=end_time)
+
+    query, params = mock_engine.conn.execute.call_args[0]
+    assert 'processor = :processor' in str(query)
+    assert 'exit_time >= :start_time' in str(query)
+    assert 'exit_time < :end_time' in str(query)
+    assert params == {'processor': 'Processor', 'start_time': start_time, 'end_time': end_time}
+
+
 def test_list_aggregations(client, mock_engine):
     mock_engine.conn.execute.return_value = [
         (pd.to_datetime('2022-11-03').date(), 'Processor', 100, 0.01, -10, -0.01, 3, 2, 1, 1, 100)

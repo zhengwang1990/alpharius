@@ -39,11 +39,6 @@
     letter-spacing: 0.02em;
 }
 
-#datepicker {
-    border-top-right-radius: var(--radius-sm);
-    border-bottom-right-radius: var(--radius-sm);
-}
-
 /* Floating scroll buttons */
 #nav-buttons {
     position: fixed;
