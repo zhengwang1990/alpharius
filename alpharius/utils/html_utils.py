@@ -1,4 +1,7 @@
 import builtins
+import dataclasses
+import difflib
+import html as _html
 import keyword
 import re
 import warnings
@@ -85,3 +88,92 @@ def highlight_diff_table(diff_table: str) -> str:
         if str(content_soup):
             td.append(content_soup)
     return str(soup)
+
+
+@dataclasses.dataclass
+class DiffFile:
+    """One changed file: its side-by-side diff table plus what the page header needs to describe it."""
+
+    path: str
+    table: str
+    status: str  # git change type: M(odified), A(dded), D(eleted), R(enamed)
+    added: int
+    removed: int
+    old_path: str | None = None  # only set when the file was renamed
+
+
+def count_changed_lines(old_lines: list[str], new_lines: list[str]) -> tuple[int, int]:
+    """Returns the number of (added, removed) lines between two versions of a file."""
+    added = removed = 0
+    for tag, i1, i2, j1, j2 in difflib.SequenceMatcher(None, old_lines, new_lines, autojunk=False).get_opcodes():
+        if tag in ('replace', 'delete'):
+            removed += i2 - i1
+        if tag in ('replace', 'insert'):
+            added += j2 - j1
+    return added, removed
+
+
+def _format_path(file: DiffFile) -> str:
+    directory, _, name = file.path.rpartition('/')
+    res = ''
+    if directory:
+        res += f'<span class="dir">{_html.escape(directory)}/</span>'
+    res += f'<span class="name">{_html.escape(name)}</span>'
+    if file.old_path and file.old_path != file.path:
+        res += f' <span class="from">&larr; {_html.escape(file.old_path)}</span>'
+    return f'<span class="path">{res}</span>'
+
+
+def _format_counts(file: DiffFile) -> str:
+    """Counts plus GitHub-style five-block bar showing the added / removed proportion."""
+    total = file.added + file.removed
+    green = round(5 * file.added / total) if total else 0
+    if file.added and not green:
+        green = 1
+    if file.removed and green == 5:
+        green = 4
+    red = 5 - green if total else 0
+    blocks = ['a'] * green + ['d'] * red
+    blocks += [''] * (5 - len(blocks))
+    block_html = ''.join(f'<i class="{b}"></i>' for b in blocks)
+    return (
+        f'<span class="counts"><span class="add">+{file.added}</span> '
+        f'<span class="del">&minus;{file.removed}</span> <span class="blocks">{block_html}</span></span>'
+    )
+
+
+def render_diff_page(
+    template: str,
+    files: list[DiffFile],
+    output_num: str | int,
+    logo_uri: str,
+    base_commit: str,
+    base_message: str,
+) -> str:
+    """Fills the diff page template with the given files.
+
+    The template uses {{NAME}} placeholders. Everything is substituted in one pass, so code that happens to
+    contain a placeholder is never expanded.
+    """
+    index = []
+    sections = []
+    for i, file in enumerate(files):
+        file_id = f'file-{i}'
+        header = f'<span class="badge {file.status}">{file.status}</span>{_format_path(file)}{_format_counts(file)}'
+        index.append(f'<a href="#{file_id}">{header}</a>')
+        sections.append(
+            f'<details class="file card" id="{file_id}" open><summary>{header}</summary>'
+            f'<div class="table-wrap">{file.table}</div></details>'
+        )
+    values = {
+        'OUTPUT_NUM': _html.escape(str(output_num)),
+        'LOGO_URI': _html.escape(logo_uri),
+        'BASE_COMMIT': _html.escape(base_commit),
+        'BASE_MESSAGE': _html.escape(base_message),
+        'FILE_COUNT': f'{len(files)} file{"" if len(files) == 1 else "s"}',
+        'TOTAL_ADDED': str(sum(f.added for f in files)),
+        'TOTAL_REMOVED': str(sum(f.removed for f in files)),
+        'INDEX': ''.join(index),
+        'FILES': ''.join(sections),
+    }
+    return re.sub(r'\{\{(\w+)\}\}', lambda m: values.get(m.group(1), m.group(0)), template)

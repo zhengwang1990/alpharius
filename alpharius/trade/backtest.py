@@ -4,6 +4,7 @@ import difflib
 import functools
 import math
 import os
+import pathlib
 import signal
 import threading
 import time
@@ -27,13 +28,16 @@ from alpharius.data import (
 )
 from alpharius.utils import (
     TIME_ZONE,
+    DiffFile,
     Transaction,
     compute_bernoulli_ci95,
     compute_drawdown,
     compute_risks,
+    count_changed_lines,
     get_all_symbols,
     get_trading_client,
     highlight_diff_table,
+    render_diff_page,
 )
 
 from .common import (
@@ -142,8 +146,7 @@ class Backtest:
 
     def _record_diff(self):
         repo = git.Repo(BASE_DIR)
-        html = ''
-        max_num_line = 0
+        files = []
         for item in repo.head.commit.diff(None):
             old_content, new_content = [], []
             if item.change_type != 'A':
@@ -154,29 +157,35 @@ class Backtest:
                         new_content = f.read().split('\n')
                 except UnicodeDecodeError:
                     continue
-            max_num_line = max(max_num_line, len(old_content), len(new_content))
-            html_diff = difflib.HtmlDiff(wrapcolumn=120)
-            html += f'<div><h1>{item.b_path}</h1>'
-            diff_table = html_diff.make_table(old_content, new_content, context=True)
+            diff_table = difflib.HtmlDiff(wrapcolumn=120).make_table(old_content, new_content, context=True)
             if item.b_path.endswith('.py'):
                 diff_table = highlight_diff_table(diff_table)
-            html += diff_table
-            html += '</div>'
-        if html:
-            current_dir = os.path.dirname(os.path.realpath(__file__))
-            template_file = os.path.join(current_dir, 'html', 'diff.html')
-            header_width = (int(np.log10(max_num_line)) + 1) * 7 + 6
-            with open(template_file, 'r') as f:
-                template = f.read()
-            with open(os.path.join(self._output_dir, 'diff.html'), 'w', encoding='utf-8') as f:
-                f.write(
-                    template.format(
-                        header_width=header_width,
-                        html=html,
-                        output_num=self._output_num,
-                        logo_path=os.path.join(current_dir, 'html', 'diff.png'),
-                    )
+            added, removed = count_changed_lines(old_content, new_content)
+            files.append(
+                DiffFile(
+                    path=item.b_path,
+                    table=diff_table,
+                    status='R' if item.renamed_file else item.change_type,
+                    added=added,
+                    removed=removed,
+                    old_path=item.a_path if item.renamed_file else None,
                 )
+            )
+        if files:
+            html_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'html')
+            with open(os.path.join(html_dir, 'diff.html'), 'r', encoding='utf-8') as f:
+                template = f.read()
+            commit = repo.head.commit
+            page = render_diff_page(
+                template,
+                files,
+                output_num=self._output_num,
+                logo_uri=pathlib.Path(html_dir, 'diff.png').as_uri(),
+                base_commit=str(commit.hexsha)[:7],
+                base_message=str(commit.summary),
+            )
+            with open(os.path.join(self._output_dir, 'diff.html'), 'w', encoding='utf-8') as f:
+                f.write(page)
 
     def run(self) -> list[Transaction]:
         self._run_start_time = time.time()

@@ -1,62 +1,390 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Code Diff {output_num}</title>
-    <link rel="icon" type="image/png" href="{logo_path}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Code Diff {{OUTPUT_NUM}}</title>
+    <link rel="icon" type="image/png" href="{{LOGO_URI}}">
     <style type="text/css">
-        .diff {{font-family:monospace; border:medium; font-size:14px;}}
-        .diff_header {{background-color:#e0e0e0; text-align:right; width:{header_width}px; padding:0 3px; user-select:none;}}
-        .diff_next {{display:none}}
-        .diff_add {{background-color:#aaffaa}}
-        .diff_chg {{background-color:#ffff77}}
-        .diff_sub {{background-color:#ffaaaa}}
-        .python_keyword {{font-weight: bold; color:#A71D5D;}}
-        .python_builtin {{color: #3380CC}}
-        .python_method {{color: #795DA3}}
-        .python_class {{font-weight: bold; color: #3380CC}}
-        .python_comment {{color: #878787}}
-        .python_string {{color: #183691}}
-        .python_number {{color: #990055}}
-        td:nth-child(3),td:nth-child(6) {{width:950px; background-color:#fefefe;}}
-        h1 {{font-size:28px; font-weight:normal; font-family:sans-serif; color:#11557C; margin:0.3em 0;}}
-        div {{margin:25px 10px}}
-        .non_select {{user-select:none}}
+        :root {
+            --bg: #f4f8fc;
+            --panel: #ffffff;
+            --border: #e2eaf3;
+            --border-soft: #edf2f8;
+            --text: #0f2a44;
+            --muted: #64809b;
+            --accent: #0284c7;
+            --accent-soft: #e0f2fe;
+            --gutter-bg: #f7fafd;
+            --code-bg: #ffffff;
+            --add-bg: #e9f8ee;
+            --add-strong: #a9e6bd;
+            --add-text: #15803d;
+            --del-bg: #fdecec;
+            --del-strong: #f8bcbc;
+            --del-text: #b91c1c;
+            --mod-text: #b45309;
+            --filler: repeating-linear-gradient(135deg, transparent 0 5px, rgba(100, 128, 155, 0.10) 5px 6px);
+            --shadow: 0 1px 2px rgba(15, 42, 68, 0.04), 0 8px 28px rgba(2, 132, 199, 0.08);
+            --bar-h: 56px;
+            --file-h: 42px;
+            --py-keyword: #a71d5d;
+            --py-builtin: #0f6fc4;
+            --py-method: #7c4dbd;
+            --py-class: #0f6fc4;
+            --py-comment: #7d8b99;
+            --py-string: #183691;
+            --py-number: #b3125f;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0b1622;
+                --panel: #111f2e;
+                --border: #223449;
+                --border-soft: #1a2a3c;
+                --text: #d9e6f2;
+                --muted: #8aa2b8;
+                --accent: #38bdf8;
+                --accent-soft: #12354b;
+                --gutter-bg: #0e1b29;
+                --code-bg: #111f2e;
+                --add-bg: #12311f;
+                --add-strong: #1f6b3a;
+                --add-text: #4ade80;
+                --del-bg: #3a1a1c;
+                --del-strong: #7a2b2f;
+                --del-text: #f87171;
+                --mod-text: #fbbf24;
+                --filler: repeating-linear-gradient(135deg, transparent 0 5px, rgba(138, 162, 184, 0.10) 5px 6px);
+                --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+                --py-keyword: #ff7b9c;
+                --py-builtin: #6cb6ff;
+                --py-method: #c4a2ff;
+                --py-class: #6cb6ff;
+                --py-comment: #7f93a6;
+                --py-string: #8fc1ff;
+                --py-number: #ff9ec7;
+            }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        /* Top bar */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            min-height: var(--bar-h);
+            padding: 8px 20px;
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        .topbar .logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+        }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 650;
+            letter-spacing: -0.01em;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 2px 10px;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 12.5px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .base {
+            color: var(--muted);
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+
+        .base code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            color: var(--text);
+        }
+
+        .spacer { flex: 1 1 auto; }
+
+        .totals { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .add { color: var(--add-text); }
+        .del { color: var(--del-text); }
+
+        .btn {
+            padding: 5px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel);
+            color: var(--accent);
+            font: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .btn:hover { background: var(--accent-soft); border-color: var(--accent); }
+
+        /* Layout */
+        main {
+            max-width: 2000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        /* File index */
+        .index { margin-bottom: 20px; overflow: hidden; }
+
+        .index-title {
+            padding: 10px 16px;
+            background: var(--accent-soft);
+            border-bottom: 1px solid var(--border);
+            font-weight: 650;
+            font-size: 13.5px;
+        }
+
+        .index a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 16px;
+            border-bottom: 1px solid var(--border-soft);
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .index a:last-child { border-bottom: 0; }
+        .index a:hover { background: var(--accent-soft); }
+        .index .path { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* Per-file sections */
+        details.file {
+            margin-bottom: 20px;
+            scroll-margin-top: calc(var(--bar-h) + 12px);
+        }
+
+        details.file > summary {
+            position: sticky;
+            top: var(--bar-h);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: var(--file-h);
+            padding: 8px 16px;
+            background: var(--accent-soft);
+            border-bottom: 1px solid var(--border);
+            border-radius: 12px 12px 0 0;
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+        }
+
+        details.file > summary::-webkit-details-marker { display: none; }
+
+        details.file > summary::before {
+            content: "";
+            flex: none;
+            width: 7px;
+            height: 7px;
+            border-right: 2px solid var(--muted);
+            border-bottom: 2px solid var(--muted);
+            transform: rotate(-45deg);
+            transition: transform 0.12s;
+        }
+
+        details.file[open] > summary::before { transform: rotate(45deg); }
+        details.file:not([open]) > summary { border-bottom: 0; border-radius: 12px; }
+
+        .path { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
+        .path .dir { color: var(--muted); }
+        .path .name { font-weight: 650; }
+        .path .from { color: var(--muted); }
+
+        .badge {
+            flex: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 11.5px;
+            font-weight: 700;
+            line-height: 20px;
+            color: #fff;
+        }
+
+        .badge.M { background: var(--mod-text); }
+        .badge.A { background: var(--add-text); }
+        .badge.D { background: var(--del-text); }
+        .badge.R { background: var(--accent); }
+
+        .counts {
+            flex: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12.5px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .blocks { display: inline-flex; gap: 2px; }
+        .blocks i { width: 8px; height: 8px; border-radius: 2px; background: var(--border); }
+        .blocks i.a { background: var(--add-text); }
+        .blocks i.d { background: var(--del-text); }
+
+        .table-wrap { overflow-x: auto; border-radius: 0 0 12px 12px; }
+
+        /* difflib table */
+        table.diff {
+            width: 100%;
+            min-width: 100%;
+            border-collapse: collapse;
+            background: var(--code-bg);
+            font-family: ui-monospace, SFMono-Regular, Menlo, "Cascadia Mono", Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* difflib's rules="groups" would draw dark rules between hunks; use our own */
+        table.diff, .diff colgroup, .diff tbody, .diff tr, .diff td { border: 0; }
+        .diff td { padding: 0 8px; vertical-align: top; }
+        .diff_next { display: none; }
+
+        .diff_header {
+            width: 1%;
+            min-width: 46px;
+            padding: 0 10px;
+            background: var(--gutter-bg);
+            color: var(--muted);
+            text-align: right;
+            user-select: none;
+        }
+
+        td:nth-child(3), td:nth-child(6) { width: 50%; min-width: 420px; white-space: pre; }
+        .diff td:nth-child(5) { border-left: 1px solid var(--border); }
+
+        /* Blank side of an added or deleted line */
+        .diff_header:empty, .diff_header:empty + td { background: var(--filler); }
+
+        /* Row tint per side: left = removed (red), right = added (green) */
+        td:nth-child(3):has(.diff_sub, .diff_chg),
+        .diff_header:has(+ td .diff_sub, + td .diff_chg) { background: var(--del-bg); }
+        td:nth-child(6):has(.diff_add, .diff_chg),
+        td:nth-child(5):has(+ td .diff_add, + td .diff_chg) { background: var(--add-bg); }
+
+        /* Changed characters within a line */
+        .diff_sub, td:nth-child(3) .diff_chg { background: var(--del-strong); border-radius: 2px; }
+        .diff_add, td:nth-child(6) .diff_chg { background: var(--add-strong); border-radius: 2px; }
+
+        /* Gap between hunks (context=True splits the table into tbody groups) */
+        .diff tbody + tbody tr:first-child td { border-top: 1px dashed var(--muted); }
+
+        .python_keyword { font-weight: 600; color: var(--py-keyword); }
+        .python_builtin { color: var(--py-builtin); }
+        .python_method { color: var(--py-method); }
+        .python_class { font-weight: 600; color: var(--py-class); }
+        .python_comment { color: var(--py-comment); font-style: italic; }
+        .python_string { color: var(--py-string); }
+        .python_number { color: var(--py-number); }
+
+        /* Selecting text on one side must not drag in the other */
+        .non_select { user-select: none; }
+
+        @media (max-width: 700px) {
+            main { padding: 12px; }
+            .topbar { padding: 8px 12px; }
+            .base { display: none; }
+        }
     </style>
 </head>
 <body>
-    {html}
+    <header class="topbar">
+        <img class="logo" src="{{LOGO_URI}}" alt="">
+        <h1>Code Diff</h1>
+        <span class="pill">#{{OUTPUT_NUM}}</span>
+        <span class="base">vs <code>{{BASE_COMMIT}}</code> {{BASE_MESSAGE}}</span>
+        <span class="spacer"></span>
+        <span class="totals">{{FILE_COUNT}} <span class="add">+{{TOTAL_ADDED}}</span> <span class="del">&minus;{{TOTAL_REMOVED}}</span></span>
+        <button class="btn" type="button" id="expand-all">Expand all</button>
+        <button class="btn" type="button" id="collapse-all">Collapse all</button>
+    </header>
+    <main>
+        <section class="card index">
+            <div class="index-title">Changed files</div>
+            {{INDEX}}
+        </section>
+        {{FILES}}
+    </main>
     <script>
-        let left_rows = document.querySelectorAll("td:nth-child(3)");
-        let right_rows = document.querySelectorAll("td:nth-child(6)");
-        var disable_left = () => {{
-            for (var left_row of left_rows) {{
-                left_row.classList.add("non_select");
-            }}
-        }};
-        var disable_right = () => {{
-            for (var right_row of right_rows) {{
-                right_row.classList.add("non_select");
-            }}
-        }};
-        var clear = () => {{
-            if (document.getSelection().toString().length > 0) {{
-                return;
-            }}
-            for (var left_row of left_rows) {{
-                left_row.classList.remove("non_select");
-            }}
-            for (var right_row of right_rows) {{
-                right_row.classList.remove("non_select");
-            }}
-        }}
+        var sections = document.querySelectorAll("details.file");
+        document.getElementById("expand-all").onclick = function () {
+            sections.forEach(function (d) { d.open = true; });
+        };
+        document.getElementById("collapse-all").onclick = function () {
+            sections.forEach(function (d) { d.open = false; });
+        };
+
+        // Jumping to a collapsed file from the index opens it first.
+        document.querySelectorAll(".index a").forEach(function (a) {
+            a.addEventListener("click", function () {
+                var target = document.getElementById(a.getAttribute("href").slice(1));
+                if (target) { target.open = true; }
+            });
+        });
+
+        // Selecting text on one side of a diff disables selection on the other, so copying gets one version only.
+        var left_rows = document.querySelectorAll("td:nth-child(3)");
+        var right_rows = document.querySelectorAll("td:nth-child(6)");
+        var set_select = function (rows, disabled) {
+            rows.forEach(function (row) { row.classList.toggle("non_select", disabled); });
+        };
+        var clear = function () {
+            if (document.getSelection().toString().length > 0) { return; }
+            set_select(left_rows, false);
+            set_select(right_rows, false);
+        };
         document.onmouseup = clear;
         document.onmousedown = clear;
-        for (var left_row of left_rows) {{
-            left_row.onselectstart = disable_right;
-        }}
-        for (var right_row of right_rows) {{
-            right_row.onselectstart = disable_left;
-        }}
+        left_rows.forEach(function (row) { row.onselectstart = function () { set_select(right_rows, true); }; });
+        right_rows.forEach(function (row) { row.onselectstart = function () { set_select(left_rows, true); }; });
     </script>
 </body>
 </html>

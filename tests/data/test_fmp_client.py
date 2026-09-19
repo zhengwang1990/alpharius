@@ -1,12 +1,11 @@
 import json
-import os
 import time
 
 import pandas as pd
 import pytest
 import requests
 
-import alpharius.data as data
+from alpharius import data
 
 
 def fake_get(url, params, *args, **kwargs):

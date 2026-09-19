@@ -3,8 +3,7 @@ import os
 import pandas as pd
 import pytest
 
-import alpharius.data as data
-import alpharius.utils as utils
+from alpharius import utils
 
 from ..fakes import FakeDataClient
 

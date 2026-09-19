@@ -33,6 +33,5 @@ def mock_engine(mocker):
 
 @pytest.fixture(autouse=True)
 def mock_data_client(mocker, mock_default_data_client):
-    # Same fake that data.get_default_data_client() returns, so call counts reflect what the web client used.
     mocker.patch('alpharius.data.FmpClient', return_value=mock_default_data_client)
     return mock_default_data_client

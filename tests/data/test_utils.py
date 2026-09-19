@@ -1,7 +1,7 @@
 import datetime
 
-import alpaca.trading as trading
 import pandas as pd
+from alpaca import trading
 
 from alpharius.data import get_transactions
 

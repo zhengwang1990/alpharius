@@ -1,11 +1,9 @@
-import os
-
 import pandas as pd
 import pytest
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.models import BarSet, Trade
 
-import alpharius.data as data
+from alpharius import data
 
 
 @pytest.fixture(autouse=True)

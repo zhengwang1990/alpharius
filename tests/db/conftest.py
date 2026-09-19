@@ -3,7 +3,7 @@ import os
 import pytest
 import sqlalchemy
 
-import alpharius.db as db
+from alpharius import db
 
 from .. import fakes
 

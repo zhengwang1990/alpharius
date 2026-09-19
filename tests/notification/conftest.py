@@ -1,7 +1,5 @@
-import email.mime.image as image
-import email.mime.multipart as multipart
-import os
 import smtplib
+from email.mime import image, multipart
 
 import matplotlib.font_manager as fm
 import matplotlib.pyplot as plt

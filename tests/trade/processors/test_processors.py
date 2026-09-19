@@ -4,13 +4,13 @@ from datetime import timedelta
 import pandas as pd
 import pytest
 
-import alpharius.trade.processors as processors
 from alpharius.data import TimeInterval
-from alpharius.trade import Context
+from alpharius.trade import Context, processors
 
 from ...fakes import FakeDataClient
 
 
+# fmt: off
 @pytest.mark.parametrize(
     'data,current_time,current_price_adjust',
     [
@@ -29,6 +29,7 @@ from ...fakes import FakeDataClient
         ([20 + i * 0.1 for i in range(100)], pd.Timestamp('2025-01-15 10:00:00-05'), 1),
     ],
 )
+# fmt: on
 def test_all_processors(data, current_time, current_price_adjust):
     pattern = re.compile(r'^[A-Z]\w+Processor$')
     data_client = FakeDataClient(data)
@@ -67,7 +68,7 @@ def test_all_processors(data, current_time, current_price_adjust):
                 processor.ack(transaction.symbol)
             # Make a fake ack so we can test close position
             if not transactions and stock_universe:
-                processor.ack((stock_universe[0]))
+                processor.ack(stock_universe[0])
             contexts = [Context(symbol,
                                 end_time,
                                 current_price=data[-1] + 10 if data else 90.42,

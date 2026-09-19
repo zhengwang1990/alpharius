@@ -26,6 +26,7 @@ PROCESSORS: list[type[processors.Processor] | processors.Processor] = [
     processors.OpenRangeProcessor,
     processors.TqqqProcessor,
     processors.OvernightTqqqProcessor,
+    processors.ExpProcessor,
 ]
 
 

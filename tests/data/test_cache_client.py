@@ -2,8 +2,8 @@ import datetime
 
 import pandas as pd
 
-import alpharius.data as data
-import alpharius.data.cache_client as cache_client
+from alpharius import data
+from alpharius.data import cache_client
 
 from ..fakes import FakeDataClient
 

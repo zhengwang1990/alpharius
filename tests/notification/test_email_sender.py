@@ -2,7 +2,7 @@ import argparse
 
 import pytest
 
-import alpharius.data as data
+from alpharius import data
 from alpharius.notification import email_sender
 
 from ..fakes import FakeDataClient
