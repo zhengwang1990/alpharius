@@ -42,10 +42,13 @@
 
 html {
     -webkit-text-size-adjust: 100%;
+    /* no rubber-band overscroll, which drags the fixed bottom bar off the edge */
+    overscroll-behavior-y: none;
 }
 
 body {
     min-height: 100vh;
+    min-height: 100dvh;
     margin: 0;
     font-family: var(--font);
     font-size: 14px;
@@ -299,6 +302,10 @@ nav .logo-image {
         border-right: 0;
         border-top: 1px solid var(--border);
         box-shadow: 0 -4px 20px rgba(15, 42, 68, 0.06);
+        /* own compositing layer so it stays pinned while the browser toolbar collapses */
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+        transition: none;
     }
 
     nav .logo {
