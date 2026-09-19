@@ -18,3 +18,10 @@ function redirect() {
     }
     window.location.href = redirect;
 }
+
+// Below 1500px the processor, side and P&L are dropped from the table, so tapping a row pops them up instead.
+init_row_tip(row => [
+    ["Processor", row.dataset.processor],
+    ["Side", row.dataset.side],
+    ["P&L", row.dataset.gl],
+]);

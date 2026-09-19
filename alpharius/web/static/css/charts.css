@@ -254,12 +254,6 @@
     --my-btn-color: var(--neg);
 }
 
-.dash-content .card .trade-btn.trade-active {
-    background-color: var(--my-btn-color);
-    border-color: var(--my-btn-color);
-    color: #fff;
-}
-
 .trade-btn .trade-gain {
     margin-left: 4px;
     font-weight: 600;

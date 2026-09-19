@@ -1,6 +1,7 @@
 import collections
 import datetime
 import functools
+import html
 import json
 import math
 import os
@@ -150,6 +151,8 @@ def transactions():
                 'exit_price': f'{t.exit_price:.4g}',
                 'entry_time': entry_time.strftime(time_fmt),
                 'exit_time': exit_time.strftime(time_fmt),
+                'entry_full': entry_time.strftime('%Y-%m-%d %H:%M'),
+                'exit_full': exit_time.strftime('%Y-%m-%d %H:%M'),
                 'gl': get_colored_value(f'{t.gl:+,.2f} ({t.gl_pct * 100:+.2f}%)', 'green' if t.gl >= 0 else 'red'),
                 'gl_pct': get_signed_percentage(t.gl_pct),
                 'slippage': get_colored_value(
@@ -528,7 +531,8 @@ def _get_diff_table(a_transactions: list[Transaction], b_transactions: list[Tran
 
     def _get_row(t, html_class=None):
         template = (
-            '<tr><td {cls}><a href={link}>{symbol}</a></td><td {cls_xs}>{processor}</td>'
+            '<tr class="tip-row" data-processor="{processor}" data-side="{side_text}" data-gl="{gl_text}">'
+            '<td {cls}><a href={link}>{symbol}</a></td><td {cls_xs}>{processor}</td>'
             '<td {cls_lg}>{side}</td><td {cls}>{entry_time}</td><td {cls}>{exit_time}</td>'
             '<td {cls}><span class="lg-hidden">{gl}</span><span class="lg-show">{arrow}</span></td></tr>'
         )
@@ -558,8 +562,10 @@ def _get_diff_table(a_transactions: list[Transaction], b_transactions: list[Tran
             cls_lg=cls_lg,
             symbol=t.symbol,
             link=link,
-            processor=t.processor or 'UNKNOWN',
+            processor=html.escape(t.processor or 'UNKNOWN'),
             side=side,
+            side_text='long' if t.is_long else 'short',
+            gl_text=f'{t.gl_pct * 100:+.2f}%',
             entry_time=_convert_time(t.entry_time),
             exit_time=_convert_time(t.exit_time),
             gl=get_signed_percentage(t.gl_pct),
@@ -688,7 +694,8 @@ def backtest():
             time_diff += t_time_diff
             comm += t_comm
         t -= datetime.timedelta(days=1)
-    rate = (miss + extra + time_diff) / max(miss + extra + time_diff + comm, 1)
+    total = miss + extra + time_diff + comm
+    match_rate = comm / total if total else None
     return flask.render_template(
         'backtest.html',
         tables=tables,
@@ -696,7 +703,7 @@ def backtest():
         extra=extra,
         time_diff=time_diff,
         comm=comm,
-        rate=f'{rate * 100:.2f}%',
+        match_rate=match_rate * 100 if match_rate is not None else None,
         active_processor=active_processor,
         processors=processors,
         ndays=ndays,

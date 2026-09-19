@@ -1036,9 +1036,6 @@ function render_trades() {
 function select_trade(index) {
     const trade = trades[index];
     fill_intraday_inputs(trade.symbol, trade.date, trade.entry, trade.exit);
-    for (const btn of trades_container.children) {
-        btn.classList.toggle("trade-active", btn.dataset.index === String(index));
-    }
 }
 
 function load_trades() {

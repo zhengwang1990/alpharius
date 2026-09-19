@@ -41,3 +41,11 @@ const date_clear = document.getElementById("date-clear");
 if (date_clear) {
     date_clear.addEventListener("click", () => datepicker.setDate({clear: true}));
 }
+
+// Below 1500px the processor, dates and prices are dropped from the table (see base.css / web.py),
+// so tapping a row pops up a tooltip with them instead.
+init_row_tip(row => [
+    ["Processor", row.dataset.processor || "UNKNOWN"],
+    ["Entry", row.dataset.entry],
+    ["Exit", row.dataset.exit],
+]);

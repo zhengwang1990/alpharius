@@ -70,7 +70,9 @@
                     <tr><td colspan="9" class="empty-row">No transactions found</td></tr>
                 {% endif %}
                 {% for transaction in transactions %}
-                    <tr>
+                    <tr class="tip-row" data-processor="{{ transaction['processor'] }}"
+                        data-entry="{{ transaction['entry_full'] }} @ {{ transaction['entry_price'] }}"
+                        data-exit="{{ transaction['exit_full'] }} @ {{ transaction['exit_price'] }}">
                         <td><a href="{{ transaction['link'] }}">{{ transaction['symbol'] }}</a></td>
                         <td>
                             <span class="badge-shape {{ 'badge-blue' if transaction['side'] == 'long' else 'badge-purple'}}">

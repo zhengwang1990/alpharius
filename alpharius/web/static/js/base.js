@@ -83,3 +83,57 @@ function update_job_status() {
 
 update_job_status();
 setInterval(update_job_status, 1000);
+
+// Tap-a-row tooltip for table rows whose columns are hidden on narrow screens.
+// Rows opt in with the "tip-row" class; describe(row) returns the [label, value] lines to show.
+function init_row_tip(describe) {
+    const tip = document.createElement("div");
+    tip.className = "row-tip";
+    tip.hidden = true;
+    document.body.appendChild(tip);
+    const narrow_screen = window.matchMedia("(max-width: 1500px)");
+    var active_row = null;
+
+    function hide_tip() {
+        if (active_row) {
+            active_row.classList.remove("tip-row-active");
+            active_row = null;
+        }
+        tip.hidden = true;
+    }
+
+    function show_tip(row) {
+        hide_tip();
+        active_row = row;
+        row.classList.add("tip-row-active");
+        tip.replaceChildren();
+        for (const [label, value] of describe(row)) {
+            const line = document.createElement("div");
+            const name = document.createElement("span");
+            name.className = "row-tip-label";
+            name.textContent = label;
+            line.append(name, value);
+            tip.appendChild(line);
+        }
+        tip.hidden = false;
+        // Below the row, kept inside the viewport horizontally
+        const rect = row.getBoundingClientRect();
+        const max_left = window.scrollX + document.documentElement.clientWidth - tip.offsetWidth - 8;
+        tip.style.left = Math.max(8, Math.min(rect.left + window.scrollX, max_left)) + "px";
+        tip.style.top = (rect.bottom + window.scrollY + 4) + "px";
+    }
+
+    document.addEventListener("click", function(event) {
+        if (!narrow_screen.matches || event.target.closest("a")) {
+            hide_tip();
+            return;
+        }
+        const row = event.target.closest(".tip-row");
+        if (row === null || row === active_row) {
+            hide_tip();
+        } else {
+            show_tip(row);
+        }
+    });
+    window.addEventListener("resize", hide_tip);
+}

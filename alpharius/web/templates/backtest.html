@@ -38,7 +38,18 @@
             <div class="diff-stat stat-extra"><span class="diff-label">EXTRA</span><span class="diff-value">{{ extra }}</span></div>
             <div class="diff-stat stat-diff"><span class="diff-label">DIFF</span><span class="diff-value">{{ time_diff }}</span></div>
             <div class="diff-stat stat-comm"><span class="diff-label">COMMON</span><span class="diff-value">{{ comm }}</span></div>
-            <div class="diff-stat stat-rate"><span class="diff-label">MISMATCH RATE</span><span class="diff-value">{{ rate }}</span></div>
+            <div class="diff-stat stat-rate">
+                <span class="diff-label">MATCH RATE</span>
+                {% if match_rate is none %}
+                    <span class="diff-value">N/A</span>
+                {% else %}
+                    <span class="diff-value">{{ '%.2f' | format(match_rate) }}%</span>
+                    {# The gradient spans the whole track; the fill only reveals the matched part of it #}
+                    <div class="match-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ '%.2f' | format(match_rate) }}">
+                        <div class="match-bar-fill" style="width: {{ match_rate }}%;{% if match_rate > 0 %} background-size: {{ 10000 / match_rate }}% 100%;{% endif %}"></div>
+                    </div>
+                {% endif %}
+            </div>
         </div>
         <div class="diff-body">
             {% for table in tables %}
