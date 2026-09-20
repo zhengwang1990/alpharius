@@ -27,6 +27,8 @@ from alpharius.utils import (
     get_trading_client,
 )
 
+from .cache import AFTER_HOURS, AFTER_TRADING, stable_cache
+
 app = Flask(__name__)
 
 START_DATE = '2023-03-14'
@@ -75,6 +77,7 @@ class Client:
         )
         return calendar
 
+    @stable_cache(AFTER_HOURS)
     @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_portfolio_histories(self):
         start = time.time()
@@ -245,6 +248,7 @@ class Client:
             with lock:
                 portfolio_histories[symbol.lower() + '_' + timeframe] = symbol_values[timeframe]
 
+    @stable_cache(AFTER_TRADING)
     def get_recent_orders(self):
         return self.get_orders(-1, False)
 
@@ -307,6 +311,7 @@ class Client:
         app.logger.info('Time cost for get_orders: [%.2fs]', time.time() - start)
         return result
 
+    @stable_cache(AFTER_HOURS)
     @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_current_positions(self):
         start = time.time()
@@ -369,6 +374,7 @@ class Client:
                 }
         return result
 
+    @stable_cache(AFTER_HOURS)
     def get_market_watch(self):
         start = time.time()
         result = dict()
@@ -383,6 +389,7 @@ class Client:
         app.logger.info('Time cost for get_market_watch: [%.2fs]', time.time() - start)
         return result
 
+    @stable_cache(AFTER_HOURS)
     @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_daily_prices(self):
         start = time.time()
@@ -447,6 +454,7 @@ class Client:
         app.logger.info('Time cost for get_daily_prices: [%.2fs]', time.time() - start)
         return result
 
+    @stable_cache(AFTER_HOURS)
     @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_charts(self, start_date: str, end_date: str, symbol: str, timeframe: str) -> dict[str, Any]:
         start_time = pd.to_datetime(
@@ -500,6 +508,7 @@ class Client:
             volumes.append(volume)
         return {'labels': labels, 'prices': prices, 'volumes': volumes, 'prev_close': prev_close, 'name': name}
 
+    @stable_cache(AFTER_HOURS)
     @tenacity.retry(stop=tenacity.stop_after_attempt(2), wait=tenacity.wait_exponential(), reraise=True)
     def get_all_symbols(self):
         assets = self._alpaca.get_all_assets(

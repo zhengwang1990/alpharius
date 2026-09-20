@@ -1,9 +1,11 @@
 import os
 
+import pandas as pd
 import pytest
 import sqlalchemy
 
-from alpharius.web import create_app
+from alpharius.utils import TIME_ZONE
+from alpharius.web import cache, create_app
 
 from .. import fakes
 
@@ -22,6 +24,13 @@ def app(secret):
 @pytest.fixture
 def client(app):
     return app.test_client()
+
+
+@pytest.fixture(autouse=True)
+def mock_trading_hours(mocker):
+    """Fixes the cache clock at a weekday noon, when nothing is cached, so tests do not depend on when they run."""
+    mocker.patch('alpharius.web.cache.get_current_time', return_value=pd.Timestamp('2022-11-03 12:00', tz=TIME_ZONE))
+    cache.clear_cache()
 
 
 @pytest.fixture(autouse=True)

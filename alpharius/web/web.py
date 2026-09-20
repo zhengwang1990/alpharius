@@ -7,11 +7,13 @@ import math
 import os
 import re
 import urllib.parse
+from collections.abc import Callable
 from concurrent import futures
 
 import flask
 import numpy as np
 import pandas as pd
+from flask.typing import ResponseReturnValue
 
 from alpharius.db import Aggregation, Db
 from alpharius.utils import (
@@ -28,6 +30,7 @@ from alpharius.utils import (
     get_today,
 )
 
+from .cache import CachedDb
 from .client import Client
 from .scheduler import get_backtest_finish_time, get_job_status
 
@@ -41,9 +44,9 @@ ACCESS_KEY = 'access'
 ACCESS_VAL = os.environ.get('ACCESS_CODE')
 
 
-def access_control(f):
+def access_control(f: Callable[[], ResponseReturnValue]) -> Callable[[], ResponseReturnValue]:
     @functools.wraps(f)
-    def wrapper():
+    def wrapper() -> ResponseReturnValue:
         if flask.request.cookies.get(ACCESS_KEY) == ACCESS_VAL:
             return f()
         elif flask.request.args.get(ACCESS_KEY) == ACCESS_VAL:
@@ -119,7 +122,7 @@ def transactions():
         page = int(page)
     else:
         page = 1
-    client = Db()
+    client = CachedDb()
     processors = _list_processors(client)
     active_processor = flask.request.args.get('processor')
     if active_processor not in processors:
@@ -381,7 +384,7 @@ def analytics():
     client = Client()
     with futures.ThreadPoolExecutor(max_workers=1) as pool:
         get_daily_price_task = pool.submit(client.get_daily_prices)
-    db_client = Db()
+    db_client = CachedDb()
     aggs = db_client.list_aggregations()
     stats, cash_flows = _get_stats(aggs)
     gl_bars, processors = _get_gl_bars(aggs)
@@ -449,7 +452,7 @@ def _parse_log_content(content: str, date: str):
 @bp.route('/logs')
 @access_control
 def logs():
-    client = Db()
+    client = CachedDb()
     dates = client.list_log_dates()
     date = flask.request.args.get('date')
     if (not date or date not in dates) and dates:
@@ -672,7 +675,7 @@ def backtest():
     start_time = max(start_time, pd.to_datetime(FIRST_BACKTEST_DATE))
     start_time = start_time.tz_localize(TIME_ZONE)
     end_time = pd.to_datetime(pd.to_datetime(current_time).strftime('%F 23:59:59')).tz_localize(TIME_ZONE)
-    client = Db()
+    client = CachedDb()
     processors = _list_processors(client)
     active_processor = flask.request.args.get('processor')
     if active_processor not in processors:
