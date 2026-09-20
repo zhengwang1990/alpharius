@@ -113,6 +113,12 @@ class O2lProcessor(Processor):
                 f'Current price: {context.current_price}.'
             )
         if is_trade:
+            bar_sizes = [abs(intraday_closes[i] - intraday_opens[i]) for i in range(-min(len(intraday_closes), 12), 0)]
+            if bar_sizes[-1] > 3 * np.median(bar_sizes[:-1]):
+                self._logger.debug(
+                    f'[{context.current_time.strftime("%F %H:%M")}] [{context.symbol}] Last bar size too large; skip'
+                )
+                return
             self._positions[context.symbol] = {'entry_time': context.current_time, 'status': PositionStatus.PENDING}
             return ProcessorAction(context.symbol, ActionType.BUY_TO_OPEN, 1)
 
