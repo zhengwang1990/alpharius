@@ -15,7 +15,7 @@ from .processor import Processor
 
 
 class OpenRangeProcessor(Processor):
-    """The first hour of trading often dertemines the sentiment for the rest of the day."""
+    """The first hour of trading often determines the sentiment for the rest of the day."""
 
     def __init__(
         self,
