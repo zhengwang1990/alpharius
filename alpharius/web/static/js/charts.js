@@ -987,35 +987,36 @@ var trades = [];
 function parse_trades(text) {
     const parsed = [];
     const seen = new Set();
+    // Columns can come in any order, so every token is recognized by its shape: yyyy-mm-dd is the date, the first
+    // two hh:mm are the entry and exit times, long / short is the side, +1.2% is the gain, and the first other
+    // plain word is the symbol. Prices and any other column are ignored.
     // Rows without their own date (e.g. the per-day tables in details.txt) inherit the date of the
     // closest preceding section header such as "== [ 2020-03-05 ] ====".
     let section_date = "";
     for (const line of text.split("\n")) {
         const tokens = line.split(/[|\s,]+/).filter(t => t.length > 0);
-        const date_index = tokens.findIndex(t => /^\d{4}-\d{2}-\d{2}$/.test(t));
-        const has_symbol = tokens.length > 0 && /^[A-Za-z][A-Za-z0-9.\-]*$/.test(tokens[0]);
-        if (!has_symbol) {
-            if (date_index >= 0) {
-                section_date = tokens[date_index];
+        const line_date = tokens.find(t => /^\d{4}-\d{2}-\d{2}$/.test(t));
+        const times = tokens.filter(t => /^\d{1,2}:\d{2}(:\d{2})?$/.test(t));
+        const symbol = tokens.find(t => /^[A-Za-z][A-Za-z0-9.\-]*$/.test(t) && !/^(long|short)$/i.test(t));
+        if (symbol === undefined || times.length < 2) {
+            // Not a trade. A line that holds a date starts a new section.
+            if (line_date !== undefined) {
+                section_date = line_date;
             }
             continue;
         }
-        const date = date_index >= 1 ? tokens[date_index] : section_date;
+        const date = line_date || section_date;
         if (!date) {
-            continue;
-        }
-        const times = tokens.slice(date_index + 1).filter(t => /^\d{1,2}:\d{2}(:\d{2})?$/.test(t));
-        if (times.length < 2) {
             continue;
         }
         const [entry, exit] = times.slice(0, 2).map(t => t.split(":").slice(0, 2).map(p => p.padStart(2, "0")).join(":"));
         const trade = {
-            symbol: tokens[0].toUpperCase(),
+            symbol: symbol.toUpperCase(),
             date: date,
             entry: entry,
             exit: exit,
             side: tokens.find(t => /^(long|short)$/i.test(t)) || "",
-            gain: tokens.find(t => /^[+-]\d+(\.\d+)?%$/.test(t)) || "",
+            gain: tokens.find(t => /^[+-]?\d+(\.\d+)?%$/.test(t)) || "",
         };
         const key = `${trade.symbol} ${trade.date} ${trade.entry} ${trade.exit}`;
         if (!seen.has(key)) {
