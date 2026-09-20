@@ -963,6 +963,18 @@ history_container.addEventListener("click", function(event) {
     }
 });
 
+// Forgets every past query except the chart on screen, which the next query still adds to the history.
+document.getElementById("history-clear-btn").addEventListener("click", () => {
+    history_container.innerHTML = "";
+    history_card.classList.add("hidden");
+    for (const arr of [historical_symbols, historical_dates, historical_entries, historical_exits]) {
+        arr.splice(0, arr.length - 1);
+    }
+    try {
+        sessionStorage.removeItem(HISTORY_STORAGE_KEY);
+    } catch (e) {}
+});
+
 // Trade list: paste trades from the backtest summary and click one to chart it.
 const TRADES_STORAGE_KEY = "charts.trades_text";
 const trades_textarea = document.getElementById("trades-textarea");

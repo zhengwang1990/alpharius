@@ -125,9 +125,17 @@ def transactions():
     if active_processor not in processors:
         active_processor = None
     processors = ['ALL PROCESSORS'] + processors
-    # Optional day filter, on exit time in the market time zone. Anything that isn't a date means no filter.
-    active_date = _parse_date(flask.request.args.get('date'))
-    start_time, end_time = get_day_range(active_date) if active_date else (None, None)
+    # Optional date range (inclusive), on exit time in the market time zone. Anything that isn't a date means no
+    # filter. With only one end given the range is that single day.
+    active_start = _parse_date(flask.request.args.get('start_date'))
+    active_end = _parse_date(flask.request.args.get('end_date'))
+    active_start = active_start or active_end
+    active_end = active_end or active_start
+    if active_start and active_end and active_start > active_end:
+        active_start, active_end = active_end, active_start
+    start_time, end_time = None, None
+    if active_start and active_end:
+        start_time, end_time = get_day_range(active_start)[0], get_day_range(active_end)[1]
     count = client.get_transaction_count(active_processor, start_time=start_time, end_time=end_time)
     total_page = max(int(np.ceil(count / items_per_page)), 1)
     page = max(min(page, total_page), 1)
@@ -168,15 +176,17 @@ def transactions():
     filters = {}
     if active_processor:
         filters['processor'] = active_processor
-    if active_date:
-        filters['date'] = active_date.isoformat()
+    if active_start and active_end:
+        filters['start_date'] = active_start.isoformat()
+        filters['end_date'] = active_end.isoformat()
     return flask.render_template(
         'transactions.html',
         transactions=trans,
         current_page=page,
         total_page=total_page,
         active_processor=active_processor,
-        active_date=_format_date(active_date),
+        active_start=_format_date(active_start),
+        active_end=_format_date(active_end),
         extra_query='&' + urllib.parse.urlencode(filters) if filters else '',
         processors=processors,
     )

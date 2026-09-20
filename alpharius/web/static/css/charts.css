@@ -200,7 +200,8 @@
 }
 
 /* Trade list (pasted from backtest summary) */
-#trades-card .trades-actions {
+#trades-card .trades-actions,
+#history-card .trades-actions {
     margin-left: auto;
 }
 

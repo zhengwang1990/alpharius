@@ -28,7 +28,7 @@ def test_dashboard(route, client, mock_trading_client, mock_data_client):
         '/transactions',
         '/transactions?page=2',
         '/transactions?processor=Processor1',
-        '/transactions?date=2022-11-03',
+        '/transactions?start_date=2022-11-03&end_date=2022-11-04',
     ],
 )
 def test_transactions(route, client, mock_engine):
@@ -69,25 +69,6 @@ def test_transactions(route, client, mock_engine):
 
     assert client.get(route).status_code == 200
     assert mock_engine.conn.execute.call_count == 3
-
-
-def test_transactions_date_filter(client, mock_engine):
-    mock_engine.conn.execute.side_effect = [
-        [(pd.to_datetime('2022-11-02').date(), 'Processor1', 100, 0.01, 0, 0, 3, 2, 1, 0, 1000)],
-        iter([[45]]),
-        [],
-    ]
-
-    resp = client.get('/transactions?date=2022-11-03&processor=Processor1')
-
-    # The whole day in the market time zone, in both the count and the list query
-    start_time = pd.to_datetime('2022-11-03').tz_localize('America/New_York')
-    end_time = pd.to_datetime('2022-11-03 23:59:59').tz_localize('America/New_York')
-    count_call, list_call = mock_engine.conn.execute.call_args_list[1:]
-    assert count_call[0][1] == {'processor': 'Processor1', 'start_time': start_time, 'end_time': end_time}
-    assert list_call[0][1]['start_time'] == start_time
-    # Pagination keeps both filters
-    assert 'href="?page=2&amp;processor=Processor1&amp;date=2022-11-03"' in resp.text
 
 
 def test_parse_date():

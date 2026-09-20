@@ -41,15 +41,49 @@
     border-color: transparent;
 }
 
-/* On phones only show Previous / current page / Next */
+/* First / last page: only needed on phones, wider screens list the first and last page numbers */
+.dash-content .pagination .page-edge {
+    display: none;
+}
+
+.dash-content .pagination .page-short {
+    display: none;
+}
+
+/* On phones only show First / Previous / current page / Next / Last */
 @media (max-width: 575.98px) {
-    .dash-content .pagination .page-item:not(.active):not(:first-child):not(:last-child) {
+    .dash-content .pagination .page-item:not(.active):not(.page-edge):not(:nth-child(2)):not(:nth-last-child(2)) {
         display: none;
+    }
+
+    .dash-content .pagination .page-item.page-edge {
+        display: list-item;
+    }
+
+    /* "Prev" instead of "Previous" to save room */
+    .dash-content .pagination .page-full {
+        display: none;
+    }
+
+    .dash-content .pagination .page-short {
+        display: inline;
     }
 
     .dash-content .pagination .page-link {
         padding: 0.5rem 1rem;
     }
+}
+
+/* Room for two dates side by side (phones already give every field the full row) */
+@media (min-width: 576px) {
+    #select-container .date-span {
+        flex-basis: 340px;
+        max-width: 400px;
+    }
+}
+
+.date-to {
+    min-width: 34px;
 }
 
 /* Clear (x) button inside the date box */

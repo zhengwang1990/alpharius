@@ -3,7 +3,7 @@
 {% block header %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/transactions.css') }}">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vanillajs-datepicker@1.2.0/dist/css/datepicker.min.css">
-<script src="https://cdn.jsdelivr.net/npm/vanillajs-datepicker@1.2.0/dist/js/datepicker.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vanillajs-datepicker@1.2.0/dist/js/datepicker-full.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -25,11 +25,13 @@
                      {% endfor %}
                  </select>
              </div>
-         </span><span class="inline-span">
-             <div class="input-group">
+         </span><span class="inline-span date-span">
+             <div class="input-group" id="date-range">
                  <span class="input-group-text"><i class="uil uil-calendar-alt"></i></span>
-                 <input type="text" class="form-control right-most-input" id="date-input" placeholder="ALL DATES" readonly>
-                 {% if active_date %}
+                 <input type="text" class="form-control" name="start" id="start-input" placeholder="ALL DATES" autocomplete="off" readonly>
+                 <span class="input-group-text date-to"><i class="uil uil-angle-double-right"></i></span>
+                 <input type="text" class="form-control right-most-input" name="end" id="end-input" placeholder="ALL DATES" autocomplete="off" readonly>
+                 {% if active_start %}
                      <button type="button" class="date-clear" id="date-clear" title="Show all dates" aria-label="Show all dates"><i class="uil uil-times"></i></button>
                  {% endif %}
              </div>
@@ -100,7 +102,8 @@
 </div>
 
 <ul class="pagination justify-content-center">
-    <li class="page-item {{ 'disabled' if current_page == 1 else '' }}"><a class="page-link" href="?page={{ current_page - 1 }}{{ extra_query }}">Previous</a></li>
+    <li class="page-item page-edge {{ 'disabled' if current_page == 1 else '' }}"><a class="page-link" href="?page=1{{ extra_query }}" title="First page" aria-label="First page">&laquo;</a></li>
+    <li class="page-item {{ 'disabled' if current_page == 1 else '' }}"><a class="page-link" href="?page={{ current_page - 1 }}{{ extra_query }}"><span class="page-full">Previous</span><span class="page-short">Prev</span></a></li>
     {% if total_page <= 7 %}
         {% for i in range(1, total_page + 1) %}
             {{ page_item(i) }}
@@ -138,12 +141,14 @@
         {{ page_item(total_page) }}
     {% endif %}
     <li class="page-item {{ 'disabled' if current_page == total_page else '' }}"><a class="page-link" href="?page={{ current_page + 1 }}{{ extra_query }}">Next</a></li>
+    <li class="page-item page-edge {{ 'disabled' if current_page == total_page else '' }}"><a class="page-link" href="?page={{ total_page }}{{ extra_query }}" title="Last page" aria-label="Last page">&raquo;</a></li>
 </ul>
 {% endblock %}
 
 {% block scripts %}
 <script>
-    const ACTIVE_DATE = "{{ active_date }}";
+    const ACTIVE_START = "{{ active_start }}";
+    const ACTIVE_END = "{{ active_end }}";
 </script>
 <script src="{{ url_for('static', filename='js/transactions.js') }}"></script>
 {% endblock %}
