@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Backtest Report {{OUTPUT_NUM}}</title>
+    <link rel="icon" type="image/png" href="{{LOGO_URI}}">
+    <style type="text/css">
+        :root {
+            --bg: #f4f8fc;
+            --panel: #ffffff;
+            --border: #e2eaf3;
+            --border-soft: #edf2f8;
+            --text: #0f2a44;
+            --muted: #64809b;
+            --accent: #0284c7;
+            --accent-soft: #e0f2fe;
+            --pos: #15803d;
+            --neg: #b91c1c;
+            --shadow: 0 1px 2px rgba(15, 42, 68, 0.04), 0 8px 28px rgba(2, 132, 199, 0.08);
+            --bar-h: 56px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0b1622;
+                --panel: #111f2e;
+                --border: #223449;
+                --border-soft: #1a2a3c;
+                --text: #d9e6f2;
+                --muted: #8aa2b8;
+                --accent: #38bdf8;
+                --accent-soft: #12354b;
+                --pos: #4ade80;
+                --neg: #f87171;
+                --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+
+        /* Top bar with the tabs */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            min-height: var(--bar-h);
+            padding: 0 20px;
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        .topbar .logo { width: 28px; height: 28px; border-radius: 6px; }
+
+        .topbar h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 650;
+            letter-spacing: -0.01em;
+        }
+
+        .pill {
+            padding: 2px 10px;
+            border-radius: 999px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 12.5px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .subtitle {
+            min-width: 0;
+            overflow: hidden;
+            color: var(--muted);
+            font-size: 13px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .spacer { flex: 1 1 auto; }
+
+        .tabs { display: flex; align-self: stretch; gap: 4px; }
+
+        .tab {
+            padding: 0 16px;
+            border: 0;
+            border-bottom: 2px solid transparent;
+            background: none;
+            color: var(--muted);
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .tab:hover { color: var(--text); }
+        .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+
+        /* Layout */
+        main { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        /* The diff needs all the width it can get */
+        main:has(.panel.diff:not([hidden])) { max-width: none; padding: 12px; }
+
+        .panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+        .panel[hidden] { display: none; }
+        .panel > .kpis, .panel > .wide, .panel > .chart { grid-column: 1 / -1; }
+
+        .card {
+            min-width: 0;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 16px;
+            background: var(--accent-soft);
+            border-bottom: 1px solid var(--border);
+            font-size: 13.5px;
+            font-weight: 650;
+        }
+
+        .card-title:has(.copy-btn) { padding-top: 6px; padding-bottom: 6px; }
+
+        .copy-btn {
+            min-width: 64px;
+            padding: 3px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel);
+            color: var(--accent);
+            font: inherit;
+            font-size: 12.5px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .copy-btn:hover { border-color: var(--accent); }
+
+        /* Title of a table inside a card that holds several */
+        .sub-title {
+            padding: 10px 16px 4px;
+            color: var(--muted);
+            font-size: 12.5px;
+            font-weight: 650;
+        }
+
+        .sub-title:not(:first-of-type) { border-top: 1px solid var(--border); }
+
+        /* Headline numbers */
+        .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+
+        .kpi {
+            padding: 12px 16px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .kpi-label { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+
+        .kpi-value {
+            font-size: 22px;
+            font-weight: 650;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.01em;
+        }
+
+        .kpi-note { color: var(--muted); font-size: 12.5px; }
+
+        .pos { color: var(--pos); }
+        .neg { color: var(--neg); }
+
+        /* Tables */
+        .table-wrap { overflow-x: auto; }
+
+        table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+
+        th, td {
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--border-soft);
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        th { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+        tbody tr:last-child td { border-bottom: 0; }
+        tbody tr:hover td { background: var(--accent-soft); }
+        td:first-child { font-weight: 500; }
+        .num { text-align: right; }
+
+        /* Key / value tables hold long values such as paths */
+        .kv td { white-space: normal; overflow-wrap: anywhere; }
+        .kv td:first-child { white-space: nowrap; }
+
+        .chart-box { position: relative; height: 420px; padding: 12px 16px 16px; }
+        .chart-note { padding: 24px 16px; color: var(--muted); }
+
+        /* The diff page fills the tab */
+        .panel.diff:not([hidden]) { display: block; }
+        .panel.diff iframe {
+            display: block;
+            width: 100%;
+            height: calc(100vh - var(--bar-h) - 40px);
+            min-height: 480px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--panel);
+        }
+
+        @media (max-width: 900px) {
+            .panel { grid-template-columns: minmax(0, 1fr); }
+        }
+
+        @media (max-width: 700px) {
+            main { padding: 12px; }
+            .chart-box { height: 320px; }
+            .topbar { gap: 10px; padding: 8px 12px 0; }
+            .subtitle, .spacer { display: none; }
+            .tabs { flex: 1 1 100%; }
+            .tab { flex: 1; padding: 8px 12px; }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+</head>
+<body>
+    <header class="topbar">
+        <img class="logo" src="{{LOGO_URI}}" alt="">
+        <h1>Backtest Report</h1>
+        <span class="pill">#{{OUTPUT_NUM}}</span>
+        <span class="subtitle">{{SUBTITLE}}</span>
+        <span class="spacer"></span>
+        <nav class="tabs" role="tablist">{{TABS}}</nav>
+    </header>
+    <main>
+        {{PANELS}}
+    </main>
+    <script>
+        var css = getComputedStyle(document.documentElement);
+        var color = function (name) { return css.getPropertyValue(name).trim(); };
+
+        // Charts are drawn when their tab is first opened, as a hidden canvas has no size to draw into.
+        var draw_charts = function (panel) {
+            panel.querySelectorAll("canvas[data-chart]").forEach(function (canvas) {
+                if (canvas.dataset.drawn) { return; }
+                canvas.dataset.drawn = "1";
+                if (typeof Chart === "undefined") {
+                    canvas.parentNode.innerHTML = '<div class="chart-note">Charts are drawn by Chart.js, which needs an internet connection.</div>';
+                    return;
+                }
+                var spec = JSON.parse(document.getElementById(canvas.dataset.chart).textContent);
+                var grid = color("--border-soft");
+                new Chart(canvas, {
+                    type: "line",
+                    data: {
+                        labels: spec.labels,
+                        datasets: spec.series.map(function (series) {
+                            return {
+                                label: series.label,
+                                data: series.values,
+                                borderColor: series.color,
+                                backgroundColor: series.color,
+                                borderWidth: 2,
+                                pointRadius: 0,
+                                pointHoverRadius: 4,
+                            };
+                        }),
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        interaction: { mode: "index", intersect: false },
+                        plugins: {
+                            legend: { align: "start", labels: { color: color("--text"), boxWidth: 14, boxHeight: 3 } },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (item) { return item.dataset.label + ": " + item.parsed.y.toFixed(4); },
+                                },
+                            },
+                        },
+                        scales: {
+                            x: { grid: { color: grid }, ticks: { color: color("--muted"), maxTicksLimit: 12, maxRotation: 0 } },
+                            y: {
+                                type: spec.log ? "logarithmic" : "linear",
+                                grid: { color: grid },
+                                ticks: { color: color("--muted") },
+                                title: { display: true, text: "Normalized Value", color: color("--muted") },
+                            },
+                        },
+                    },
+                });
+            });
+        };
+
+        // Copies a table as `| a | b |` lines, which the trade list of the charts page understands.
+        var copy_text = function (text) {
+            if (navigator.clipboard && window.isSecureContext) { return navigator.clipboard.writeText(text); }
+            return new Promise(function (resolve, reject) {
+                var area = document.createElement("textarea");
+                area.value = text;
+                area.style.position = "fixed";
+                area.style.opacity = "0";
+                document.body.appendChild(area);
+                area.select();
+                var copied = document.execCommand("copy");
+                area.remove();
+                if (copied) { resolve(); } else { reject(); }
+            });
+        };
+        document.querySelectorAll(".copy-btn").forEach(function (button) {
+            button.addEventListener("click", function () {
+                var rows = button.closest(".card").querySelectorAll(button.hasAttribute("data-header") ? "tr" : "tbody tr");
+                var text = Array.from(rows).map(function (row) {
+                    return "| " + Array.from(row.cells).map(function (cell) { return cell.textContent; }).join(" | ") + " |";
+                }).join("\n");
+                var flash = function (label) {
+                    button.textContent = label;
+                    setTimeout(function () { button.textContent = "Copy"; }, 1500);
+                };
+                copy_text(text).then(function () { flash("Copied"); }, function () { flash("Failed"); });
+            });
+        });
+
+        var tabs = document.querySelectorAll(".tab");
+        var show = function (name) {
+            tabs.forEach(function (tab) {
+                var active = tab.dataset.panel === name;
+                var panel = document.getElementById("panel-" + tab.dataset.panel);
+                tab.setAttribute("aria-selected", active);
+                panel.hidden = !active;
+                if (active) {
+                    draw_charts(panel);
+                    // The diff is a page of its own, loaded on first use
+                    var frame = panel.querySelector("iframe[data-src]");
+                    if (frame && !frame.getAttribute("src")) { frame.src = frame.dataset.src; }
+                }
+            });
+        };
+        tabs.forEach(function (tab) {
+            tab.addEventListener("click", function () {
+                show(tab.dataset.panel);
+                history.replaceState(null, "", "#" + tab.dataset.panel);
+            });
+        });
+        var initial = location.hash.slice(1);
+        if (tabs.length) {
+            show(document.getElementById("panel-" + initial) ? initial : tabs[0].dataset.panel);
+        }
+    </script>
+</body>
+</html>

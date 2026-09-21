@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Code Diff {{OUTPUT_NUM}}</title>
     <link rel="icon" type="image/png" href="{{LOGO_URI}}">
+    <script>
+        if (/[?&]embed(&|$)/.test(location.search)) { document.documentElement.classList.add("embed"); }
+    </script>
     <style type="text/css">
         :root {
             --bg: #f4f8fc;
@@ -333,6 +336,12 @@
             .topbar { padding: 8px 12px; }
             .base { display: none; }
         }
+
+        /* Shown inside the backtest report (?embed), which has its own title */
+        .embed .topbar .logo, .embed .topbar h1, .embed .topbar .pill { display: none; }
+        .embed main { max-width: none; padding: 12px; }
+        /* Long lines wrap so that the whole diff fits the tab without a horizontal scrollbar */
+        .embed td:nth-child(3), .embed td:nth-child(6) { min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
     </style>
 </head>
 <body>

@@ -1,3 +1,4 @@
+import math
 import re
 from datetime import timedelta
 
@@ -8,6 +9,11 @@ from alpharius.data import TimeInterval
 from alpharius.trade import Context, processors
 
 from ...fakes import FakeDataClient
+
+
+def _wave(n, slope, amp, period, base=150):
+    """A sine wave of prices around a linear trend, one value per open or close of a bar."""
+    return [round(base + slope * i + amp * math.sin(i * 2 * math.pi / period), 2) for i in range(n)]
 
 
 # fmt: off
@@ -27,9 +33,14 @@ from ...fakes import FakeDataClient
         ([20 + i * 0.1 for i in range(50)] + [50 - i * 0.3 for i in range(100)],
          pd.Timestamp('2025-01-15 15:05:00-05'), 1),
         ([20 + i * 0.1 for i in range(100)], pd.Timestamp('2025-01-15 10:00:00-05'), 1),
+        # Waves that are steady, choppy or trending down, at different times of the day
+        (_wave(300, -0.3, 3, 17), pd.Timestamp('2025-01-15 12:35:00-05'), 5),
+        (_wave(150, 0, 20, 9), pd.Timestamp('2025-01-15 10:50:00-05'), -10),
+        (_wave(300, 0, 8, 9), pd.Timestamp('2025-01-15 10:05:00-05'), 2.5),
+        (_wave(150, 0.05, 3, 9), pd.Timestamp('2025-01-15 10:35:00-05'), 1),
+        (_wave(150, 0, 1, 17), pd.Timestamp('2025-01-15 13:05:00-05'), -5),
     ],
 )
-# fmt: on
 def test_all_processors(data, current_time, current_price_adjust):
     pattern = re.compile(r'^[A-Z]\w+Processor$')
     data_client = FakeDataClient(data)
@@ -76,3 +87,4 @@ def test_all_processors(data, current_time, current_price_adjust):
                                 intraday_lookback=intraday_lookback_end)
                         for symbol in stock_universe]
             processor.process_all_data(contexts)
+# fmt: on

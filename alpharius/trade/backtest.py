@@ -9,8 +9,6 @@ import signal
 import threading
 import time
 
-import matplotlib.dates as mdates
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tabulate
@@ -28,7 +26,11 @@ from alpharius.data import (
 )
 from alpharius.utils import (
     TIME_ZONE,
+    ChartSeries,
     DiffFile,
+    ReportChart,
+    ReportHighlight,
+    ReportTable,
     Transaction,
     compute_bernoulli_ci95,
     compute_drawdown,
@@ -37,7 +39,10 @@ from alpharius.utils import (
     get_all_symbols,
     get_trading_client,
     highlight_diff_table,
+    profit_to_str,
     render_diff_page,
+    render_report_page,
+    round_values,
 )
 
 from .common import (
@@ -100,7 +105,7 @@ class Backtest:
             self._output_num += 1
 
         self._details_log = logging_config(os.path.join(self._output_dir, 'details.txt'), detail=False, name='details')
-        self._summary_log = logging_config(os.path.join(self._output_dir, 'summary.txt'), detail=False, name='summary')
+        self._summary_log = logging_config(detail=False, name='summary')
 
         trading_client = get_trading_client()
         calendar = trading_client.get_calendar(
@@ -119,6 +124,7 @@ class Backtest:
         self._stock_universe_load_time = 0
         self._context_prep_time = 0
         self._transactions = []
+        self._has_diff = False
         self._processor_time = collections.defaultdict(int)
 
     def _safe_exit(self, signum, frame) -> None:
@@ -126,9 +132,7 @@ class Backtest:
         exit(1)
 
     def _close(self):
-        self._print_profile()
-        self._print_summary()
-        self._plot_summary()
+        self._write_report()
         for processor in self._processors:
             processor.teardown()
 
@@ -144,33 +148,53 @@ class Backtest:
             )
             self._processors.append(processor)
 
+    @staticmethod
+    def _read_lines(path: str, max_chars: int | None = None) -> list[str] | None:
+        """Reads a file of the repo as lines, or None if it is longer than max_chars."""
+        with open(os.path.join(BASE_DIR, path), 'r', encoding='utf-8') as f:
+            content = f.read() if max_chars is None else f.read(max_chars + 1)
+        if max_chars is not None and len(content) > max_chars:
+            return None
+        return content.split('\n')
+
+    @staticmethod
+    def _diff_file(
+        path: str, old_content: list[str], new_content: list[str], status: str, old_path: str | None = None
+    ) -> DiffFile:
+        diff_table = difflib.HtmlDiff(wrapcolumn=120).make_table(old_content, new_content, context=True)
+        if path.endswith('.py'):
+            diff_table = highlight_diff_table(diff_table)
+        added, removed = count_changed_lines(old_content, new_content)
+        return DiffFile(path=path, table=diff_table, status=status, added=added, removed=removed, old_path=old_path)
+
     def _record_diff(self):
         repo = git.Repo(BASE_DIR)
         files = []
         for item in repo.head.commit.diff(None):
             old_content, new_content = [], []
-            if item.change_type != 'A':
-                old_content = item.a_blob.data_stream.read().decode('utf-8').split('\n')
-            if item.change_type != 'D':
-                try:
-                    with open(os.path.join(BASE_DIR, item.b_path), 'r') as f:
-                        new_content = f.read().split('\n')
-                except UnicodeDecodeError:
-                    continue
-            diff_table = difflib.HtmlDiff(wrapcolumn=120).make_table(old_content, new_content, context=True)
-            if item.b_path.endswith('.py'):
-                diff_table = highlight_diff_table(diff_table)
-            added, removed = count_changed_lines(old_content, new_content)
+            try:
+                if item.change_type != 'A':
+                    old_content = item.a_blob.data_stream.read().decode('utf-8').split('\n')
+                if item.change_type != 'D':
+                    new_content = self._read_lines(item.b_path)
+            except UnicodeDecodeError:
+                # Binary file
+                continue
+            status = 'R' if item.renamed_file else item.change_type
             files.append(
-                DiffFile(
-                    path=item.b_path,
-                    table=diff_table,
-                    status='R' if item.renamed_file else item.change_type,
-                    added=added,
-                    removed=removed,
-                    old_path=item.a_path if item.renamed_file else None,
+                self._diff_file(
+                    item.b_path, old_content, new_content, status, item.a_path if item.renamed_file else None
                 )
             )
+        # The diff above only knows files that git tracks (or that were added to the index)
+        for path in repo.untracked_files:
+            try:
+                new_content = self._read_lines(path, max_chars=1_000_000)
+            except (UnicodeDecodeError, OSError):
+                continue
+            if new_content is not None:
+                files.append(self._diff_file(path, [], new_content, 'A'))
+        files.sort(key=lambda f: f.path)
         if files:
             html_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'html')
             with open(os.path.join(html_dir, 'diff.html'), 'r', encoding='utf-8') as f:
@@ -186,6 +210,7 @@ class Backtest:
             )
             with open(os.path.join(self._output_dir, 'diff.html'), 'w', encoding='utf-8') as f:
                 f.write(page)
+            self._has_diff = True
 
     def run(self) -> list[Transaction]:
         self._run_start_time = time.time()
@@ -581,24 +606,61 @@ class Backtest:
             return
         self._details_log.info('\n'.join(outputs))
 
-    def _print_summary(self) -> None:
-        def _profit_to_str(profit_num: float) -> str:
-            return f'{profit_num * 100:+.2f}%' if profit_num < 10 else f'{profit_num:+.4g}'
+    def _write_report(self) -> None:
+        """Writes the summary, profile and charts of the run into a single tabbed HTML page.
 
-        outputs = [get_header('Summary')]
+        The summary is also printed to the console.
+        """
+        if self._run_start_time is None:
+            return
+        highlights, summary = self._get_summary()
+        if summary:
+            self._summary_log.info(self._tables_to_text('Summary', summary))
+        profile = self._get_profile()
+        charts = self._get_charts()
+        market_dates = self._market_dates[: len(self._daily_equity) - 1]
+        subtitle = f'{market_dates[0]} ~ {market_dates[-1]}' if market_dates else ''
+        html_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'html')
+        page = render_report_page(
+            output_num=self._output_num,
+            logo_uri=pathlib.Path(html_dir, 'report.png').as_uri(),
+            subtitle=subtitle,
+            highlights=highlights,
+            summary=summary,
+            profile=profile,
+            charts=charts,
+            diff_src='diff.html?embed' if self._has_diff else None,
+        )
+        with open(os.path.join(self._output_dir, 'report.html'), 'w', encoding='utf-8') as f:
+            f.write(page)
+
+    @staticmethod
+    def _tables_to_text(title: str, tables: list[ReportTable]) -> str:
+        """Lays out report tables as text for the console."""
+        outputs = [get_header(title)]
+        # The report shows the statistics before the trades, the text after
+        for table in sorted(tables, key=lambda t: t.title == 'Statistics'):
+            outputs.append(f'[ {table.title} ]')
+            outputs.append(
+                tabulate.tabulate(table.rows, headers=table.headers or (), tablefmt='grid', disable_numparse=True)
+            )
+        return '\n'.join(outputs)
+
+    def _get_summary(self) -> tuple[list[ReportHighlight], list[ReportTable]]:
+        """Gets the headline numbers and the tables of the summary tab."""
+
         n_trades = self._num_win + self._num_lose
         win_rate = self._num_win / n_trades if n_trades > 0 else 0
         market_dates = self._market_dates[: len(self._daily_equity) - 1]
         if not market_dates:
-            return
+            return [], []
         summary = [
             ['Time Range', f'{market_dates[0]} ~ {market_dates[-1]}'],
             ['Win Rate', f'{win_rate * 100:.2f}%'],
             ['Num of Trades', f'{n_trades} ({n_trades / len(market_dates):.2f} per day)'],
             ['Output Dir', os.path.relpath(self._output_dir, BASE_DIR)],
         ]
-        outputs.append('[ Basic Info ]')
-        outputs.append(tabulate.tabulate(summary, tablefmt='grid'))
+        basic_info = ReportTable('Basic Info', summary)
 
         processor_stats = [['Processor', 'Gain/Loss', 'Win Rate', 'Num of Trades']]
         for processor_name in sorted(self._processor_stats.keys()):
@@ -609,17 +671,19 @@ class Backtest:
             processor_stats.append(
                 [
                     processor_name,
-                    _profit_to_str(current_stats['profit']),
+                    profit_to_str(current_stats['profit']),
                     f'{processor_win_rate * 100:.2f}% \xb1 {processor_win_rate_ci * 100:.2f}%',
                     f'{processor_n_trade} ({processor_n_trade / len(market_dates):.2f} per day)',
                 ]
             )
-        outputs.append('[ Processor Performance ]')
-        outputs.append(tabulate.tabulate(processor_stats, tablefmt='grid'))
+        processor_performance = ReportTable(
+            'Processor Performance', processor_stats[1:], headers=processor_stats[0], numeric_from=1
+        )
 
         self._transactions.sort(key=lambda s: s.gl_pct)
+        trade_tables = []
         for title, transactions, judge in zip(
-            ['[ Best Trades ]', '[ Worst Trades ]'],
+            ['Best Trades', 'Worst Trades'],
             [self._transactions[::-1][:5], self._transactions[:5]],
             [lambda p: p > 0, lambda p: p < 0],
         ):
@@ -628,8 +692,8 @@ class Backtest:
                     t.symbol,
                     t.processor,
                     t.entry_time.strftime('%F'),
-                    t.entry_time.time(),
-                    t.exit_time.time(),
+                    t.entry_time.strftime('%H:%M:%S'),
+                    t.exit_time.strftime('%H:%M:%S'),
                     'long' if t.is_long else 'short',
                     f'{t.gl_pct * 100:+.2f}%',
                 ]
@@ -638,15 +702,35 @@ class Backtest:
             ]
             if not tx_list:
                 continue
-            tx_table = tabulate.tabulate(
-                tx_list,
-                headers=['Symbol', 'Processor', 'Entry Date', 'Entry Time', 'Exit Time', 'Side', 'Gain/Loss'],
-                tablefmt='grid',
-                disable_numparse=True,
+            trade_tables.append(
+                ReportTable(
+                    title,
+                    tx_list,
+                    headers=['Symbol', 'Processor', 'Entry Date', 'Entry Time', 'Exit Time', 'Side', 'Gain/Loss'],
+                    numeric_from=6,
+                    copyable=True,
+                    group='Best & Worst Trades',
+                )
             )
-            outputs.append(title)
-            outputs.append(tx_table)
 
+        if len(self._processors) == 1:
+            statistics, total_profit, sharpe_ratio, drawdown = self._get_yearly_statistics(market_dates)
+        else:
+            statistics, total_profit, sharpe_ratio, drawdown = self._get_market_comparison_statistics(market_dates)
+        highlights = [
+            ReportHighlight('Total Gain/Loss', total_profit),
+            ReportHighlight('Sharpe Ratio', sharpe_ratio),
+            ReportHighlight('Drawdown', drawdown),
+            ReportHighlight('Win Rate', f'{win_rate * 100:.2f}%'),
+            ReportHighlight('Trades', str(n_trades), f'{n_trades / len(market_dates):.2f} per day'),
+        ]
+        return highlights, [basic_info, processor_performance, statistics] + trade_tables
+
+    def _get_market_comparison_statistics(self, market_dates: list[datetime.date]) -> tuple[ReportTable, str, str, str]:
+        """Gets the statistics of the portfolio against the market symbols, by year and in total.
+
+        Returns the table, and the total gain/loss, sharpe ratio and drawdown of the portfolio.
+        """
         print_symbols = ['QQQ', 'SPY', 'TQQQ']
         market_symbol = 'SPY'
         stats = [['', 'My Portfolio'] + print_symbols]
@@ -662,7 +746,7 @@ class Backtest:
                 year_market_last_day_index - (i - current_start) - 1 : year_market_last_day_index + 1
             ]
             year_profit_number = self._daily_equity[i + 1] / self._daily_equity[current_start] - 1
-            year_profit = [f'{current_year} Gain/Loss', _profit_to_str(year_profit_number)]
+            year_profit = [f'{current_year} Gain/Loss', profit_to_str(year_profit_number)]
             _, _, year_sharpe_ratio = compute_risks(self._daily_equity[current_start : i + 2], year_market_values)
             year_sharpe = [
                 f'{current_year} Sharpe Ratio',
@@ -686,7 +770,7 @@ class Backtest:
             current_start = i
             current_year += 1
         total_profit_number = self._daily_equity[-1] / self._daily_equity[0] - 1
-        total_profit = ['Total Gain/Loss', _profit_to_str(total_profit_number)]
+        total_profit = ['Total Gain/Loss', profit_to_str(total_profit_number)]
         market_first_day_index = timestamp_to_index(
             self._interday_dataset[market_symbol].index, pd.Timestamp(market_dates[0]).tz_localize(TIME_ZONE)
         )
@@ -733,15 +817,60 @@ class Backtest:
         stats.append(drawdown_row)
         stats.append(drawdown_start_row)
         stats.append(drawdown_end_row)
-        outputs.append('[ Statistics ]')
-        outputs.append(tabulate.tabulate(stats, tablefmt='grid', disable_numparse=True))
-        self._summary_log.info('\n'.join(outputs))
+        statistics = ReportTable('Statistics', stats[1:], headers=stats[0], numeric_from=1, copyable=True)
+        return statistics, total_profit[1], sharpe_ratio_row[1], drawdown_row[1]
 
-    def _plot_summary(self) -> None:
-        pd.plotting.register_matplotlib_converters()
-        plot_symbols = ['QQQ', 'SPY', 'TQQQ']
+    def _get_yearly_statistics(self, market_dates: list[datetime.date]) -> tuple[ReportTable, str, str, str]:
+        """Gets the statistics of the portfolio alone, with a column for each year and one for the total.
+
+        Returns the table, and the total gain/loss, sharpe ratio and drawdown of the portfolio.
+        """
+        market_symbol = 'SPY'
+        market_closes = self._interday_dataset[market_symbol]['Close'].tolist()
+        market_index = self._interday_dataset[market_symbol].index
+
+        def _column(equity: list[float], market_values: list[float], first_equity_index: int) -> list[str]:
+            alpha, beta, sharpe_ratio = compute_risks(equity, market_values)
+            drawdown, drawdown_hi, drawdown_li = compute_drawdown(equity)
+            drawdown_start = market_dates[max(first_equity_index + drawdown_hi - 1, 0)]
+            drawdown_end = market_dates[max(first_equity_index + drawdown_li - 1, 0)]
+            return [
+                profit_to_str(equity[-1] / equity[0] - 1),
+                f'{sharpe_ratio:.2f}' if not math.isnan(sharpe_ratio) else 'N/A',
+                f'{alpha * 100:.2f}%' if not math.isnan(alpha) else 'N/A',
+                f'{beta:.2f}' if not math.isnan(beta) else 'N/A',
+                f'{drawdown * 100:+.2f}%',
+                drawdown_start.strftime('%F'),
+                drawdown_end.strftime('%F'),
+            ]
+
+        headers = ['']
+        columns = []
+        current_year = self._start_date.year
+        current_start = 0
+        for i, date in enumerate(market_dates):
+            if i != len(market_dates) - 1 and market_dates[i + 1].year != current_year + 1:
+                continue
+            last_day_index = timestamp_to_index(market_index, pd.Timestamp(date).tz_localize(TIME_ZONE))
+            market_values = market_closes[last_day_index - (i - current_start) - 1 : last_day_index + 1]
+            headers.append(str(current_year))
+            columns.append(_column(self._daily_equity[current_start : i + 2], market_values, current_start))
+            current_start = i
+            current_year += 1
+        first_day_index = timestamp_to_index(market_index, pd.Timestamp(market_dates[0]).tz_localize(TIME_ZONE))
+        last_day_index = timestamp_to_index(market_index, pd.Timestamp(market_dates[-1]).tz_localize(TIME_ZONE))
+        headers.append('Total')
+        columns.append(_column(self._daily_equity, market_closes[first_day_index - 1 : last_day_index + 1], 0))
+        labels = ['Gain/Loss', 'Sharpe Ratio', 'Alpha', 'Beta', 'Drawdown', 'Drawdown Start', 'Drawdown End']
+        rows = [[label] + [column[k] for column in columns] for k, label in enumerate(labels)]
+        statistics = ReportTable('Statistics', rows, headers=headers, numeric_from=1, copyable=True)
+        return statistics, columns[-1][0], columns[-1][1], columns[-1][4]
+
+    def _get_charts(self) -> list[ReportChart]:
+        """Gets the portfolio history of each year, against the market unless there is a single processor."""
+        plot_symbols = [] if len(self._processors) == 1 else ['QQQ', 'SPY', 'TQQQ']
         color_map = {'QQQ': '#78d237', 'SPY': '#FF6358', 'TQQQ': '#aa46be'}
-        formatter = mdates.DateFormatter('%m-%d')
+        charts = []
         current_year = self._start_date.year
         current_start = 0
         dates, values = [], [1]
@@ -753,9 +882,8 @@ class Backtest:
                 continue
             dates = [dates[0] - datetime.timedelta(days=1)] + dates
             profit_pct = (self._daily_equity[i + 1] / self._daily_equity[current_start] - 1) * 100
-            plt.figure(figsize=(10, 4))
-            plt.plot(dates, values, label=f'My Portfolio ({profit_pct:+.2f}%)', color='#28b4c8')
-            yscale = 'linear'
+            series = [ChartSeries(f'My Portfolio ({profit_pct:+.2f}%)', round_values(values), '#28b4c8')]
+            log_scale = False
             for symbol in plot_symbols:
                 if symbol not in self._interday_dataset:
                     continue
@@ -771,39 +899,27 @@ class Backtest:
                     if abs(symbol_values[-1] - 1) > 2 * abs(values[-1] - 1):
                         continue
                     elif abs(values[-1] - 1) > 3 * abs(symbol_values[-1] - 1):
-                        yscale = 'log'
-                plt.plot(
-                    dates,
-                    symbol_values,
-                    label=f'{symbol} ({(symbol_values[-1] - 1) * 100:+.2f}%)',
-                    color=color_map[symbol],
+                        log_scale = True
+                series.append(
+                    ChartSeries(
+                        f'{symbol} ({(symbol_values[-1] - 1) * 100:+.2f}%)',
+                        round_values(symbol_values),
+                        color_map[symbol],
+                    )
                 )
-            text_kwargs = {'family': 'monospace'}
-            plt.xlabel('Date', **text_kwargs)
-            plt.ylabel('Normalized Value', **text_kwargs)
-            plt.title(f'{current_year} History', **text_kwargs, y=1.15)
-            plt.grid(linestyle='--', alpha=0.5)
-            plt.legend(ncol=len(plot_symbols) + 1, bbox_to_anchor=(0, 1), loc='lower left', prop=text_kwargs)
-            ax = plt.gca()
-            ax.spines['right'].set_color('none')
-            ax.spines['top'].set_color('none')
-            ax.xaxis.set_major_formatter(formatter)
-            plt.yscale(yscale)
-            plt.tight_layout()
-            plt.savefig(os.path.join(self._output_dir, f'{current_year}.png'))
-            plt.close()
+            charts.append(ReportChart(f'{current_year} History', [d.strftime('%F') for d in dates], series, log_scale))
 
             dates, values = [], [1]
             current_start = i
             current_year += 1
+        return charts
 
-    def _print_profile(self):
+    def _get_profile(self) -> list[ReportTable]:
+        """Gets the tables of the profile tab: where the run spent its time."""
         if self._run_start_time is None:
-            return
-        txt_output = os.path.join(self._output_dir, 'profile.txt')
+            return []
         total_time = max(time.time() - self._run_start_time, 1e-7)
         data_process_time = max(float(np.sum(list(self._processor_time.values()))), 1e-7)
-        outputs = [get_header('Profile')]
         stage_profile = [
             ['Stage', 'Time Cost (s)', 'Percentage'],
             ['Total', f'{total_time:.0f}', '100%'],
@@ -825,7 +941,6 @@ class Backtest:
             ['Context Prepare', f'{self._context_prep_time:.0f}', f'{self._context_prep_time / total_time * 100:.0f}%'],
             ['Data Process', f'{data_process_time:.0f}', f'{data_process_time / total_time * 100:.0f}%'],
         ]
-        outputs.append(tabulate.tabulate(stage_profile, tablefmt='grid'))
         processor_profile = [
             ['Processor', 'Time Cost (s)', 'Percentage'],
             ['Total', f'{data_process_time:.0f}', '100%'],
@@ -834,6 +949,7 @@ class Backtest:
             processor_profile.append(
                 [processor_name, f'{processor_time:.0f}', f'{processor_time / data_process_time * 100:.0f}%']
             )
-        outputs.append(tabulate.tabulate(processor_profile, tablefmt='grid'))
-        with open(txt_output, 'w') as f:
-            f.write('\n'.join(outputs))
+        return [
+            ReportTable('Stages', stage_profile[1:], headers=stage_profile[0], numeric_from=1),
+            ReportTable('Processors', processor_profile[1:], headers=processor_profile[0], numeric_from=1),
+        ]

@@ -4,7 +4,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from alpharius.utils import Transaction, compute_bernoulli_ci95, compute_drawdown, get_latest_day, hash_str
+from alpharius.utils import (
+    Transaction,
+    compute_bernoulli_ci95,
+    compute_drawdown,
+    get_latest_day,
+    hash_str,
+    profit_to_str,
+    round_values,
+)
 
 
 def test_get_latest_day_returns_previous_day(mocker):
@@ -54,3 +62,15 @@ def test_transaction_converts_float32():
     )
     for attr in ['entry_price', 'exit_price', 'qty', 'gl', 'gl_pct', 'slippage', 'slippage_pct']:
         assert type(getattr(t, attr)) is float
+
+
+def test_round_values():
+    assert round_values([1, np.float32(0.123456789), 2 / 3]) == [1.0, 0.12346, 0.66667]
+
+
+@pytest.mark.parametrize(
+    'profit,expected',
+    [(0.0123, '+1.23%'), (-0.05, '-5.00%'), (0, '+0.00%'), (9.99, '+999.00%'), (10, '+10'), (123.456, '+123.5')],
+)
+def test_profit_to_str(profit, expected):
+    assert profit_to_str(profit) == expected

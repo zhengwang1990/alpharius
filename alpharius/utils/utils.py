@@ -153,6 +153,16 @@ def compute_bernoulli_ci95(p: float, n: int) -> float:
     return z * math.sqrt(p * (1 - p) / n)
 
 
+def round_values(values: list[float]) -> list[float]:
+    """Rounds values to 5 digits, e.g. to keep the data of a chart small."""
+    return [round(float(v), 5) for v in values]
+
+
+def profit_to_str(profit_num: float) -> str:
+    """Formats a profit ratio as a signed percentage, or as a signed multiple when it is 10 (1000%) or more."""
+    return f'{profit_num * 100:+.2f}%' if profit_num < 10 else f'{profit_num:+.4g}'
+
+
 def get_trading_client() -> trading.TradingClient:
     api_key = os.environ[ALPACA_API_KEY_ENV]
     secret_key = os.environ[ALPACA_SECRET_KEY_ENV]
