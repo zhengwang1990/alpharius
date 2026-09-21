@@ -252,6 +252,7 @@ nav .logo-image {
 }
 
 .run-animation {
+    display: block;
     width: 22px;
     height: 22px;
     animation: spin 5s linear infinite;
