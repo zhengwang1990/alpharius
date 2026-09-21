@@ -1,4 +1,5 @@
 from .abcd_processor import AbcdProcessor
+from .atr_pullback_processor import AtrPullbackProcessor
 from .bear_momentum_processor import BearMomentumProcessor
 from .cross_close_processor import CrossCloseProcessor
 from .down_four_processor import DownFourProcessor

@@ -13,6 +13,7 @@ matplotlib.use('agg')
 
 PROCESSORS: list[type[processors.Processor] | processors.Processor] = [
     processors.AbcdProcessor,
+    processors.AtrPullbackProcessor,
     processors.CrossCloseProcessor,
     processors.DownFourProcessor,
     processors.DownFourV2Processor,

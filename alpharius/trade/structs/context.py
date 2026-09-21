@@ -71,6 +71,17 @@ class Context:
         p = self.market_open_index
         return self.intraday_lookback['Open'].iloc[p] if p is not None else None
 
+    def atr(self, days: int) -> float:
+        """Average true range of the last `days` days of the interday lookback."""
+        key = f'atr_{days}'
+        if key not in self.interday_lookback.attrs:
+            highs = self.interday_lookback['High'].to_numpy()[-days:]
+            lows = self.interday_lookback['Low'].to_numpy()[-days:]
+            prev_closes = self.interday_lookback['Close'].to_numpy()[-days - 1 : -1]
+            true_ranges = np.maximum.reduce([highs - lows, np.abs(highs - prev_closes), np.abs(lows - prev_closes)])
+            self.interday_lookback.attrs[key] = float(np.mean(true_ranges))
+        return self.interday_lookback.attrs[key]
+
     @property
     def h2l_avg(self) -> float:
         key = 'h2l_avg'

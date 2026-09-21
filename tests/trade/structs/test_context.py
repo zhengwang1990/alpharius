@@ -17,8 +17,8 @@ def _reference_market_open_index(index: pd.DatetimeIndex) -> int | None:
 
 
 def _make_context(times, tz: datetime.tzinfo | str | None = TIME_ZONE) -> Context:
-    intraday = pd.DataFrame({'Open': 1.0, 'Close': 1.0}, index=pd.DatetimeIndex(times, tz=tz))
-    interday = pd.DataFrame({'Close': [10.0, 11.0]})
+    intraday = pd.DataFrame({'Open': 1.0, 'Close': 1.0, 'High': 1.1, 'Low': 0.9}, index=pd.DatetimeIndex(times, tz=tz))
+    interday = pd.DataFrame({'Close': [10.0, 11.0], 'Open': [14.0, 11.0], 'High': [14.0, 11.0], 'Low': [10.0, 11.0]})
     return Context('AAPL', pd.Timestamp('2022-01-03 10:00', tz=TIME_ZONE), 1.0, interday, intraday)
 
 
@@ -80,3 +80,8 @@ def test_market_open_index_is_none_until_open_bar_arrives():
 def test_prev_day_close():
     context = _make_context(['2022-01-03 09:30'])
     assert context.prev_day_close == 11.0
+
+
+def test_atr():
+    context = _make_context(['2022-01-03 09:30'])
+    assert context.atr(2) == pytest.approx(2.5)
