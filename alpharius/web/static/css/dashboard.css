@@ -103,6 +103,17 @@
     font-weight: 500;
 }
 
+#current-change .after-hours-change {
+    margin-left: 10px;
+    font-size: 0.8em;
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+#current-change .after-hours-label {
+    color: var(--muted);
+}
+
 .chart-controls {
     display: flex;
     flex-wrap: wrap;
@@ -159,8 +170,15 @@
         font-size: 28px;
     }
 
+    /* display: contents lets the after hours change wrap to a full-width line, aligned with the equity's left edge */
     #current-change {
+        display: contents;
         font-size: 14px;
+    }
+
+    #current-change .after-hours-change {
+        flex-basis: 100%;
+        margin-left: 0;
     }
 
     .chart-controls {

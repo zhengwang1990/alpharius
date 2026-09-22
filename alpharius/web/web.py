@@ -226,6 +226,7 @@ def _format_stat(processor: str, stat: dict) -> dict:
         'avg_slip_pct': get_signed_percentage(stat['slip_pct_acc'] / stat['slip_cnt'])
         if has_slippage and stat['slip_cnt'] > 0
         else 'N/A',
+        'slip_cnt': f'{stat["slip_cnt"]:,}',
     }
 
 

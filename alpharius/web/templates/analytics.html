@@ -105,12 +105,13 @@
                                 <span class="lg-hidden">SLIPPAGE PERCENT</span>
                                 <span class="lg-show">SLIP %</span>
                             </th>
+                            <th scope="col" title="Number of transactions with slippage"><span class="xs-hidden">COUNT</span><span class="xs-show">CNT</span></th>
                         </tr>
                     </thead>
                     {% for range_name, range_stats in stats.items() %}
                     <tbody data-range="{{ range_name }}" {% if range_name != default_stats_range %} class="hidden" {% endif %}>
                         {% if not (range_stats | rejectattr('processor', 'equalto', 'UNKNOWN') | list) %}
-                        <tr><td colspan="3" class="empty-row">No transactions</td></tr>
+                        <tr><td colspan="4" class="empty-row">No transactions</td></tr>
                         {% endif %}
                         {% for stat in range_stats %}
                         {% if stat['processor'] != 'UNKNOWN' %}
@@ -118,6 +119,7 @@
                             {{ processor_cell(stat) }}
                             <td>{{ stat['slip'] | safe }}</td>
                             <td>{{ stat['avg_slip_pct'] | safe }}</td>
+                            <td>{{ stat['slip_cnt'] }}</td>
                         </tr>
                         {% endif %}
                         {% endfor %}

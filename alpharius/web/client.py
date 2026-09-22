@@ -56,6 +56,22 @@ def get_time_vs_equity(
     return time_list, equity_list
 
 
+def get_regular_close_equity(times: list[str], equities: list[float], market_close: str) -> float | None:
+    """Gets the equity at the end of the regular session, or None if there is no data after the market close."""
+    if not times or times[-1] <= market_close:
+        return None
+    for t, e in zip(reversed(times), reversed(equities)):
+        if t <= market_close:
+            return e
+    return None
+
+
+def get_change_html(change: float, percent: float, with_arrow: bool) -> str:
+    return get_colored_value(
+        f'{change:+.2f} ({percent * 100:+.2f}%)', 'green' if change >= 0 else 'red', with_arrow=with_arrow
+    )
+
+
 def round_time(t: pd.Timestamp, time_fmt_with_year: bool):
     fmt = f'<span class="xs-hidden">{"%Y-" if time_fmt_with_year else ""}%m-%d </span>%H:%M'
     if t.second < 30:
@@ -155,10 +171,29 @@ class Client:
                 percent = current_equity / base_value - 1
             except ZeroDivisionError:
                 percent = 0
-            result['change_' + time_period] = get_colored_value(
-                f'{change:+.2f} ({percent * 100:+.2f}%)', 'green' if change >= 0 else 'red', with_arrow=True
-            )
             result['color_' + time_period] = 'green' if change >= 0 else 'red'
+            regular_equity = None
+            if time_period == '1d':
+                regular_equity = get_regular_close_equity(
+                    result['time_1d'], result['equity_1d'], result['market_close']
+                )
+            if regular_equity is None:
+                result['change_' + time_period] = get_change_html(change, percent, with_arrow=True)
+                continue
+            # Splits today's change into the regular session and the after hours, the latter shown less prominently
+            regular_change = regular_equity - base_value
+            after_hours_change = current_equity - regular_equity
+            try:
+                regular_percent = regular_equity / base_value - 1
+            except ZeroDivisionError:
+                regular_percent = 0
+            after_hours_percent = after_hours_change / regular_equity if regular_equity > 0 else 0
+            result['change_1d'] = (
+                get_change_html(regular_change, regular_percent, with_arrow=True)
+                + '<span class="after-hours-change"><span class="after-hours-label">After Hours</span> '
+                + get_change_html(after_hours_change, after_hours_percent, with_arrow=False)
+                + '</span>'
+            )
         i = 0
         month_max = month_min = 0
         for j in range(len(result['time_5y'])):
