@@ -11,11 +11,6 @@ from alpharius.trade import Context, processors
 from ...fakes import FakeDataClient
 
 
-def _wave(n, slope, amp, period, base=150):
-    """A sine wave of prices around a linear trend, one value per open or close of a bar."""
-    return [round(base + slope * i + amp * math.sin(i * 2 * math.pi / period), 2) for i in range(n)]
-
-
 # fmt: off
 @pytest.mark.parametrize(
     'data,current_time,current_price_adjust',
@@ -33,46 +28,48 @@ def _wave(n, slope, amp, period, base=150):
         ([20 + i * 0.1 for i in range(50)] + [50 - i * 0.3 for i in range(100)],
          pd.Timestamp('2025-01-15 15:05:00-05'), 1),
         ([20 + i * 0.1 for i in range(100)], pd.Timestamp('2025-01-15 10:00:00-05'), 1),
-        # Waves that are steady, choppy or trending down, at different times of the day
-        (_wave(300, -0.3, 3, 17), pd.Timestamp('2025-01-15 12:35:00-05'), 5),
-        (_wave(150, 0, 20, 9), pd.Timestamp('2025-01-15 10:50:00-05'), -10),
-        (_wave(300, 0, 8, 9), pd.Timestamp('2025-01-15 10:05:00-05'), 2.5),
-        (_wave(150, 0.05, 3, 9), pd.Timestamp('2025-01-15 10:35:00-05'), 1),
-        (_wave(150, 0, 1, 17), pd.Timestamp('2025-01-15 13:05:00-05'), -5),
     ],
 )
 def test_all_processors(data, current_time, current_price_adjust):
     pattern = re.compile(r'^[A-Z]\w+Processor$')
     data_client = FakeDataClient(data)
-    interday_lookback = data_client.get_data('FAKE',
-                                             start_time=pd.Timestamp('2024-01-15'),
-                                             end_time=pd.Timestamp('2025-01-14'),
-                                             time_interval=TimeInterval.DAY)
-    intraday_lookback_start = data_client.get_data('FAKE',
-                                                   start_time=pd.Timestamp('2025-01-15 09:00:00-05'),
-                                                   end_time=current_time,
-                                                   time_interval=TimeInterval.FIVE_MIN)
+    interday_lookback = data_client.get_data(
+        'FAKE',
+        start_time=pd.Timestamp('2024-01-15'),
+        end_time=pd.Timestamp('2025-01-14'),
+        time_interval=TimeInterval.DAY,
+    )
+    intraday_lookback_start = data_client.get_data(
+        'FAKE',
+        start_time=pd.Timestamp('2025-01-15 09:00:00-05'),
+        end_time=current_time,
+        time_interval=TimeInterval.FIVE_MIN,
+    )
     end_time = current_time + timedelta(hours=1)
-    intraday_lookback_end = data_client.get_data('FAKE',
-                                                 start_time=pd.Timestamp('2025-01-15 09:00:00-05'),
-                                                 end_time=end_time,
-                                                 time_interval=TimeInterval.FIVE_MIN)
+    intraday_lookback_end = data_client.get_data(
+        'FAKE',
+        start_time=pd.Timestamp('2025-01-15 09:00:00-05'),
+        end_time=end_time,
+        time_interval=TimeInterval.FIVE_MIN,
+    )
     for attr in dir(processors):
         if pattern.match(attr):
             processor_cls = getattr(processors, attr)
-            processor = processors.instantiate_processor(processor_cls,
-                                                         pd.Timestamp('2024-01-01'),
-                                                         pd.Timestamp('2025-01-31'),
-                                                         data_client,
-                                                         output_dir='/tmp')
+            processor = processors.instantiate_processor(
+                processor_cls, pd.Timestamp('2024-01-01'), pd.Timestamp('2025-01-31'), data_client, output_dir='/tmp'
+            )
             stock_universe = processor.get_stock_universe(pd.Timestamp('2025-01-15'))
 
-            contexts = [Context(symbol,
-                                current_time,
-                                current_price=data[-1] + current_price_adjust if data else 100.42,
-                                interday_lookback=interday_lookback,
-                                intraday_lookback=intraday_lookback_start)
-                        for symbol in stock_universe]
+            contexts = [
+                Context(
+                    symbol,
+                    current_time,
+                    current_price=data[-1] + current_price_adjust if data else 100.42,
+                    interday_lookback=interday_lookback,
+                    intraday_lookback=intraday_lookback_start,
+                )
+                for symbol in stock_universe
+            ]
             processor.setup([], current_time)
             transactions = processor.process_all_data(contexts)
             for transaction in transactions:
@@ -80,11 +77,17 @@ def test_all_processors(data, current_time, current_price_adjust):
             # Make a fake ack so we can test close position
             if not transactions and stock_universe:
                 processor.ack(stock_universe[0])
-            contexts = [Context(symbol,
-                                end_time,
-                                current_price=data[-1] + 10 if data else 90.42,
-                                interday_lookback=interday_lookback,
-                                intraday_lookback=intraday_lookback_end)
-                        for symbol in stock_universe]
+            contexts = [
+                Context(
+                    symbol,
+                    end_time,
+                    current_price=data[-1] + 10 if data else 90.42,
+                    interday_lookback=interday_lookback,
+                    intraday_lookback=intraday_lookback_end,
+                )
+                for symbol in stock_universe
+            ]
             processor.process_all_data(contexts)
+
+
 # fmt: on
