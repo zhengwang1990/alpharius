@@ -41,6 +41,19 @@ class Transaction:
             if isinstance(v, np.float32):
                 self.__dict__[k] = float(v)
 
+        def _normalize_timestamp(t):
+            if t is None:
+                return None
+            ts = pd.Timestamp(t)
+            if not ts.tzinfo:
+                ts = ts.tz_localize(TIME_ZONE)
+            else:
+                ts = ts.tz_convert(TIME_ZONE)
+            return ts
+
+        self.entry_time = _normalize_timestamp(self.entry_time)
+        self.exit_time = _normalize_timestamp(self.exit_time)
+
 
 def get_colored_value(value: str, color: str, with_arrow: bool = False) -> str:
     """Returns HTML of a value with color annotations.

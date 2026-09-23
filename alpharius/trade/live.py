@@ -73,6 +73,7 @@ class Live:
         self._interday_data = dict()
         self._intraday_data = dict()
         self._latest_trades = dict()
+        self._last_cycle_updated = False
         self._db_thread = None
         self._data_client = data_client
         clock = self._alpaca.get_clock()
@@ -466,10 +467,39 @@ class Live:
         else:
             self._logger.warning('[%d] orders not filled: %s', len(orders), orders)
 
+    def _backfill_slippage(self) -> None:
+        """Refreshes slippage for today's transactions already recorded."""
+        try:
+            existing_transactions = self._db.list_transactions(
+                limit=1000, offset=0, start_time=self._today, end_time=self._today + datetime.timedelta(days=1)
+            )
+        except exc.SQLAlchemyError as e:
+            self._logger.error('Failed to list transactions: %s', e)
+            return
+        existing_keys = {(t.symbol, t.exit_time) for t in existing_transactions}
+        transactions = get_transactions(self._today.strftime('%F'), self._data_client)
+        for transaction in transactions:
+            if (
+                transaction.gl_pct is None
+                or transaction.exit_time is None
+                or time.time() - transaction.exit_time.timestamp() > 1200
+            ):
+                continue
+            if (transaction.symbol, transaction.exit_time) not in existing_keys:
+                continue
+            try:
+                self._db.upsert_transaction(transaction)
+            except exc.SQLAlchemyError as e:
+                self._logger.error('[%s] Transaction upsert encountered an error: %s', transaction.symbol, e)
+
     def _update_db(self, close_actions: list[Action]) -> None:
         self._upload_log()
+        if self._last_cycle_updated:
+            self._backfill_slippage()
         if not close_actions:
+            self._last_cycle_updated = False
             return
+        self._last_cycle_updated = True
         current_time = time.time()
         wait_time = 8.6
         actions = {action.symbol: action for action in close_actions}
@@ -483,7 +513,7 @@ class Live:
                 symbol = transaction.symbol
                 if transaction.gl_pct is None:
                     continue
-                if symbol not in actions or current_time - transaction.exit_time.timestamp() > 100:
+                if symbol not in actions or current_time - transaction.exit_time.timestamp() > 250:
                     continue
                 action = actions.pop(symbol)
                 transaction.processor = action.processor.name

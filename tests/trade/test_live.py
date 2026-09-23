@@ -6,9 +6,10 @@ import pandas as pd
 import pytest
 import sqlalchemy
 from alpaca import trading
+from sqlalchemy import exc
 
 from alpharius import data, trade
-from alpharius.utils import TIME_ZONE
+from alpharius.utils import TIME_ZONE, Transaction
 
 from ..fakes import Account, FakeDataClient, FakeDbEngine, FakeProcessor, FakeTradingClient
 
@@ -129,6 +130,58 @@ def test_open_positions_skips_opposite_direction_conflict(mock_trading_client):
     assert mock_trading_client.submit_order_call_count == 0
 
 
+def test_backfill_slippage_upserts_only_matching_recent_transactions(mocker):
+
+    def _transaction(symbol: str, exit_time: pd.Timestamp, gl_pct: float | None) -> Transaction:
+        return Transaction(symbol, True, None, 100.0, 100.0, exit_time, exit_time, 1, 0.0, gl_pct, None, None)
+
+    live = trade.Live(processors=[], data_client=FakeDataClient())
+    recent = pd.Timestamp(time.time(), unit='s', tz='UTC')
+    stale = recent - pd.Timedelta(seconds=2000)
+    mocker.patch.object(
+        live._db,
+        'list_transactions',
+        return_value=[
+            _transaction('AAPL', recent, 0.05),
+            _transaction('TSLA', stale, 0.02),
+            _transaction('NFLX', recent, 0.01),
+        ],
+    )
+    mocker.patch.object(
+        trade.live,
+        'get_transactions',
+        return_value=[
+            _transaction('AAPL', recent, 0.05),  # Matches an existing, recent transaction: upserted.
+            _transaction('MSFT', recent, None),  # Still open (no gl_pct): skipped.
+            _transaction('GOOG', recent, 0.03),  # Not recorded yet: skipped.
+            _transaction('TSLA', stale, 0.02),  # Recorded, but too old: skipped.
+            _transaction('NFLX', recent, 0.01),  # Matches, but upserting it fails.
+        ],
+    )
+
+    def fake_upsert(transaction):
+        if transaction.symbol == 'NFLX':
+            raise exc.SQLAlchemyError('boom')
+
+    mock_upsert = mocker.patch.object(live._db, 'upsert_transaction', side_effect=fake_upsert)
+
+    live._backfill_slippage()
+
+    assert [call.args[0].symbol for call in mock_upsert.call_args_list] == ['AAPL', 'NFLX']
+
+
+def test_backfill_slippage_returns_on_list_transactions_error(mocker):
+    live = trade.Live(processors=[], data_client=FakeDataClient())
+    mocker.patch.object(live._db, 'list_transactions', side_effect=exc.SQLAlchemyError('boom'))
+    mock_get_transactions = mocker.patch.object(trade.live, 'get_transactions')
+    mock_upsert = mocker.patch.object(live._db, 'upsert_transaction')
+
+    live._backfill_slippage()
+
+    mock_get_transactions.assert_not_called()
+    mock_upsert.assert_not_called()
+
+
 def test_trade_transactions_skipped(mock_trading_client):
     live = trade.Live(processors=[], data_client=FakeDataClient())
     actions = [
@@ -149,11 +202,12 @@ def test_update_db(mocker, mock_engine):
     mocker.patch('builtins.open', mocker.mock_open(read_data='data'))
     mocker.patch.object(time, 'time', return_value=exit_time.timestamp() + 30)
     live = trade.Live(processors=[], data_client=FakeDataClient())
+    live._last_cycle_updated = True
     live._update_db(
         [trade.Action('QQQ', trade.ActionType.SELL_TO_CLOSE, 1, 100, FakeProcessor(trade.TradingFrequency.FIVE_MIN))]
     )
 
-    assert mock_engine.conn.execute.call_count == 3
+    assert mock_engine.conn.execute.call_count == 4
 
 
 def test_complete_intraday_data(mocker):
