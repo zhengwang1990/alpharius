@@ -3,7 +3,10 @@ import functools
 import os
 import threading
 import traceback
+from collections.abc import Callable
 from concurrent import futures
+from enum import StrEnum
+from typing import Any, TypeVar
 from zoneinfo import ZoneInfo
 
 import flask
@@ -26,17 +29,26 @@ scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
 lock = threading.RLock()
-job_status = 'idle'
+
+
+class JobStatus(StrEnum):
+    IDLE = 'idle'
+    RUNNING = 'running'
+
+
+job_status = JobStatus.IDLE
 backtest_finish_time = None
 
+T = TypeVar('T')
 
-def email_on_exception(func):
+
+def email_on_exception(func: Callable[..., T]) -> Callable[..., T | None]:
     """Decorator that sends exceptions via email."""
 
     @functools.wraps(func)
-    def wrap(*args, **kwargs):
+    def wrap(*args: Any, **kwargs: Any) -> T | None:
         try:
-            func(*args, **kwargs)
+            return func(*args, **kwargs)
         except Exception as e:
             cls = type(e)
             error_module = cls.__module__
@@ -45,20 +57,21 @@ def email_on_exception(func):
                 error_name = error_module + '.' + error_name
             error_message = error_name + ': ' + str(e) + '\n' + ''.join(traceback.format_tb(e.__traceback__))
             EmailSender().send_alert(error_message)
+            return None
 
     return wrap
 
 
 @email_on_exception
-def _trade_run():
+def _trade_run() -> None:
     Live(processors=PROCESSORS, data_client=data.get_default_data_client(), logging_timezone=TIME_ZONE).run()
 
 
-def _trade_impl():
+def _trade_impl() -> None:
     global job_status, lock
     acquired = lock.acquire(blocking=False)
     if acquired:
-        job_status = 'running'
+        job_status = JobStatus.RUNNING
         app.logger.info('Start trading')
         # Live trading consumes a significant amount of memory. If the execution runs
         # in the same process, the allocated memory is not returned to the operating
@@ -67,7 +80,7 @@ def _trade_impl():
         # be returned to the OS after child process is shutdown.
         with futures.ProcessPoolExecutor(max_workers=1) as pool:
             pool.submit(_trade_run).result()
-        job_status = 'idle'
+        job_status = JobStatus.IDLE
         app.logger.info('Finish trading')
         lock.release()
     else:
@@ -76,7 +89,7 @@ def _trade_impl():
 
 def get_job_status() -> str:
     global job_status
-    return job_status
+    return job_status.value
 
 
 def get_backtest_finish_time() -> pd.Timestamp | None:
@@ -85,15 +98,15 @@ def get_backtest_finish_time() -> pd.Timestamp | None:
 
 
 @scheduler.task('cron', id='trade', day_of_week='mon-fri', hour='9-15', minute='*/15', timezone='America/New_York')
-def trade():
-    if job_status != 'running':
+def trade() -> None:
+    if job_status != JobStatus.RUNNING:
         t = threading.Thread(target=_trade_impl)
         t.start()
 
 
 @scheduler.task('cron', id='backfill', day_of_week='mon-fri', hour='16,17,22', minute=10, timezone='America/New_York')
 @email_on_exception
-def backfill():
+def backfill() -> None:
     app.logger.info('Start backfilling')
     Db().backfill(data.get_default_data_client())
     app.logger.info('Finish backfilling')
@@ -101,7 +114,7 @@ def backfill():
 
 @scheduler.task('cron', id='backtest', day_of_week='mon-fri', hour=16, minute=15, timezone='America/New_York')
 @email_on_exception
-def backtest():
+def backtest() -> None:
     global backtest_finish_time
     app.logger.info('Start backtesting')
     latest_day = get_latest_day()
@@ -123,7 +136,7 @@ def backtest():
 
 @scheduler.task('cron', id='log_scan', day_of_week='mon-fri', hour=16, minute=8, timezone='America/New_York')
 @email_on_exception
-def log_scan():
+def log_scan() -> None:
     app.logger.info('Start log scan')
     today_str = datetime.datetime.now(ZoneInfo('America/New_York')).strftime('%F')
     results = Db().get_logs(today_str)
@@ -149,7 +162,7 @@ def log_scan():
 
 
 @bp.route('/trigger', methods=['POST'])
-def trigger():
+def trigger() -> str:
     app.logger.info('Trade triggered manually')
     trade()
     return ''
