@@ -375,6 +375,15 @@ class Live:
             # Avoid controversial actions for the same symbol
             if action_cnt[symbol] > 1:
                 continue
+            existing_position = self._get_position(symbol)
+            if existing_position is not None and existing_position.qty != 0:
+                is_long_action = action.type == ActionType.BUY_TO_OPEN
+                if (existing_position.qty > 0) != is_long_action:
+                    self._logger.info(
+                        'Existing position for [%s] is opposite direction of the new action. Skipping open.',
+                        symbol,
+                    )
+                    continue
             cash_to_trade = min(tradable_cash / len(actions), tradable_cash * action.percent)
             if cash_to_trade < (self._equity - self._cash_reserve) * 0.01:
                 self._logger.info('Cash [%s] too small to open position [%s]. Skip open.', cash_to_trade, symbol)

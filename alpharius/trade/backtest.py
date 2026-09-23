@@ -477,6 +477,11 @@ class Backtest:
             # Avoid controversial actions for the same symbol
             if action_cnt[symbol] > 1:
                 continue
+            existing_position = self._get_current_position(symbol)
+            if existing_position is not None and existing_position.qty != 0:
+                is_long_action = action.type == ActionType.BUY_TO_OPEN
+                if (existing_position.qty > 0) != is_long_action:
+                    continue
             portion = min(1 / len(actions), action.percent)
             # Use abs to avoid sign error caused by floating point error
             cash_to_trade = abs(tradable_cash * portion)

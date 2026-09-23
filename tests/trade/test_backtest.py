@@ -1,3 +1,5 @@
+import datetime
+
 import git
 import pandas as pd
 import pytest
@@ -128,6 +130,36 @@ def test_report_single_processor(mocker):
         assert [s.label.split(' (')[0] for s in chart.series] == ['My Portfolio']
         assert len(chart.labels) == len(chart.series[0].values)
     assert backtesting._get_summary()[1] == args['summary']
+
+
+def test_open_positions_skips_opposite_direction_conflict(mocker):
+    """A processor's open must not be merged into another processor's opposite-direction position."""
+    backtesting = trade.Backtest(
+        start_date='2021-03-17', end_date='2021-03-18', processors=[], data_client=FakeDataClient()
+    )
+    processor_a = mocker.MagicMock(name='ProcessorA')
+    processor_b = mocker.MagicMock(name='ProcessorB')
+    open_time = pd.Timestamp('2021-03-17 09:35', tz='America/New_York')
+
+    # ProcessorA opens a long position: 25 shares @ $40 (spends all $1000 of cash).
+    backtesting._cash = 1000.0
+    backtesting._open_positions(open_time, [trade.Action('QQQ', trade.ActionType.BUY_TO_OPEN, 1, 40.0, processor_a)])
+    long_position = backtesting._get_current_position('QQQ')
+    assert (long_position.qty, long_position.entry_price) == (25, 40.0)
+    processor_a.ack.assert_called_once_with('QQQ')
+
+    # ...then ProcessorB tries to open a short of 24 shares @ $50 (spends all $1200 of cash) while
+    # ProcessorA's long is still held.
+    backtesting._cash = 1200.0
+    backtesting._open_positions(
+        open_time + datetime.timedelta(minutes=25),
+        [trade.Action('QQQ', trade.ActionType.SELL_TO_OPEN, 1, 50.0, processor_b)],
+    )
+
+    # The conflicting open is skipped
+    position = backtesting._get_current_position('QQQ')
+    assert position == long_position
+    processor_b.ack.assert_not_called()
 
 
 def test_report_multi_processors(mocker):

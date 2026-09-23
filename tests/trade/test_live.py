@@ -2,13 +2,12 @@ import itertools
 import os
 import time
 
-import alpaca.trading as trading
 import pandas as pd
 import pytest
 import sqlalchemy
+from alpaca import trading
 
-import alpharius.data as data
-import alpharius.trade as trade
+from alpharius import data, trade
 from alpharius.utils import TIME_ZONE
 
 from ..fakes import Account, FakeDataClient, FakeDbEngine, FakeProcessor, FakeTradingClient
@@ -115,6 +114,19 @@ def test_trade_transactions_executed(mocker):
     for t in expected_transactions:
         t.pop('action_type')
         mock_place_order.assert_any_call(**t)
+
+
+def test_open_positions_skips_opposite_direction_conflict(mock_trading_client):
+    # FakeTradingClient.get_all_positions() reports an existing long in QQQ and an existing short in GOOG.
+    live = trade.Live(processors=[], data_client=FakeDataClient())
+    actions = [
+        trade.Action('QQQ', trade.ActionType.SELL_TO_OPEN, 1, 100, FakeProcessor(trade.TradingFrequency.FIVE_MIN)),
+        trade.Action('GOOG', trade.ActionType.BUY_TO_OPEN, 1, 100, FakeProcessor(trade.TradingFrequency.FIVE_MIN)),
+    ]
+
+    live._open_positions(actions)
+
+    assert mock_trading_client.submit_order_call_count == 0
 
 
 def test_trade_transactions_skipped(mock_trading_client):
