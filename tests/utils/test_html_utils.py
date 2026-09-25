@@ -26,6 +26,7 @@ def test_highlight_diff_table():
         <tr><td nowrap="nowrap">&nbsp;&nbsp;&nbsp;&nbsp;pass</td></tr>
         <tr><td nowrap="nowrap">&nbsp;&nbsp;&nbsp;&nbsp;"another string"</td></tr>
         <tr><td nowrap="nowrap">&nbsp;&nbsp;&nbsp;&nbsp;assert x = 1.293</td></tr>
+        <tr><td nowrap="nowrap">&nbsp;&nbsp;&nbsp;&nbsp;else:</td></tr>
         </tbody>
         </table>
         """)
@@ -36,6 +37,7 @@ def test_highlight_diff_table():
     assert 'python_method' in diff_table
     assert 'python_string' in diff_table
     assert 'python_number' in diff_table
+    assert '<span class="python_keyword">else</span>:' in diff_table
 
 
 def test_count_changed_lines():

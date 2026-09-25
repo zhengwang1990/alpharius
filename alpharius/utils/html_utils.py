@@ -73,6 +73,10 @@ def highlight_diff_table(diff_table: str) -> str:
             else:
                 token += c
             i += 1
+        if token:
+            token = string_pattern.sub(r'<span class="python_string">\1</span>', token)
+            token = number_pattern.sub(r'\1<span class="python_number">\2</span>', token)
+            updated_content += token
         content = updated_content
         if comment:
             comment_span = '<span class="python_comment">'
@@ -250,9 +254,7 @@ def _format_table(table: ReportTable) -> str:
     head = ''
     if table.headers:
         head = '<thead><tr>' + ''.join(cell('th', h, i) for i, h in enumerate(table.headers)) + '</tr></thead>'
-    body = ''.join(
-        '<tr>' + ''.join(cell('td', text, i) for i, text in enumerate(row)) + '</tr>' for row in table.rows
-    )
+    body = ''.join('<tr>' + ''.join(cell('td', text, i) for i, text in enumerate(row)) + '</tr>' for row in table.rows)
     kv = '' if table.headers else ' class="kv"'
     return f'<div class="table-wrap"><table{kv}>{head}<tbody>{body}</tbody></table></div>'
 
@@ -311,9 +313,7 @@ def render_report_page(
             + '</div>'
             for h in highlights
         )
-        panels.append(
-            ('summary', 'Summary', f'<div class="kpis">{kpis}</div>' + _format_tables(summary))
-        )
+        panels.append(('summary', 'Summary', f'<div class="kpis">{kpis}</div>' + _format_tables(summary)))
     if profile:
         panels.append(('profile', 'Profile', _format_tables(profile)))
     if charts:
