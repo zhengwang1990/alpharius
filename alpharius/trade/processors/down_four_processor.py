@@ -6,6 +6,7 @@ import pandas as pd
 
 from alpharius.data import DataClient
 
+from ..common import DAYS_IN_A_MONTH, DAYS_IN_A_WEEK
 from ..enums import ActionType, Mode, PositionStatus, TradingFrequency
 from ..stock_universe import IntradayVolatilityStockUniverse
 from ..structs import Context, Position, ProcessorAction
@@ -64,6 +65,15 @@ class DownFourProcessor(Processor):
         if len(intraday_closes) < N:
             return
         if abs(context.current_price / context.prev_day_close - 1) > 0.5:
+            return
+        # Reduce some big volatility
+        interday_closes = context.interday_lookback['Close'].values
+        interday_opens = context.interday_lookback['Open'].values
+        if (
+            interday_closes[-1] > 1.6 * min(interday_closes[-DAYS_IN_A_WEEK:])
+            and interday_closes[-1] > interday_closes[-DAYS_IN_A_MONTH] * 1.2
+            and interday_closes[-1] > interday_opens[-1] * 1.1
+        ):
             return
         intraday_opens = context.intraday_lookback['Open'].tolist()[market_open_index:]
         if intraday_opens[-N] > context.prev_day_close > intraday_closes[-1]:
