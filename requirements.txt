@@ -8,7 +8,7 @@ matplotlib
 numpy
 pandas
 polygon-api-client
-psycopg2
+psycopg
 pytest
 pytest-mock
 python-dateutil
